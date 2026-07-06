@@ -1,0 +1,155 @@
+name: fcl
+
+x-aws-env: &aws-env
+  AWS_ENDPOINT_URL: http://localstack:4566
+  AWS_REGION: eu-west-1
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  localstack:
+    image: localstack/localstack:3.8
+    ports:
+      - "4570:4566"
+    environment:
+      SERVICES: sqs,dynamodb,lambda
+      DEBUG: "0"
+      LAMBDA_KEEPALIVE_MS: "0"
+    volumes:
+      - ./localstack/init.sh:/etc/localstack/init/ready.d/init.sh
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  fog:
+    build:
+      context: ../fog
+    environment:
+      <<: *aws-env
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: fcl-manifest-agg
+    depends_on:
+      - localstack
+    restart: unless-stopped
+
+  # one-shot: deploys handler.py as a real Lambda wired to the SQS queue
+  processor:
+    build:
+      context: ../backend/processor
+    environment:
+      <<: *aws-env
+      SQS_QUEUE_NAME: fcl-manifest-agg
+      TABLE_NAME: fcl-readings
+    depends_on:
+      - localstack
+    restart: "no"
+
+  dashboard:
+    build:
+      context: ../backend/dashboard
+    ports:
+      - "8084:8000"
+    environment:
+      <<: *aws-env
+      TABLE_NAME: fcl-readings
+      SQS_QUEUE_NAME: fcl-manifest-agg
+    depends_on:
+      - localstack
+    restart: unless-stopped
+
+  sensor-temp-c1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: storage_temperature
+      SITE_ID: container-1
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  sensor-temp-c2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: storage_temperature
+      SITE_ID: container-2
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-humidity-c1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: humidity
+      SITE_ID: container-1
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-humidity-c2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: humidity
+      SITE_ID: container-2
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  sensor-door-c1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: door_open_seconds
+      SITE_ID: container-1
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "12"
+
+  sensor-door-c2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: door_open_seconds
+      SITE_ID: container-2
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "13"
+
+  sensor-shock-c1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: shock_vibration
+      SITE_ID: container-1
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-shock-c2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: shock_vibration
+      SITE_ID: container-2
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  sensor-co2-c1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: co2_level
+      SITE_ID: container-1
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "15"
+
+  sensor-co2-c2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: co2_level
+      SITE_ID: container-2
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "16"

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Plant Floor Monitor — Predictive Maintenance</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/vendor/chart.umd.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>PLANT FLOOR MONITOR</h1>
+    <div id="plant-stats" class="plant-stats"></div>
+  </header>
+
+  <section id="alarm-panel" class="alarm-panel"></section>
+
+  <section id="gauge-grid" class="gauge-grid">
+    <div class="gauge-tile" data-sensor="vibration">
+      <div class="tile-head"><span class="swatch vibration"></span>VIBRATION <small>mm/s</small></div>
+      <div class="gauge-mount"></div>
+      <div class="spark-wrap"><canvas class="spark"></canvas></div>
+      <table class="detail"><tbody></tbody></table>
+    </div>
+
+    <div class="gauge-tile" data-sensor="motor_temperature">
+      <div class="tile-head"><span class="swatch motor_temperature"></span>MOTOR TEMP <small>&deg;C</small></div>
+      <div class="gauge-mount"></div>
+      <div class="spark-wrap"><canvas class="spark"></canvas></div>
+      <table class="detail"><tbody></tbody></table>
+    </div>
+
+    <div class="gauge-tile" data-sensor="bearing_acoustic">
+      <div class="tile-head"><span class="swatch bearing_acoustic"></span>BEARING ACOUSTIC <small>dB</small></div>
+      <div class="gauge-mount"></div>
+      <div class="spark-wrap"><canvas class="spark"></canvas></div>
+      <table class="detail"><tbody></tbody></table>
+    </div>
+
+    <div class="gauge-tile" data-sensor="rotation_speed">
+      <div class="tile-head"><span class="swatch rotation_speed"></span>ROTATION SPEED <small>RPM</small></div>
+      <div class="gauge-mount"></div>
+      <div class="spark-wrap"><canvas class="spark"></canvas></div>
+      <table class="detail"><tbody></tbody></table>
+    </div>
+
+    <div class="gauge-tile" data-sensor="power_draw">
+      <div class="tile-head"><span class="swatch power_draw"></span>POWER DRAW <small>kW</small></div>
+      <div class="gauge-mount"></div>
+      <div class="spark-wrap"><canvas class="spark"></canvas></div>
+      <table class="detail"><tbody></tbody></table>
+    </div>
+  </section>
+
+  <section id="system-status" class="system-status"></section>
+
+  <script src="/static/dashboard.js"></script>
+</body>
+</html>

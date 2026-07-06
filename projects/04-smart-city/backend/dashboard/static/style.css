@@ -1,0 +1,126 @@
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  background: #0d0f1a;
+  color: #c7cde3;
+  font-variant-numeric: tabular-nums;
+}
+
+header {
+  padding: 28px 40px 20px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  background: linear-gradient(180deg, #12152a 0%, #0d0f1a 100%);
+  border-bottom: 2px solid #00d4ff;
+}
+header h1 {
+  margin: 0;
+  font-family: "Arial Narrow", "Roboto Condensed", "Helvetica Neue Condensed", Helvetica, sans-serif;
+  font-stretch: condensed;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #eef3ff;
+  line-height: 1;
+}
+header h1 .subline {
+  display: block;
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-stretch: normal;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  color: #00d4ff;
+  margin-top: 6px;
+}
+
+.city-summary { display: flex; gap: 26px; font-size: 12px; color: #8891b3; font-weight: 600; letter-spacing: 0.02em; }
+.city-summary .hot { color: #ff5c8a; }
+
+.incident-banner { padding: 14px 40px; font-size: 12px; }
+.incident-banner.clear { background: #10201c; color: #4fd1a5; }
+.incident-banner.hot { background: #2a1030; color: #ff8fc0; }
+
+.zone-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 24px;
+  padding: 32px 40px;
+}
+
+.zone-card {
+  background: #12152a;
+  border: 1px solid #232a4d;
+  border-radius: 10px;
+  padding: 22px;
+}
+.zone-card.flagged { border-color: #7a2f57; box-shadow: 0 0 0 1px #7a2f57; }
+
+.zone-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.zone-id {
+  font-family: "Arial Narrow", "Roboto Condensed", Helvetica, sans-serif;
+  font-stretch: condensed;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #e4e8fa;
+}
+.zone-badge { font-size: 10px; font-weight: 700; color: #ff8fc0; background: #2a1030; padding: 3px 8px; border-radius: 6px; }
+
+.zone-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.zone-metric { background: #171b36; border: 1px solid #232a4d; border-radius: 8px; padding: 12px 14px; }
+.zone-metric.flagged { background: #241531; border-color: #7a2f57; }
+.zone-metric.empty { color: #565e80; }
+.zm-label { font-size: 10px; color: #8891b3; text-transform: uppercase; letter-spacing: 0.03em; display: flex; align-items: center; }
+.zm-value { font-size: 18px; font-weight: 700; color: #e4e8fa; margin-top: 4px; display: block; }
+.zm-value small { font-size: 10px; color: #8891b3; font-weight: 400; margin-left: 3px; }
+.zm-range { font-size: 10px; color: #565e80; margin-top: 4px; }
+.zm-flag { font-size: 10px; color: #ff8fc0; font-weight: 700; margin-top: 6px; }
+
+.trends-head {
+  padding: 12px 40px 4px;
+  font-family: "Arial Narrow", "Roboto Condensed", Helvetica, sans-serif;
+  font-stretch: condensed;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: #5b6584;
+  border-top: 1px solid #232a4d;
+}
+
+.trend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+  gap: 20px;
+  padding: 12px 40px 32px;
+}
+.trend-tile { background: #12152a; border: 1px solid #232a4d; border-radius: 10px; padding: 18px; height: 196px; }
+.trend-label { font-size: 11px; font-weight: 700; color: #c7cde3; margin-bottom: 8px; }
+.trend-label small { color: #5b6584; font-weight: 400; margin-left: 4px; }
+.trend-tile canvas { width: 100% !important; height: 138px !important; }
+
+.relay-status {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding: 16px 40px 32px;
+  font-size: 11px;
+  color: #5b6584;
+  border-top: 1px solid #232a4d;
+}
+
+.zdot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+.zdot.vehicle_count { background: #00d4ff; }
+.zdot.air_quality_pm25 { background: #a78bfa; }
+.zdot.noise_level { background: #f472b6; }
+.zdot.parking_occupancy { background: #facc15; }
+.zdot.ambient_light { background: #34d399; }

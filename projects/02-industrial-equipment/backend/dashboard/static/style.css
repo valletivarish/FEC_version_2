@@ -1,0 +1,76 @@
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "SF Mono", "Courier New", ui-monospace, monospace;
+  background: #17191c;
+  color: #d8dadd;
+}
+
+header {
+  padding: 18px 24px;
+  border-bottom: 2px solid #ffb648;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #1d2024;
+}
+header h1 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: 0.08em; color: #ffb648; }
+
+.plant-stats { display: flex; gap: 18px; font-size: 12px; letter-spacing: 0.03em; color: #9aa0a6; flex-wrap: wrap; }
+.plant-stats .danger { color: #ff5c40; font-weight: 700; }
+
+.alarm-panel { padding: 10px 24px; font-size: 12px; letter-spacing: 0.02em; }
+.alarm-panel.clear { background: #16241d; color: #4fd18a; }
+.alarm-panel.active { background: #2b1512; color: #ff8a6b; }
+.alarm-row { padding: 4px 0; }
+
+.gauge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  padding: 18px 24px;
+}
+
+.gauge-tile {
+  background: #1d2024;
+  border: 1px solid #2a2f38;
+  border-radius: 8px;
+  padding: 14px;
+}
+.tile-head { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: #d8dadd; margin-bottom: 8px; display: flex; align-items: center; }
+.tile-head small { color: #6f757d; font-weight: 400; margin-left: 6px; }
+
+.gauge-mount { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.gauge-unit { text-align: center; }
+.gauge-svg { width: 140px; height: 78px; display: block; }
+.gauge-reading { font-size: 18px; font-weight: 700; color: #ffb648; margin-top: -6px; }
+.gauge-reading small { font-size: 10px; color: #6f757d; margin-left: 3px; }
+.gauge-site { font-size: 10px; color: #6f757d; text-transform: uppercase; }
+.no-data { font-size: 11px; color: #6f757d; padding: 20px 0; text-align: center; }
+
+.spark-wrap { position: relative; width: 100%; height: 40px; margin-top: 6px; opacity: 0.8; }
+canvas.spark { width: 100% !important; height: 100% !important; }
+
+table.detail { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 10px; }
+table.detail td { padding: 3px 4px; color: #9aa0a6; border-top: 1px solid #2a2f38; }
+table.detail tr.stale td { color: #ff8a6b; }
+
+.system-status {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 10px 24px 24px;
+  font-size: 11px;
+  color: #6f757d;
+  border-top: 1px solid #2a2f38;
+}
+
+.swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.swatch.vibration { background: #ffb648; }
+.swatch.motor_temperature { background: #ff6b4a; }
+.swatch.bearing_acoustic { background: #4fd1c5; }
+.swatch.rotation_speed { background: #8ab4ff; }
+.swatch.power_draw { background: #c792ea; }

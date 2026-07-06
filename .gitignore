@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+.env
+volume/
+.DS_Store
+.playwright-mcp/
+node_modules/
+target/
+*.jar
+*.zip
+.claude/
+.remember/

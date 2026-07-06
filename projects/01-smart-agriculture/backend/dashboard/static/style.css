@@ -1,0 +1,123 @@
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: #0f1115;
+  color: #e6e8eb;
+}
+
+header {
+  padding: 20px 28px;
+  border-bottom: 1px solid #222733;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+header h1 { margin: 0; font-size: 20px; font-weight: 600; }
+
+.fleet {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  flex-wrap: wrap;
+  padding: 16px 28px;
+  background: #12151b;
+  border-bottom: 1px solid #222733;
+}
+.fleet-stat { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; }
+.fleet-stat strong { font-size: 22px; font-weight: 700; }
+.fleet-stat span { font-size: 10px; color: #8a93a3; text-transform: uppercase; letter-spacing: 0.04em; }
+.fleet-stat.warn strong { color: #ff8a6b; }
+.fleet-breakdown { font-size: 12px; color: #8a93a3; margin-left: auto; }
+
+.health {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px 28px;
+  border-bottom: 1px solid #222733;
+}
+.pill { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #c3c9d3; background: #171b22; border: 1px solid #262c38; border-radius: 999px; padding: 4px 10px; }
+.pill.down { color: #ff8a6b; border-color: #b4442f; }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.dot.green { background: #37c9a3; }
+.dot.red { background: #ff5c40; }
+
+.pipeline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 16px 28px;
+  border-bottom: 1px solid #222733;
+}
+.stage { background: #171b22; border: 1px solid #262c38; border-radius: 10px; padding: 8px 14px; text-align: center; min-width: 100px; }
+.stage-label { font-size: 11px; color: #8a93a3; text-transform: uppercase; letter-spacing: 0.03em; }
+.stage-value { font-size: 13px; font-weight: 600; margin-top: 2px; }
+.pipeline .arrow { color: #4a5262; font-size: 16px; }
+
+.active-alerts {
+  padding: 12px 28px;
+  font-size: 13px;
+  border-bottom: 1px solid #222733;
+}
+.active-alerts.ok { color: #6b7484; }
+.active-alerts.warn { color: #ff8a6b; background: #1c1216; }
+.active-alerts .dot { margin-right: 4px; }
+
+.summary {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 18px 28px 0;
+}
+
+.chip {
+  background: #171b22;
+  border: 1px solid #262c38;
+  border-radius: 10px;
+  padding: 10px 14px;
+  min-width: 170px;
+}
+.chip .name { font-size: 12px; color: #8a93a3; text-transform: capitalize; }
+.chip .name .site { color: #5a6577; margin-left: 4px; }
+.chip .value { font-size: 20px; font-weight: 600; margin-top: 2px; }
+.chip .range { margin-top: 4px; font-size: 11px; color: #6b7484; }
+.chip.alert { border-color: #b4442f; }
+.chip .flags { margin-top: 6px; font-size: 11px; color: #ff8a6b; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  padding: 18px 28px 40px;
+}
+
+.card {
+  background: #171b22;
+  border: 1px solid #262c38;
+  border-radius: 12px;
+  padding: 16px;
+}
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.card h2 { margin: 0; font-size: 15px; font-weight: 600; text-transform: capitalize; }
+.card h2 small { color: #8a93a3; font-weight: 400; }
+
+.swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 7px; vertical-align: middle; }
+.swatch.soil_moisture { background: #4fa3ff; }
+.swatch.temperature { background: #ff7a59; }
+.swatch.humidity { background: #37c9a3; }
+.swatch.light_intensity { background: #ffcf4f; }
+.swatch.rainfall { background: #8a7bff; }
+
+.rules { display: flex; gap: 6px; flex-wrap: wrap; }
+.rule { font-size: 10px; color: #6b7484; background: #12151b; border: 1px solid #262c38; border-radius: 6px; padding: 2px 6px; white-space: nowrap; }
+.rule.fired { color: #ff8a6b; border-color: #b4442f; }
+
+table.detail { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 11px; }
+table.detail th { text-align: left; color: #6b7484; font-weight: 500; padding: 4px 6px; border-bottom: 1px solid #262c38; }
+table.detail td { padding: 4px 6px; color: #c3c9d3; border-bottom: 1px solid #1c202a; }
+table.detail tr.stale td { color: #ff8a6b; }

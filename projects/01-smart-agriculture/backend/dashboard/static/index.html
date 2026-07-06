@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Agriculture — Fog/Edge Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/vendor/chart.umd.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Smart Agriculture Monitoring</h1>
+  </header>
+
+  <section id="fleet" class="fleet"></section>
+  <section id="health" class="health"></section>
+
+  <section class="pipeline">
+    <div class="stage"><div class="stage-label">Sensors</div><div class="stage-value" id="pipeline-sensors"></div></div>
+    <div class="arrow">&rarr;</div>
+    <div class="stage"><div class="stage-label">Fog Node</div><div class="stage-value" id="pipeline-fog"></div></div>
+    <div class="arrow">&rarr;</div>
+    <div class="stage"><div class="stage-label">SQS Queue</div><div class="stage-value" id="pipeline-queue"></div></div>
+    <div class="arrow">&rarr;</div>
+    <div class="stage"><div class="stage-label">Lambda</div><div class="stage-value" id="pipeline-lambda"></div></div>
+    <div class="arrow">&rarr;</div>
+    <div class="stage"><div class="stage-label">DynamoDB</div><div class="stage-value" id="pipeline-db"></div></div>
+    <div class="arrow">&rarr;</div>
+    <div class="stage"><div class="stage-label">Dashboard</div><div class="stage-value">you are here</div></div>
+  </section>
+
+  <section id="active-alerts" class="active-alerts"></section>
+
+  <section id="summary" class="summary"></section>
+
+  <section class="grid">
+    <div class="card">
+      <div class="card-head">
+        <h2><span class="swatch soil_moisture"></span>Soil Moisture <small>%</small></h2>
+        <div class="rules" id="rules-soil_moisture"></div>
+      </div>
+      <canvas id="soil_moisture"></canvas>
+      <table class="detail">
+        <thead><tr><th>Site</th><th>n</th><th>min</th><th>max</th><th>updated</th></tr></thead>
+        <tbody id="detail-soil_moisture"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2><span class="swatch temperature"></span>Temperature <small>&deg;C</small></h2>
+        <div class="rules" id="rules-temperature"></div>
+      </div>
+      <canvas id="temperature"></canvas>
+      <table class="detail">
+        <thead><tr><th>Site</th><th>n</th><th>min</th><th>max</th><th>updated</th></tr></thead>
+        <tbody id="detail-temperature"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2><span class="swatch humidity"></span>Humidity <small>%</small></h2>
+        <div class="rules" id="rules-humidity"></div>
+      </div>
+      <canvas id="humidity"></canvas>
+      <table class="detail">
+        <thead><tr><th>Site</th><th>n</th><th>min</th><th>max</th><th>updated</th></tr></thead>
+        <tbody id="detail-humidity"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2><span class="swatch light_intensity"></span>Light Intensity <small>lux</small></h2>
+        <div class="rules" id="rules-light_intensity"></div>
+      </div>
+      <canvas id="light_intensity"></canvas>
+      <table class="detail">
+        <thead><tr><th>Site</th><th>n</th><th>min</th><th>max</th><th>updated</th></tr></thead>
+        <tbody id="detail-light_intensity"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2><span class="swatch rainfall"></span>Rainfall <small>mm</small></h2>
+        <div class="rules" id="rules-rainfall"></div>
+      </div>
+      <canvas id="rainfall"></canvas>
+      <table class="detail">
+        <thead><tr><th>Site</th><th>n</th><th>min</th><th>max</th><th>updated</th></tr></thead>
+        <tbody id="detail-rainfall"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <script src="/static/dashboard.js"></script>
+</body>
+</html>

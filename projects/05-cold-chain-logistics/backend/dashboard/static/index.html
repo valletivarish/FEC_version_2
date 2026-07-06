@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cold Chain Manifest</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/vendor/chart.umd.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>COLD CHAIN MANIFEST</h1>
+    <div id="depot-summary" class="depot-summary"></div>
+  </header>
+
+  <section id="exception-strip" class="exception-strip"></section>
+
+  <main class="manifest-wrap">
+    <table id="manifest-table" class="manifest-table">
+      <thead>
+        <tr>
+          <th>Container</th>
+          <th>Storage Temp</th>
+          <th>Humidity</th>
+          <th>Door Open</th>
+          <th>Shock</th>
+          <th>CO2</th>
+          <th>Status</th>
+          <th>Updated</th>
+        </tr>
+      </thead>
+      <tbody id="manifest-body"></tbody>
+    </table>
+  </main>
+
+  <section class="detail-head">STORAGE TEMPERATURE TREND (BY CONTAINER)</section>
+  <section id="temp-trend-grid" class="temp-trend-grid"></section>
+
+  <section id="depot-status" class="depot-status"></section>
+
+  <script src="/static/dashboard.js"></script>
+</body>
+</html>

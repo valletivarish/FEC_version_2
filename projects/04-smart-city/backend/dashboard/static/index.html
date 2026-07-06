@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>City Operations Board</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/vendor/chart.umd.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>City Operations Board<span class="subline">TRAFFIC &middot; AIR &middot; NOISE &middot; PARKING &middot; LIGHT</span></h1>
+    <div id="city-summary" class="city-summary"></div>
+  </header>
+
+  <section id="incident-banner" class="incident-banner"></section>
+
+  <main id="zone-grid" class="zone-grid"></main>
+
+  <section class="trends-head">CITYWIDE TRENDS</section>
+  <section id="trend-grid" class="trend-grid">
+    <div class="trend-tile"><div class="trend-label">Traffic Flow <small>veh/min</small></div><canvas data-metric="vehicle_count"></canvas></div>
+    <div class="trend-tile"><div class="trend-label">Air Quality <small>PM2.5 &micro;g/m&sup3;</small></div><canvas data-metric="air_quality_pm25"></canvas></div>
+    <div class="trend-tile"><div class="trend-label">Noise Level <small>dB</small></div><canvas data-metric="noise_level"></canvas></div>
+    <div class="trend-tile"><div class="trend-label">Parking Occupancy <small>%</small></div><canvas data-metric="parking_occupancy"></canvas></div>
+    <div class="trend-tile"><div class="trend-label">Ambient Light <small>lux</small></div><canvas data-metric="ambient_light"></canvas></div>
+  </section>
+
+  <section id="relay-status" class="relay-status"></section>
+
+  <script src="/static/dashboard.js"></script>
+</body>
+</html>
