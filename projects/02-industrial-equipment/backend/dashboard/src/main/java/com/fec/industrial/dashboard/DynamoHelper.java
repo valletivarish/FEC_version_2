@@ -24,6 +24,10 @@ public class DynamoHelper {
 
     public static List<Map<String, Object>> recentWindows(DynamoDbClient client, String tableName,
                                                              String sensorType, int limit) {
+        // scanIndexForward(false) reads newest-sort-key-first so a LIMIT
+        // query returns the N most recent windows instead of the N oldest;
+        // the result is then reversed so callers (dashboard charts, health
+        // freshness check) receive it back in natural chronological order.
         QueryRequest req = QueryRequest.builder()
             .tableName(tableName)
             .keyConditionExpression("sensor_type = :st")
@@ -41,6 +45,11 @@ public class DynamoHelper {
     public static Map<String, Object> buildSummary(DynamoDbClient client, String tableName, String[] sensorTypes) {
         List<Object> sensors = new ArrayList<>();
         for (String sensorType : sensorTypes) {
+            // Pull the last 20 windows (comfortably more than the number of
+            // distinct sites expected per sensor type) and keep only each
+            // site's latest entry -- a plain map keyed by site_id means a
+            // later (more recent, since recentWindows() returns oldest-first)
+            // window for the same site simply overwrites the earlier one.
             List<Map<String, Object>> recent = recentWindows(client, tableName, sensorType, 20);
             Map<String, Map<String, Object>> bySite = new LinkedHashMap<>();
             for (var item : recent) bySite.put((String) item.get("site_id"), item);

@@ -17,6 +17,8 @@ const EXCEPTION_TEXT = {
 };
 
 const STALE_AFTER_SECONDS = 30;
+// Chart.js instances keyed by container_id, kept alive across polls so
+// refreshTempTrend can push new points instead of rebuilding the chart.
 const tempTrendCharts = {};
 
 function elapsedSeconds(iso) {
@@ -71,6 +73,9 @@ function readingCellHtml(readingType, reading) {
 
 function manifestRowHtml(container) {
   const flaggedTypes = READING_TYPES.filter((t) => container.readings[t] && container.readings[t].alerts.length);
+  // Any one reading's window_end is representative of the row's age since
+  // all five readings for a container are aggregated on the same fog
+  // window cadence.
   const anyReading = Object.values(container.readings)[0];
   const age = anyReading ? elapsedSeconds(anyReading.window_end) : null;
   const staleClass = age !== null && age > STALE_AFTER_SECONDS ? " row-stale" : "";
@@ -142,6 +147,10 @@ async function syncManifest() {
 
     document.getElementById("manifest-body").innerHTML = containers.map(manifestRowHtml).join("");
 
+    // Only rebuild the trend-chart tiles when the set of containers itself
+    // changes (rare); on every other poll the existing Chart.js instances
+    // are reused and just get new data points, avoiding a flicker/rebuild
+    // on the common 2.5s refresh path.
     const trendGrid = document.getElementById("temp-trend-grid");
     const knownContainers = Object.keys(tempTrendCharts);
     const currentIds = containers.map((c) => c.container_id);

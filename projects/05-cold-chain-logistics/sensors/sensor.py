@@ -11,6 +11,13 @@ from datetime import datetime, timezone
 
 @dataclass(frozen=True)
 class ReadingProfile:
+    """Bounds and step size for one reading type's simulated random walk.
+
+    `lo`/`hi` clamp the walk to physically plausible values for the sensor
+    (e.g. a reefer container's storage temperature never wanders above 5C),
+    `start` is the seed value, and `step` is the max drift applied per tick.
+    """
+
     unit: str
     lo: float
     hi: float
@@ -18,6 +25,8 @@ class ReadingProfile:
     step: float
 
 
+# One profile per reading type this sensor image can simulate. SENSOR_TYPE
+# (see SensorAgent) selects which profile a given container instance uses.
 PROFILES = {
     "storage_temperature": ReadingProfile(unit="C", lo=-25, hi=5, start=-18, step=1.0),
     "humidity": ReadingProfile(unit="%", lo=20, hi=95, start=55, step=3.0),
@@ -28,6 +37,10 @@ PROFILES = {
 
 
 class RandomWalk:
+    """Bounded random walk: each step nudges the value by up to +/-profile.step
+    and clamps it back into [lo, hi] so it never drifts outside the profile's
+    physically valid range."""
+
     def __init__(self, profile):
         self.profile = profile
         self.value = profile.start
@@ -40,6 +53,9 @@ class RandomWalk:
 
 
 def ship_batch(url, payload):
+    """POST a JSON batch to the depot relay's /ingest endpoint. Raises
+    urllib.error.URLError on connection failure so the caller can decide
+    whether to retry or requeue."""
     body = json.dumps(payload).encode()
     req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=5) as resp:
@@ -59,11 +75,17 @@ class SensorAgent:
         self.clock = sched.scheduler(time.monotonic, time.sleep)
 
     def _sample(self):
+        # Runs every sample_interval seconds; only buffers the reading
+        # locally, the separate dispatch tick decides when to ship it.
         value = self.walk.step()
         self.manifest.append({"ts": datetime.now(timezone.utc).isoformat(), "value": value})
         self.clock.enter(self.sample_interval, 1, self._sample)
 
     def _dispatch(self):
+        # Runs every dispatch_interval seconds. Swaps the manifest buffer out
+        # atomically before shipping so newly sampled readings during the
+        # network call land in a fresh buffer rather than being lost or
+        # racing with the batch in flight.
         if self.manifest:
             batch, self.manifest = self.manifest, []
             payload = {
@@ -76,6 +98,9 @@ class SensorAgent:
                 ship_batch(self.depot_url, payload)
                 print(f"{self.reading_type} dispatched {len(batch)} readings", flush=True)
             except urllib.error.URLError as exc:
+                # Depot relay unreachable: put the batch back in front of
+                # anything sampled since, so nothing is dropped, and retry
+                # on the next dispatch tick.
                 self.manifest = batch + self.manifest
                 print(f"{self.reading_type} dispatch failed, will retry: {exc}", flush=True)
         self.clock.enter(self.dispatch_interval, 2, self._dispatch)
@@ -92,6 +117,8 @@ class SensorAgent:
 
 
 def run():
+    # Entry point used by the container image; one SensorAgent per process,
+    # configured entirely from environment variables set in docker-compose.
     SensorAgent().run()
 
 

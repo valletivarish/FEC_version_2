@@ -26,6 +26,9 @@ class Retrier:
         self.max_delay = max_delay
 
     def run(self, fn, failure_message):
+        # Retries fn() until it returns without raising, or the budget runs
+        # out (LocalStack's SQS/Lambda services can take a few seconds to
+        # finish starting up after the container is "up").
         deadline = time.monotonic() + self.budget_seconds
         delay = self.initial_delay
         last_exc = None
@@ -39,6 +42,9 @@ class Retrier:
         raise RuntimeError(f"{failure_message}: {last_exc}")
 
     def poll_until(self, predicate, failure_message):
+        # Same backoff loop as run(), but for waiting on a boolean condition
+        # (e.g. the Lambda function reaching "Active" state) rather than a
+        # call that raises until it succeeds.
         deadline = time.monotonic() + self.budget_seconds
         delay = self.initial_delay
         while time.monotonic() < deadline:
@@ -64,6 +70,11 @@ class LambdaDeployer:
         self.retrier = Retrier()
 
     def deploy(self):
+        # Ordered steps: the queue must exist before its ARN can be wired to
+        # the function, and the function must be Active before an event
+        # source mapping can reference it. self._ctx passes the resolved
+        # queue ARN from step 1 to step 4 without exposing it as an
+        # instance attribute that would outlive a single deploy() call.
         self._ctx = {}
         pipeline = (
             self._step_resolve_queue_arn,
@@ -106,6 +117,10 @@ class LambdaDeployer:
         return attrs["QueueArn"]
 
     def _publish_function(self):
+        # create_function on first deploy; if the function already exists
+        # (ResourceConflictException, e.g. after `docker compose up` reruns
+        # against a LocalStack volume that kept state), fall back to
+        # updating its code so redeploys are idempotent.
         code = self._package("handler.py", "reshape.py")
         try:
             self.lam.create_function(
@@ -139,6 +154,7 @@ class LambdaDeployer:
                 BatchSize=10,
             )
         except self.lam.exceptions.ResourceConflictException:
+            # Mapping already exists from a previous deploy; leave it as is.
             pass
 
 

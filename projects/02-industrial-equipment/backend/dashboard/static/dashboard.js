@@ -1,14 +1,23 @@
 const SENSORS = ["vibration", "motor_temperature", "bearing_acoustic", "rotation_speed", "power_draw"];
 
-// Axis bounds only (how wide the gauge arc is drawn) — purely cosmetic scaling,
-// not a decision threshold. Real alert thresholds come from /api/thresholds,
-// fetched live from the fog node's own alerts.py, not duplicated here.
+// Axis bounds only (the range each reading's <meter> is drawn against) —
+// purely cosmetic scaling, not a decision threshold. Real alert thresholds
+// come from /api/thresholds, fetched live from the fog node's own
+// Alerts.java, not duplicated here.
 const AXIS_RANGE = {
   vibration: { lo: 0.2, hi: 9.0 },
   motor_temperature: { lo: 30, hi: 110 },
   bearing_acoustic: { lo: 40, hi: 100 },
   rotation_speed: { lo: 800, hi: 3600 },
   power_draw: { lo: 5, hi: 75 },
+};
+
+const TREND_COLOR = {
+  vibration: "#f2b705",
+  motor_temperature: "#e2483d",
+  bearing_acoustic: "#4fc3bf",
+  rotation_speed: "#6ea8ff",
+  power_draw: "#b98af0",
 };
 
 const DISPLAY_LABEL = {
@@ -22,60 +31,27 @@ const DISPLAY_LABEL = {
 
 const STALE_AFTER_SECONDS = 30;
 let THRESHOLDS = {};
-const sparklines = {};
-
-function swatch(sensor) {
-  return `<span class="swatch ${sensor}"></span>`;
-}
+const trendCharts = {};
 
 function secondsAgo(iso) {
   return Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
 }
 
-function polarToCartesian(cx, cy, r, angleDeg) {
-  const rad = (angleDeg * Math.PI) / 180;
-  return { x: cx + r * Math.cos(rad), y: cy - r * Math.sin(rad) };
-}
-
-function arcPath(cx, cy, r, fromAngle, toAngle) {
-  const start = polarToCartesian(cx, cy, r, fromAngle);
-  const end = polarToCartesian(cx, cy, r, toAngle);
-  const largeArc = Math.abs(fromAngle - toAngle) > 180 ? 1 : 0;
-  return `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} A ${r} ${r} 0 ${largeArc} 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
-}
-
-function valueToAngle(value, lo, hi) {
-  const clamped = Math.max(lo, Math.min(hi, value));
-  return 180 - ((clamped - lo) / (hi - lo)) * 180;
-}
-
-function gaugeSvg(sensor, value, alertsFired) {
+function readingMeter(sensor, value, alertsFired) {
   const { lo, hi } = AXIS_RANGE[sensor];
-  const cx = 90, cy = 85, r = 70;
-  const rules = THRESHOLDS[sensor] || [];
+  const danger = alertsFired.length > 0;
+  // <meter> is a real native form control for "a scalar value within a known
+  // range" -- exactly what a sensor reading against its configured axis is --
+  // so the range is rendered by the browser itself, not a hand-drawn graphic.
+  return `<meter class="reading-meter${danger ? " danger" : ""}" min="${lo}" max="${hi}" value="${value}"></meter>`;
+}
 
-  let dangerArcs = "";
-  for (const rule of rules) {
-    const isDanger = alertsFired.includes(rule.key);
-    const color = isDanger ? "#ff5c40" : "#4a3418";
-    if (rule.op === ">") {
-      dangerArcs += `<path d="${arcPath(cx, cy, r, valueToAngle(rule.limit, lo, hi), 0)}" stroke="${color}" stroke-width="10" fill="none" stroke-linecap="round"/>`;
-    } else {
-      dangerArcs += `<path d="${arcPath(cx, cy, r, 180, valueToAngle(rule.limit, lo, hi))}" stroke="${color}" stroke-width="10" fill="none" stroke-linecap="round"/>`;
-    }
-  }
-
-  const needleAngle = valueToAngle(value, lo, hi);
-  const needleTip = polarToCartesian(cx, cy, r - 14, needleAngle);
-
-  return `
-    <svg viewBox="0 0 180 100" class="gauge-svg">
-      <path d="${arcPath(cx, cy, r, 180, 0)}" stroke="#2a2f38" stroke-width="10" fill="none" stroke-linecap="round"/>
-      ${dangerArcs}
-      <line x1="${cx}" y1="${cy}" x2="${needleTip.x.toFixed(2)}" y2="${needleTip.y.toFixed(2)}"
-            stroke="#ffb648" stroke-width="3" stroke-linecap="round"/>
-      <circle cx="${cx}" cy="${cy}" r="5" fill="#ffb648"/>
-    </svg>`;
+// Plain text, not a drawn arc: the real alarm rule(s) for this sensor,
+// straight from /api/thresholds (the fog gateway's own configured limits).
+function limitNote(sensor) {
+  const rules = THRESHOLDS[sensor];
+  if (!rules || !rules.length) return "";
+  return rules.map((r) => `${r.op} ${r.limit}`).join(" &middot; ");
 }
 
 async function loadThresholds() {
@@ -91,14 +67,14 @@ function renderPlantStats(summary, backend) {
   );
   const box = document.getElementById("plant-stats");
   box.innerHTML =
-    `<span>${withSites.length} SENSOR TYPES</span>` +
-    `<span>${totalUnits} UNITS ONLINE</span>` +
-    `<span class="${alertCount ? "danger" : ""}">${alertCount} ALARMS ACTIVE</span>` +
-    `<span>${backend.items_in_table} RECORDS LOGGED</span>`;
+    `<span><b>${withSites.length}</b>Sensor types</span>` +
+    `<span><b>${totalUnits}</b>Units online</span>` +
+    `<span class="${alertCount ? "danger" : ""}"><b>${alertCount}</b>Alarms active</span>` +
+    `<span><b>${backend.items_in_table}</b>Records logged</span>`;
 }
 
-function renderAlarmPanel(summary) {
-  const box = document.getElementById("alarm-panel");
+function renderAlarmStrip(summary) {
+  const box = document.getElementById("alarm-strip");
   const firing = [];
   for (const s of summary.sensors) {
     for (const site of s.sites) {
@@ -108,20 +84,20 @@ function renderAlarmPanel(summary) {
     }
   }
   if (firing.length === 0) {
-    box.className = "alarm-panel clear";
-    box.innerHTML = `<div class="alarm-row">ALL SYSTEMS NOMINAL — NO ACTIVE ALARMS</div>`;
+    box.className = "alarm-strip clear";
+    box.innerHTML = `<div class="alarm-row">All systems nominal &mdash; no active alarms</div>`;
     return;
   }
-  box.className = "alarm-panel active";
+  box.className = "alarm-strip active";
   box.innerHTML = firing
-    .map((f) => `<div class="alarm-row">${swatch(f.sensor)}${f.sensor.replace("_", " ").toUpperCase()} [${f.site_id}] — ${f.label.toUpperCase()}</div>`)
+    .map((f) => `<div class="alarm-row"><span class="tag">${f.site_id}</span>${f.sensor.replace(/_/g, " ")} &mdash; ${f.label}</div>`)
     .join("");
 }
 
-function makeSparkline(canvas) {
+function makeTrendChart(canvas, color) {
   return new Chart(canvas, {
     type: "line",
-    data: { labels: [], datasets: [{ data: [], borderColor: "#ffb648", borderWidth: 1.5, pointRadius: 0, tension: 0.3 }] },
+    data: { labels: [], datasets: [{ data: [], borderColor: color, borderWidth: 1.5, pointRadius: 0, tension: 0.3 }] },
     options: {
       animation: false,
       responsive: true,
@@ -134,24 +110,25 @@ function makeSparkline(canvas) {
 }
 
 function renderTile(sensorType, sites) {
-  const tile = document.querySelector(`.gauge-tile[data-sensor="${sensorType}"]`);
-  const mount = tile.querySelector(".gauge-mount");
-  const tbody = tile.querySelector(".detail tbody");
+  const tile = document.querySelector(`.nameplate[data-sensor="${sensorType}"]`);
+  const mount = tile.querySelector(".dial-row");
+  const tbody = tile.querySelector(".site-table tbody");
 
   if (sites.length === 0) {
-    mount.innerHTML = `<div class="no-data">NO DATA</div>`;
+    mount.innerHTML = `<div class="no-data">No data</div>`;
     tbody.innerHTML = "";
     return;
   }
 
+  const note = limitNote(sensorType);
   mount.innerHTML = sites
     .map((site) => `
-      <div class="gauge-unit">
-        ${gaugeSvg(sensorType, site.latest, site.alerts)}
-        <div class="gauge-reading">${site.latest}<small>${site.unit}</small></div>
-        <div class="gauge-site">${site.site_id}</div>
+      <div class="dial-unit">
+        <div class="dial-reading">${site.latest}<small>${site.unit}</small></div>
+        ${readingMeter(sensorType, site.latest, site.alerts)}
+        <div class="dial-site">${site.site_id}</div>
       </div>`)
-    .join("");
+    .join("") + (note ? `<div class="limit-note">Alarm ${note}</div>` : "");
 
   tbody.innerHTML = sites
     .map((site) => {
@@ -163,7 +140,7 @@ function renderTile(sensorType, sites) {
     .join("");
 }
 
-async function refreshSpark(sensorType) {
+async function refreshTrend(sensorType) {
   const res = await fetch(`/api/readings?sensor_type=${sensorType}&limit=30`);
   const data = await res.json();
   if (!data.items.length) return;
@@ -172,11 +149,11 @@ async function refreshSpark(sensorType) {
   const primarySite = Object.keys(bySite).sort()[0];
   const series = bySite[primarySite];
 
-  if (!sparklines[sensorType]) {
-    const canvas = document.querySelector(`.gauge-tile[data-sensor="${sensorType}"] canvas.spark`);
-    sparklines[sensorType] = makeSparkline(canvas);
+  if (!trendCharts[sensorType]) {
+    const canvas = document.querySelector(`.nameplate[data-sensor="${sensorType}"] canvas.trend`);
+    trendCharts[sensorType] = makeTrendChart(canvas, TREND_COLOR[sensorType]);
   }
-  const chart = sparklines[sensorType];
+  const chart = trendCharts[sensorType];
   chart.data.labels = series.map((_, i) => i);
   chart.data.datasets[0].data = series.map((i) => i.avg);
   chart.update();
@@ -191,16 +168,16 @@ async function tick() {
     ]);
 
     renderPlantStats(summary, backend);
-    renderAlarmPanel(summary);
+    renderAlarmStrip(summary);
     for (const s of summary.sensors) renderTile(s.sensor_type, s.sites);
-    await Promise.all(SENSORS.map(refreshSpark));
+    await Promise.all(SENSORS.map(refreshTrend));
 
     const box = document.getElementById("system-status");
     box.innerHTML =
-      `<span>fog: ${health.fog ? "ok" : "down"}</span>` +
-      `<span>queue: ${health.queue ? "ok" : "down"} (${backend.queue ? backend.queue.waiting : "?"} waiting)</span>` +
-      `<span>lambda: ${health.lambda ? "deployed" : "not found"}</span>` +
-      `<span>data flow: ${health.pipeline ? "live" : "stalled"}</span>`;
+      `<span>Fog gateway: <b>${health.fog ? "ok" : "down"}</b></span>` +
+      `<span>Queue: <b>${health.queue ? "ok" : "down"}</b> (${backend.queue ? backend.queue.waiting : "?"} waiting)</span>` +
+      `<span>Lambda: <b>${health.lambda ? "deployed" : "not found"}</b></span>` +
+      `<span>Data flow: <b>${health.pipeline ? "live" : "stalled"}</b></span>`;
   } catch (e) {
     // backend not ready yet; next tick retries
   }

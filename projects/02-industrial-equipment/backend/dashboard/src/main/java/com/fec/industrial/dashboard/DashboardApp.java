@@ -113,6 +113,13 @@ public class DashboardApp {
         boolean queueOk = HealthChecks.queueReachable(sqs(), QUEUE_NAME);
         boolean lambdaOk = HealthChecks.lambdaActive(lambdaClient(), FUNCTION_NAME);
 
+        // "pipeline" health can't be answered by pinging a single component --
+        // fog/queue/lambda can each individually report healthy while the
+        // end-to-end flow has actually stalled (e.g. Lambda's event source
+        // mapping got disabled). So this instead checks a symptom of that:
+        // how long ago the freshest window for ANY sensor type landed in
+        // DynamoDB. Only the newest window per sensor type is fetched
+        // (limit=1) since older ones can't make the freshest age any better.
         Double freshestAge = null;
         Instant now = Instant.now();
         for (String sensorType : SENSOR_TYPES) {
@@ -140,6 +147,11 @@ public class DashboardApp {
         return result;
     }
 
+    // Cached for the process lifetime rather than re-fetched per request:
+    // THRESHOLDS in the fog app is a static, code-defined constant that never
+    // changes at runtime, so refetching it on every /api/thresholds call
+    // would just be a repeated network round-trip to fog with no fresher
+    // data to show for it.
     static synchronized String fetchThresholds() throws Exception {
         if (thresholdsCache == null) {
             HttpRequest request = HttpRequest.newBuilder().uri(URI.create(FOG_THRESHOLDS_URL))
@@ -192,6 +204,11 @@ public class DashboardApp {
         });
 
         server.createContext("/static", exchange -> {
+            // Files.readAllBytes() below takes a relative path resolved
+            // against the process cwd (the container's /app/static tree),
+            // so the leading "/" from the URL is stripped to turn
+            // "/static/x.js" into the relative "static/x.js" -- an absolute
+            // path here would instead try to read from the filesystem root.
             String path = exchange.getRequestURI().getPath().substring(1); // "static/..."
             Path file = Path.of(path);
             if (!Files.exists(file)) {

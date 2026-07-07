@@ -16,6 +16,9 @@ QUEUE_NAME = os.getenv("SQS_QUEUE_NAME", "fcl-manifest-agg")
 ENDPOINT = os.getenv("AWS_ENDPOINT_URL")
 REGION = os.getenv("AWS_REGION", "eu-west-1")
 
+# Cap on how many queued ingest batches one consumer tick absorbs before
+# yielding back to the event loop; keeps a burst of arrivals from starving
+# the window_publisher task on the same loop.
 MAX_DRAIN_PER_TICK = 200
 
 
@@ -24,6 +27,11 @@ def right_now():
 
 
 class WindowAccumulator:
+    """Holds one RollingStat per (sensor_type, site_id) for the current
+    window. Readings are absorbed incrementally as ingest batches arrive;
+    drain_messages() closes out the window, evaluates alerts per reading
+    type, and resets state for the next window."""
+
     def __init__(self):
         self._stats = {}
         self._units = {}
@@ -37,6 +45,8 @@ class WindowAccumulator:
         for reading in batch.readings:
             stat.add(reading.value)
         if batch.unit:
+            # Remember the unit per sensor_type (not per site) since every
+            # container's sensor of a given type reports the same unit.
             self._units[batch.sensor_type] = batch.unit
 
     def is_empty(self):
@@ -69,6 +79,10 @@ def _drain_ready_batches(inbox, limit):
 
 
 async def inbox_consumer(app):
+    # Background task: blocks on the first item, then greedily drains
+    # whatever else is already queued (bounded by MAX_DRAIN_PER_TICK) so
+    # bursts of sensor batches are absorbed in one pass rather than one
+    # event-loop iteration per batch.
     accumulator = app.state.accumulator
     inbox = app.state.inbox
     while True:
@@ -83,6 +97,10 @@ async def inbox_consumer(app):
 
 
 async def window_publisher(app):
+    # Background task: fires once per WINDOW_SECONDS, closes out whatever
+    # the accumulator collected during that window, and ships one aggregate
+    # message per (sensor_type, site_id) to the queue. Shipping runs in a
+    # worker thread since boto3's SQS client is synchronous.
     while True:
         await asyncio.sleep(WINDOW_SECONDS)
         window_end = right_now()
@@ -100,6 +118,9 @@ async def window_publisher(app):
 
 @asynccontextmanager
 async def lifespan(app):
+    # Wires up the queue connection and the two background tasks (ingest
+    # consumer, window publisher) around the app's lifetime, and tears both
+    # down cleanly on shutdown so no task keeps running against a closed link.
     link_ctx = open_shipment_link(ENDPOINT, REGION, QUEUE_NAME)
     app.state.link = await asyncio.to_thread(link_ctx.__enter__)
     app.state.inbox = asyncio.Queue()

@@ -1,0 +1,156 @@
+name: wrf
+
+x-aws-env: &aws-env
+  AWS_ENDPOINT_URL: http://localstack:4566
+  AWS_REGION: eu-west-1
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+
+x-robot: &robot
+  build:
+    context: ../sensors
+  environment: &robot-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  localstack:
+    image: localstack/localstack:3.8
+    ports:
+      - "4572:4566"
+    environment:
+      SERVICES: sqs,dynamodb,lambda
+      DEBUG: "0"
+      LAMBDA_KEEPALIVE_MS: "0"
+    volumes:
+      - ./localstack/init.sh:/etc/localstack/init/ready.d/init.sh
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  fog:
+    build:
+      context: ../fog
+    environment:
+      <<: *aws-env
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: wrf-fleet-agg
+    depends_on:
+      - localstack
+    restart: unless-stopped
+
+  # one-shot: deploys FleetHandler as a real Lambda wired to the SQS queue
+  processor:
+    build:
+      context: ../backend/processor
+    environment:
+      <<: *aws-env
+      SQS_QUEUE_NAME: wrf-fleet-agg
+      TABLE_NAME: wrf-readings
+    depends_on:
+      - localstack
+    restart: "no"
+
+  dashboard:
+    build:
+      context: ../backend/dashboard
+    ports:
+      - "8086:8000"
+    environment:
+      <<: *aws-env
+      TABLE_NAME: wrf-readings
+      SQS_QUEUE_NAME: wrf-fleet-agg
+      LAMBDA_FUNCTION_NAME: wrf-processor
+    depends_on:
+      - localstack
+    restart: unless-stopped
+
+  robot-a-battery:
+    <<: *robot
+    environment:
+      <<: *robot-env
+      SENSOR_TYPE: battery_level_pct
+      SITE_ID: zone-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  robot-a-payload:
+    <<: *robot
+    environment:
+      <<: *robot-env
+      SENSOR_TYPE: payload_kg
+      SITE_ID: zone-a
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "9"
+
+  robot-a-motor:
+    <<: *robot
+    environment:
+      <<: *robot-env
+      SENSOR_TYPE: motor_temp_c
+      SITE_ID: zone-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "10"
+
+  robot-a-drift:
+    <<: *robot
+    environment:
+      <<: *robot-env
+      SENSOR_TYPE: position_drift_cm
+      SITE_ID: zone-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  robot-a-queue:
+    <<: *robot
+    environment:
+      <<: *robot-env
+      SENSOR_TYPE: task_queue_depth
+      SITE_ID: zone-a
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  robot-b-battery:
+    <<: *robot
+    environment:
+      <<: *robot-env
+      SENSOR_TYPE: battery_level_pct
+      SITE_ID: zone-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  robot-b-payload:
+    <<: *robot
+    environment:
+      <<: *robot-env
+      SENSOR_TYPE: payload_kg
+      SITE_ID: zone-b
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  robot-b-motor:
+    <<: *robot
+    environment:
+      <<: *robot-env
+      SENSOR_TYPE: motor_temp_c
+      SITE_ID: zone-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "11"
+
+  robot-b-drift:
+    <<: *robot
+    environment:
+      <<: *robot-env
+      SENSOR_TYPE: position_drift_cm
+      SITE_ID: zone-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  robot-b-queue:
+    <<: *robot
+    environment:
+      <<: *robot-env
+      SENSOR_TYPE: task_queue_depth
+      SITE_ID: zone-b
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "12"

@@ -1,0 +1,156 @@
+name: aff
+
+x-aws-env: &aws-env
+  AWS_ENDPOINT_URL: http://localstack:4566
+  AWS_REGION: eu-west-1
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  localstack:
+    image: localstack/localstack:3.8
+    ports:
+      - "4574:4566"
+    environment:
+      SERVICES: sqs,dynamodb,lambda
+      DEBUG: "0"
+      LAMBDA_KEEPALIVE_MS: "0"
+    volumes:
+      - ./localstack/init.sh:/etc/localstack/init/ready.d/init.sh
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  fog:
+    build:
+      context: ../fog
+    environment:
+      <<: *aws-env
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: aff-pond-agg
+    depends_on:
+      - localstack
+    restart: unless-stopped
+
+  # one-shot: deploys PondHandler as a real Lambda wired to the SQS queue
+  processor:
+    build:
+      context: ../backend/processor
+    environment:
+      <<: *aws-env
+      SQS_QUEUE_NAME: aff-pond-agg
+      TABLE_NAME: aff-readings
+    depends_on:
+      - localstack
+    restart: "no"
+
+  dashboard:
+    build:
+      context: ../backend/dashboard
+    ports:
+      - "8088:8000"
+    environment:
+      <<: *aws-env
+      TABLE_NAME: aff-readings
+      SQS_QUEUE_NAME: aff-pond-agg
+      LAMBDA_FUNCTION_NAME: aff-processor
+    depends_on:
+      - localstack
+    restart: unless-stopped
+
+  pond1-watertemp:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: water_temp_c
+      SITE_ID: pond-1
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  pond1-oxygen:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: dissolved_oxygen_mgl
+      SITE_ID: pond-1
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "9"
+
+  pond1-ph:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: ph_level
+      SITE_ID: pond-1
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  pond1-ammonia:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: ammonia_ppm
+      SITE_ID: pond-1
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "11"
+
+  pond1-feed:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: feed_dispensed_g
+      SITE_ID: pond-1
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "12"
+
+  pond2-watertemp:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: water_temp_c
+      SITE_ID: pond-2
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  pond2-oxygen:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: dissolved_oxygen_mgl
+      SITE_ID: pond-2
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "10"
+
+  pond2-ph:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: ph_level
+      SITE_ID: pond-2
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  pond2-ammonia:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: ammonia_ppm
+      SITE_ID: pond-2
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "12"
+
+  pond2-feed:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: feed_dispensed_g
+      SITE_ID: pond-2
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "13"

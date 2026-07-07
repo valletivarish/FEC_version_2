@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Offshore Wind Farm Monitor</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/vendor/chart.umd.min.js"></script>
+</head>
+<body>
+  <header class="deck-header">
+    <div class="deck-title">
+      <span class="deck-mark" aria-hidden="true"></span>
+      <div>
+        <h1>North Bank Offshore Array</h1>
+        <p class="deck-subtitle">Turbine condition monitoring &mdash; fog gateway telemetry</p>
+      </div>
+    </div>
+    <dl id="fleet-readout" class="fleet-readout"></dl>
+  </header>
+
+  <section id="alert-strip" class="alert-strip calm">All turbines within normal operating envelope</section>
+
+  <main>
+    <section class="farm-section">
+      <h2 class="section-label">Farm Layout</h2>
+      <div id="farm-grid" class="farm-grid"></div>
+    </section>
+
+    <section class="trend-section">
+      <h2 class="section-label">Power Output &mdash; Cross-Turbine Trend</h2>
+      <div class="trend-panel">
+        <canvas id="power-trend-chart"></canvas>
+      </div>
+    </section>
+  </main>
+
+  <footer id="pipeline-footer" class="pipeline-footer"></footer>
+
+  <script src="/static/dashboard.js"></script>
+</body>
+</html>

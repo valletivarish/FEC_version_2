@@ -12,8 +12,9 @@ bearing acoustic emission, rotation speed, power draw) feed a virtual fog
 node. The fog node windows and aggregates each sensor's readings, raises
 threshold alarms, and dispatches one aggregate per window to a queue. An AWS
 Lambda function (running inside LocalStack) consumes the queue and stores
-records; a web dashboard renders a live gauge, sparkline trend, and alarm
-state per sensor type, styled as a plant-floor control panel.
+records; a web dashboard renders each sensor type as a plain card listing
+its current reading, a native <meter> bar against the sensor's configured
+range, its real alarm limit as plain text, and a trend trace underneath.
 
 This project is implemented in Java (JDK 17), deliberately different from
 project 01 (Python) to avoid application-code similarity across the
@@ -46,12 +47,16 @@ LAYOUT
                        language-neutral, not Java, matching how real
                        polyglot systems usually keep ops scripts separate
                        from application code)
-  backend/dashboard/  plain-JDK HTTP server (DashboardApp.java) serving the
-                       SAME REST API and the SAME static dashboard files as
-                       before (backend/dashboard/static/ is completely
-                       unchanged from the original Python version -- the
-                       frontend is language-agnostic, it only talks to REST
-                       endpoints)
+  backend/dashboard/  plain-JDK HTTP server (DashboardApp.java) serving its
+                       own REST API and static dashboard UI (backend/dashboard/static/
+                       is NOT a copy of project 01's frontend -- the HTML
+                       layout, CSS theme, and JS rendering logic were all
+                       rewritten; the redesigned view is deliberately plain --
+                       a card per sensor type showing its reading against a
+                       native <meter> bar, no custom-drawn graphics -- only
+                       the REST endpoint naming convention and the vendored
+                       Chart.js library are shared/reused, see REUSE section
+                       below)
   infra/              docker-compose stack + LocalStack bootstrap (unchanged
                        structure -- only the Dockerfiles differ, service
                        names/env vars/ports are identical to before)

@@ -1,0 +1,157 @@
+name: owf
+
+x-aws-env: &aws-env
+  AWS_ENDPOINT_URL: http://localstack:4566
+  AWS_REGION: eu-west-1
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  localstack:
+    image: localstack/localstack:3.8
+    ports:
+      - "4571:4566"
+    environment:
+      SERVICES: sqs,dynamodb,lambda
+      DEBUG: "0"
+      LAMBDA_KEEPALIVE_MS: "0"
+    volumes:
+      - ./localstack/init.sh:/etc/localstack/init/ready.d/init.sh
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  fog:
+    build:
+      context: ../fog
+    environment:
+      <<: *aws-env
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: owf-turbine-agg
+    depends_on:
+      - localstack
+    restart: unless-stopped
+
+  # one-shot: packages handler.js and deploys it as a real Lambda wired to the SQS queue
+  processor:
+    build:
+      context: ../backend/processor
+    environment:
+      <<: *aws-env
+      SQS_QUEUE_NAME: owf-turbine-agg
+      TABLE_NAME: owf-readings
+      LAMBDA_FUNCTION_NAME: owf-processor
+    depends_on:
+      - localstack
+    restart: "no"
+
+  dashboard:
+    build:
+      context: ../backend/dashboard
+    ports:
+      - "8085:8000"
+    environment:
+      <<: *aws-env
+      TABLE_NAME: owf-readings
+      SQS_QUEUE_NAME: owf-turbine-agg
+      LAMBDA_FUNCTION_NAME: owf-processor
+    depends_on:
+      - localstack
+    restart: unless-stopped
+
+  sensor-wind-t1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: wind_speed_ms
+      SITE_ID: turbine-1
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  sensor-wind-t2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: wind_speed_ms
+      SITE_ID: turbine-2
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-vibration-t1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: blade_vibration_mm
+      SITE_ID: turbine-1
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-vibration-t2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: blade_vibration_mm
+      SITE_ID: turbine-2
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  sensor-gentemp-t1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: generator_temp_c
+      SITE_ID: turbine-1
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "12"
+
+  sensor-gentemp-t2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: generator_temp_c
+      SITE_ID: turbine-2
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "13"
+
+  sensor-power-t1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: power_output_kw
+      SITE_ID: turbine-1
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-power-t2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: power_output_kw
+      SITE_ID: turbine-2
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-gearbox-t1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: gearbox_pressure_bar
+      SITE_ID: turbine-1
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "15"
+
+  sensor-gearbox-t2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: gearbox_pressure_bar
+      SITE_ID: turbine-2
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "16"

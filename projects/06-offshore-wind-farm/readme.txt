@@ -1,0 +1,169 @@
+Offshore Wind Farm Monitoring Fog/Edge Pipeline
+Fog and Edge Computing (H9FECC) - CA Project
+
+All commands below assume your working directory is this folder
+(projects/06-offshore-wind-farm/), not the repo root.
+
+OVERVIEW
+--------
+Two offshore turbines (turbine-1, turbine-2) each carry five sensors --
+wind speed, blade vibration, generator temperature, power output, and
+gearbox pressure. A fog node windows and aggregates each sensor's readings
+in place using a streaming accumulator, evaluates structural/mechanical
+threshold rules per sensor type, and dispatches one aggregate per window to
+a queue. A Lambda function (running inside LocalStack) consumes the queue
+and stores records in DynamoDB; a web dashboard renders the farm as a
+spatial grid of turbine tiles, each showing all five live metrics and a
+status beacon, plus a cross-turbine power-output trend comparison.
+
+Phase 1 (this project) runs entirely on Docker with LocalStack emulating
+AWS SQS, DynamoDB, and Lambda. The AWS SDK for JavaScript v3 is used
+throughout, so a later move to real AWS is an endpoint/IAM configuration
+change rather than a rewrite.
+
+TECH STACK
+----------
+Node.js 20 (plain CommonJS, no TypeScript build step), the second Node.js
+implementation in this CA portfolio alongside 03-patient-vitals. To keep
+the two Node projects from sharing recognisable source-level structure,
+this project deliberately uses different internal architecture for every
+equivalent concern:
+  - fog/: readings are folded into a live per (sensor_type, site_id)
+    accumulator as they arrive (accumulator.js), never retained as a raw
+    reading list. Alert rules are per-metric functions in a dispatch object
+    (alerts.js), not a generic [field, op, limit] table. The SQS client is
+    wrapped by a factory function returning a closure (publisher.js), not a
+    class. Ingest buffering and the Express app itself live in separate
+    modules (ingestRouter.js / app.js).
+  - backend/dashboard/: routes are split by concern (routes/readings.js,
+    routes/status.js) and mounted onto the Express app, rather than one
+    file with every route inline. AWS clients and config are constructed
+    once in awsClients.js and passed into routes via a small dependency
+    object, instead of being cached module-level singletons that routes
+    reach into directly.
+  - sensors/: each sensor process builds a small stateful "rig" object
+    (sample/dueForFlush/flush) rather than a single flat setInterval
+    callback that both samples and dispatches inline.
+  - backend/processor/: a plain Lambda handler module (exports.handler),
+    zipped with its node_modules and deployed by a bash + AWS CLI script.
+  - Testing uses Node's built-in node:test + node:assert/strict runner --
+    no Jest/Mocha dependency. AWS-facing code is isolated behind small
+    functions that accept an injected client, so unit tests use
+    hand-written fake clients instead of hitting LocalStack.
+
+LAYOUT
+------
+  sensors/            sensor simulator (one container per metric/turbine)
+  fog/                Express edge gateway: ingest -> streaming accumulator
+                       -> window flush -> per-metric alert dispatch ->
+                       SQS publish, plus a /thresholds endpoint exposing
+                       the real alert rules
+  backend/processor/  transform.js (pure transform building the sort_key)
+                       + handler.js (Lambda entry point) + deploy_lambda.sh
+                       (packages and registers the function with an SQS
+                       event source mapping)
+  backend/dashboard/  Express + Chart.js. Primary view is a farm-layout
+                       grid of turbine tiles (CSS grid, not a vertical
+                       list) with a status beacon per turbine; a secondary
+                       section below compares power output across turbines
+  infra/              docker-compose stack + LocalStack bootstrap
+  loadtest/           queue burst generator (scalability evidence)
+  scripts/            end-to-end pipeline verification
+
+REQUIREMENTS
+------------
+  Docker + Docker Compose (for the running stack)
+  Node.js 20+ (only if running the unit tests locally)
+  Python 3.12+ (only for loadtest/burst.py and scripts/verify_pipeline.py)
+
+RUN THE STACK
+-------------
+  docker compose -f infra/docker-compose.yml up --build
+
+  Dashboard:  http://localhost:8085
+  LocalStack: http://localhost:4571
+
+  Stop:  docker compose -f infra/docker-compose.yml down -v
+
+CONFIGURE SENSOR RATES
+----------------------
+Each sensor takes two independent rates (set per service in
+infra/docker-compose.yml):
+  SAMPLE_INTERVAL    seconds between generated readings
+  DISPATCH_INTERVAL  seconds between dispatches to the fog gateway
+
+VERIFY END-TO-END
+-----------------
+With the stack running:
+  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test python scripts/verify_pipeline.py
+
+CAPTURE DASHBOARD SCREENSHOTS (DESKTOP + MOBILE)
+-------------------------------------------------
+With the stack running, this renders the live dashboard in headless
+Chromium (Playwright) at desktop (1440x900) and mobile (390x844) viewport
+widths, saves both screenshots to docs/, and fails if either viewport
+shows a browser console error or renders zero turbine tiles:
+  cd scripts && npm install && node capture_dashboard_screenshots.js
+
+This is a Node-based ops tool kept in its own scripts/package.json,
+isolated from the application package.json files (sensors/, fog/,
+backend/processor/, backend/dashboard/), the same way verify_pipeline.py
+and burst.py are kept as separate Python ops tooling.
+
+RUN THE TESTS
+-------------
+Each module has its own package.json and test script:
+  cd sensors && npm install && npm test
+  cd fog && npm install && npm test
+  cd backend/processor && npm install && npm test
+  cd backend/dashboard && npm install && npm test
+
+Or without a local Node.js install:
+  docker run --rm -v "$PWD":/app -w /app/fog node:20-slim \
+    bash -c "npm install && npm test"
+
+LOAD TEST (SCALABILITY EVIDENCE)
+--------------------------------
+With the stack running:
+  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
+    python loadtest/burst.py --messages 2000 --workers 32
+
+REUSE / THIRD-PARTY COMPONENTS
+-------------------------------
+The overall pipeline architecture (SQS -> Lambda -> DynamoDB via LocalStack,
+the sort_key disambiguation scheme window_end#site_id, the dashboard
+health-check pattern, the dual-rate SAMPLE_INTERVAL/DISPATCH_INTERVAL
+sensor knobs) is adapted from this student's own prior projects earlier in
+this same CA submission (01-smart-agriculture, 03-patient-vitals), not a
+prior/external coursework project. Every line of application code, the
+domain logic (turbine sensor profiles, structural/mechanical thresholds),
+and the entire dashboard (deep ocean-blue maritime theme, farm-layout grid,
+turbine nameplate tiles, power-output trend comparison) are original to
+this project. The internal module structure was deliberately written
+differently from 03-patient-vitals's Node.js code (see TECH STACK above)
+so the two same-language projects do not share recognisable source-level
+structure.
+Third-party open-source components used as standard libraries/tools:
+  - Express (fog edge gateway, backend/dashboard) - https://expressjs.com
+  - AWS SDK for JavaScript v3 (@aws-sdk/client-sqs, client-dynamodb,
+    lib-dynamodb, client-lambda) - https://github.com/aws/aws-sdk-js-v3
+  - Chart.js (dashboard power-output trend chart, vendored at
+    backend/dashboard/static/vendor/) - https://www.chartjs.org
+  - LocalStack (local AWS emulation for SQS/DynamoDB/Lambda) -
+    https://www.localstack.cloud
+  - Node.js built-in test runner (node:test, node:assert/strict) -- no
+    external test framework dependency
+  - boto3 (Python AWS SDK, used only by the ops tooling in loadtest/ and
+    scripts/) - https://boto3.amazonaws.com
+  - Playwright (headless Chromium, used only by the ops screenshot tool
+    scripts/capture_dashboard_screenshots.js, isolated in its own
+    scripts/package.json -- not a dependency of any application module) -
+    https://playwright.dev
+
+NOTE ON /api/thresholds
+------------------------
+The dashboard backend proxies GET /api/thresholds from the fog gateway,
+but the current frontend (dashboard.js) does not call it -- alert names are
+rendered from a small local display-text map (ALERT_TEXT) instead. The
+endpoint is kept for API completeness and possible future use, and is
+covered by its own test, but is not claimed as a frontend feature.

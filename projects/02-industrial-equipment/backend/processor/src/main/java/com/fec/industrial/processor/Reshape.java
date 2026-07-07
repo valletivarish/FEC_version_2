@@ -17,6 +17,12 @@ public class Reshape {
         JsonNode data = JSON.readTree(messageBody);
         String siteId = data.has("site_id") ? data.get("site_id").asText() : "line-1";
         String windowEnd = data.get("window_end").asText();
+        // Partition key is sensor_type alone, so without a compound sort key two
+        // sites reporting the same sensor type in the same window would collide
+        // on the same item. window_end leads the sort key (not site_id) so that
+        // DynamoDB's native key ordering already gives chronological order for
+        // the dashboard's "most recent windows" query; site_id is only appended
+        // to disambiguate ties within the same window.
         String sortKey = windowEnd + "#" + siteId;
 
         Map<String, AttributeValue> item = new HashMap<>();

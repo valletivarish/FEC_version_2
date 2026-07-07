@@ -37,12 +37,19 @@ class BrokerEndpoint:
 
 
 class ShipmentLink:
+    """Resolves the SQS queue URL once (retrying while LocalStack finishes
+    provisioning it) and reuses that URL for every subsequent ship() call, so
+    steady-state publishing does not pay a lookup round-trip per message."""
+
     def __init__(self, endpoint_url, region, queue_name):
         endpoint = BrokerEndpoint(endpoint_url, region, queue_name)
         self._client = endpoint.build_client()
         self._queue_url = self._find_queue(endpoint.queue_name)
 
     def _find_queue(self, queue_name):
+        # The queue may not exist yet at startup (LocalStack bootstrap and
+        # this service can start in either order), so retry with backoff
+        # instead of failing fast on the first lookup.
         last_error = None
         for _ in retry_ticks(BACKOFF_BUDGET_SECONDS):
             try:

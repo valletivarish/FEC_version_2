@@ -35,6 +35,11 @@ public class FogApp {
     final Map<String, String> units = new HashMap<>();
     QueueRelay relay;
 
+    // Readings arrive on the HTTP handler's thread pool while the scheduler
+    // thread flushes on its own timer, so pending/units are shared mutable
+    // state guarded by a single lock; keeping ingest() and the snapshot copy
+    // in flushWindow() both short and synchronized avoids holding the lock
+    // while doing aggregation/network work.
     void ingest(String sensorType, String siteId, String unit, List<Reading> readings) {
         synchronized (lock) {
             pending.computeIfAbsent(new PendingKey(sensorType, siteId), k -> new ArrayList<>()).addAll(readings);
@@ -43,11 +48,18 @@ public class FogApp {
     }
 
     List<Aggregation.Summary> flushWindow() {
+        // windowStart/windowEnd are wall-clock bounds, not the timestamps of the
+        // buffered readings themselves -- readings are grouped by which flush
+        // cycle they arrived in, not re-bucketed by their own ts, so the window
+        // label is an approximation of "since the last flush" rather than an
+        // exact per-reading interval.
         String windowEnd = Instant.now().toString();
         String windowStart = Instant.now().minusSeconds((long) WINDOW_SECONDS).toString();
         Map<PendingKey, List<Reading>> snapshot;
         Map<String, String> unitsSnapshot;
         synchronized (lock) {
+            // Swap in a fresh map and hand the old one off for processing
+            // outside the lock, so ingest() is never blocked by aggregation.
             snapshot = new HashMap<>(pending);
             pending.clear();
             unitsSnapshot = new HashMap<>(units);
@@ -159,6 +171,10 @@ public class FogApp {
 
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
         long periodMs = (long) (WINDOW_SECONDS * 1000);
+        // Initial delay is also periodMs (not 0) so the first flush only fires
+        // once a full window has actually accumulated -- flushing at t=0 would
+        // emit an aggregate over an empty/near-empty buffer before any sensor
+        // has had a chance to dispatch a reading into it.
         scheduler.scheduleAtFixedRate(app::runWindowCycle, periodMs, periodMs, TimeUnit.MILLISECONDS);
     }
 }

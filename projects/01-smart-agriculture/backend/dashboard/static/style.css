@@ -91,7 +91,7 @@ header h1 { margin: 0; font-size: 20px; font-weight: 600; }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100% - 56px), 1fr));
   gap: 16px;
   padding: 18px 28px 40px;
 }

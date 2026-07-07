@@ -12,6 +12,10 @@ _client = boto3.client("dynamodb", endpoint_url=ENDPOINT, region_name=REGION)
 
 
 def marshal(value):
+    """Recursively convert a plain Python value into DynamoDB's low-level
+    typed-attribute wire format ({"S": ...}, {"N": ...}, etc). bool is
+    checked before (int, float) since bool is a subclass of int in Python
+    and would otherwise be marshalled as a number."""
     if isinstance(value, bool):
         return {"BOOL": value}
     if isinstance(value, (int, float)):
@@ -30,6 +34,10 @@ def marshal_item(record):
 
 
 def lambda_handler(event, context):
+    # SQS-triggered Lambda entry point (wired up by deploy_lambda.py via an
+    # event source mapping): each invocation carries a batch of queue
+    # messages in event["Records"], one per window-aggregate published by
+    # the fog relay.
     records = event["Records"]
     for record in records:
         item = marshal_item(reshape_message(record["body"]))

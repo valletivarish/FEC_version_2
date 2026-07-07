@@ -18,6 +18,10 @@ public class Aggregation {
             sum += r.value();
         }
         double avg = Math.round((sum / readings.size()) * 1000.0) / 1000.0;
+        // Readings are appended to the buffer in arrival order and never
+        // reordered before rollUp() runs, so the last list element is the
+        // most recent sample -- this is what the dashboard gauge shows as
+        // "current value" separately from the window's min/max/avg.
         double latest = readings.get(readings.size() - 1).value();
         return new Summary(sensorType, siteId, unit, windowStart, windowEnd, readings.size(), min, max, avg, latest);
     }

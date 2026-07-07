@@ -14,6 +14,11 @@ import java.util.Map;
 
 public class HealthChecks {
 
+    // There is no "ping" API for SQS, so reachability is inferred from being
+    // able to resolve the queue URL and fetch a single cheap attribute
+    // (QUEUE_ARN) -- any failure (queue missing, LocalStack down, network
+    // issue) collapses to "not reachable" rather than distinguishing causes,
+    // since the dashboard only needs a boolean for its health panel.
     public static boolean queueReachable(SqsClient sqs, String queueName) {
         try {
             String queueUrl = sqs.getQueueUrl(b -> b.queueName(queueName)).queueUrl();
@@ -49,6 +54,10 @@ public class HealthChecks {
         }
     }
 
+    // Select.COUNT asks DynamoDB to return only the matched item count, not
+    // the items themselves -- a full-table scan is otherwise wasteful for a
+    // dashboard stat, and at this CA's data volumes a scan is acceptable
+    // (a GSI/count-shadow-item would be the fix at real production scale).
     public static int scanCount(DynamoDbClient dynamo, String tableName) {
         return dynamo.scan(ScanRequest.builder().tableName(tableName).select(Select.COUNT).build()).count();
     }

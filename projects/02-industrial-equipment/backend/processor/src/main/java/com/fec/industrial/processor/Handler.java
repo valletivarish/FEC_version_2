@@ -19,6 +19,10 @@ public class Handler implements RequestHandler<SQSEvent, Map<String, Object>> {
     static final String TABLE_NAME = System.getenv().getOrDefault("TABLE_NAME", "fei-readings");
     static DynamoDbClient client;
 
+    // Lambda (even under LocalStack) can reuse a warm execution environment
+    // across invocations, so the client is cached in a static field instead
+    // of being rebuilt on every handleRequest() call -- this avoids paying
+    // TCP/credential setup cost per SQS batch on warm invocations.
     static synchronized DynamoDbClient client() {
         if (client == null) {
             String endpoint = System.getenv("AWS_ENDPOINT_URL");
@@ -41,6 +45,11 @@ public class Handler implements RequestHandler<SQSEvent, Map<String, Object>> {
                 dynamo.putItem(PutItemRequest.builder().tableName(tableName).item(item).build());
                 processed++;
             } catch (Exception e) {
+                // Deliberately fail the whole batch on any single bad record
+                // rather than skipping it: the SQS event source mapping will
+                // then leave the batch unacked and retry it, which is the
+                // simplest correct behaviour for this CA's demo scale (no
+                // per-record partial-batch-failure reporting is configured).
                 throw new RuntimeException(e);
             }
         }

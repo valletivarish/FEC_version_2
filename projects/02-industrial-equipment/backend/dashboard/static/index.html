@@ -8,51 +8,75 @@
   <script src="/static/vendor/chart.umd.min.js"></script>
 </head>
 <body>
-  <header>
-    <h1>PLANT FLOOR MONITOR</h1>
+  <header class="board-head">
+    <div class="board-id">
+      <span class="board-tag">LINE STATUS BOARD</span>
+      <h1>Plant Floor Monitor</h1>
+      <p class="board-sub">Predictive maintenance &mdash; five machine sensors, two production lines</p>
+    </div>
     <div id="plant-stats" class="plant-stats"></div>
   </header>
 
-  <section id="alarm-panel" class="alarm-panel"></section>
+  <section id="alarm-strip" class="alarm-strip"></section>
 
-  <section id="gauge-grid" class="gauge-grid">
-    <div class="gauge-tile" data-sensor="vibration">
-      <div class="tile-head"><span class="swatch vibration"></span>VIBRATION <small>mm/s</small></div>
-      <div class="gauge-mount"></div>
-      <div class="spark-wrap"><canvas class="spark"></canvas></div>
-      <table class="detail"><tbody></tbody></table>
-    </div>
+  <main id="nameplate-grid" class="nameplate-grid">
+    <article class="nameplate" data-sensor="vibration">
+      <div class="plate-head">
+        <span class="plate-dot vibration"></span>
+        <h2>Vibration</h2>
+        <span class="plate-unit">mm/s</span>
+      </div>
+      <div class="dial-row"></div>
+      <div class="trend-row"><canvas class="trend"></canvas></div>
+      <table class="site-table"><tbody></tbody></table>
+    </article>
 
-    <div class="gauge-tile" data-sensor="motor_temperature">
-      <div class="tile-head"><span class="swatch motor_temperature"></span>MOTOR TEMP <small>&deg;C</small></div>
-      <div class="gauge-mount"></div>
-      <div class="spark-wrap"><canvas class="spark"></canvas></div>
-      <table class="detail"><tbody></tbody></table>
-    </div>
+    <article class="nameplate" data-sensor="motor_temperature">
+      <div class="plate-head">
+        <span class="plate-dot motor_temperature"></span>
+        <h2>Motor Temp</h2>
+        <span class="plate-unit">&deg;C</span>
+      </div>
+      <div class="dial-row"></div>
+      <div class="trend-row"><canvas class="trend"></canvas></div>
+      <table class="site-table"><tbody></tbody></table>
+    </article>
 
-    <div class="gauge-tile" data-sensor="bearing_acoustic">
-      <div class="tile-head"><span class="swatch bearing_acoustic"></span>BEARING ACOUSTIC <small>dB</small></div>
-      <div class="gauge-mount"></div>
-      <div class="spark-wrap"><canvas class="spark"></canvas></div>
-      <table class="detail"><tbody></tbody></table>
-    </div>
+    <article class="nameplate" data-sensor="bearing_acoustic">
+      <div class="plate-head">
+        <span class="plate-dot bearing_acoustic"></span>
+        <h2>Bearing Acoustic</h2>
+        <span class="plate-unit">dB</span>
+      </div>
+      <div class="dial-row"></div>
+      <div class="trend-row"><canvas class="trend"></canvas></div>
+      <table class="site-table"><tbody></tbody></table>
+    </article>
 
-    <div class="gauge-tile" data-sensor="rotation_speed">
-      <div class="tile-head"><span class="swatch rotation_speed"></span>ROTATION SPEED <small>RPM</small></div>
-      <div class="gauge-mount"></div>
-      <div class="spark-wrap"><canvas class="spark"></canvas></div>
-      <table class="detail"><tbody></tbody></table>
-    </div>
+    <article class="nameplate" data-sensor="rotation_speed">
+      <div class="plate-head">
+        <span class="plate-dot rotation_speed"></span>
+        <h2>Rotation Speed</h2>
+        <span class="plate-unit">RPM</span>
+      </div>
+      <div class="dial-row"></div>
+      <div class="trend-row"><canvas class="trend"></canvas></div>
+      <table class="site-table"><tbody></tbody></table>
+    </article>
 
-    <div class="gauge-tile" data-sensor="power_draw">
-      <div class="tile-head"><span class="swatch power_draw"></span>POWER DRAW <small>kW</small></div>
-      <div class="gauge-mount"></div>
-      <div class="spark-wrap"><canvas class="spark"></canvas></div>
-      <table class="detail"><tbody></tbody></table>
-    </div>
-  </section>
+    <article class="nameplate" data-sensor="power_draw">
+      <div class="plate-head">
+        <span class="plate-dot power_draw"></span>
+        <h2>Power Draw</h2>
+        <span class="plate-unit">kW</span>
+      </div>
+      <div class="dial-row"></div>
+      <div class="trend-row"><canvas class="trend"></canvas></div>
+      <table class="site-table"><tbody></tbody></table>
+    </article>
+  </main>
 
-  <section id="system-status" class="system-status"></section>
+  <footer id="system-status" class="system-status"></footer>
 
   <script src="/static/dashboard.js"></script>
 </body>

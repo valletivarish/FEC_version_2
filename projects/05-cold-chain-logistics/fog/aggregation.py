@@ -1,4 +1,8 @@
 class RollingStat:
+    """Accumulates count/min/max/avg/latest for one (sensor_type, site_id)
+    pair over a single window without keeping the individual readings, so
+    memory use is O(1) per window regardless of how many readings arrive."""
+
     __slots__ = ("_count", "_total", "_floor", "_ceiling", "_last")
 
     def __init__(self):
@@ -21,6 +25,9 @@ class RollingStat:
         return self._count
 
     def snapshot(self, sensor_type, site_id, unit, window_start, window_end):
+        # Guard against publishing an empty window: the caller (WindowAccumulator)
+        # only keeps stats that received at least one reading, so hitting this
+        # would indicate a bug in that bookkeeping rather than a real empty window.
         if self._count == 0:
             raise ValueError("cannot snapshot a stat with no observations")
         return {
@@ -38,6 +45,9 @@ class RollingStat:
 
 
 def roll_up(sensor_type, site_id, unit, readings, window_start, window_end):
+    """Convenience one-shot aggregate over an already-collected list of
+    readings, used by tests; production ingest instead feeds readings into a
+    RollingStat incrementally via WindowAccumulator.absorb."""
     stat = RollingStat()
     for reading in readings:
         stat.add(reading["value"])

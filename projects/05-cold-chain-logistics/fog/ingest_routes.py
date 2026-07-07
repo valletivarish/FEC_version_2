@@ -18,5 +18,8 @@ class Batch(BaseModel):
 
 @router.post("/ingest", status_code=202)
 async def ingest(batch: Batch, request: Request):
+    # 202 Accepted: the batch is only queued here, not yet aggregated. The
+    # background inbox_consumer task (see app.py) absorbs it into the
+    # current window asynchronously.
     await request.app.state.inbox.put(batch)
     return {"accepted": len(batch.readings)}

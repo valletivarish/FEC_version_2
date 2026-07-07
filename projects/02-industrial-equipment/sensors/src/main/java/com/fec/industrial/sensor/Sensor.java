@@ -27,6 +27,11 @@ public class Sensor {
         return Math.max(lo, Math.min(hi, value));
     }
 
+    // Values walk randomly from the previous reading (a bounded random walk)
+    // rather than being drawn fresh each tick, so consecutive samples stay
+    // close together like a real sensor trace instead of jumping erratically
+    // -- this is what makes the fog's windowed min/max/avg and the dashboard
+    // sparkline look like plausible equipment telemetry.
     static double nextValue(double current, Profile profile) {
         double delta = ThreadLocalRandom.current().nextDouble(-profile.step(), profile.step());
         double moved = clamp(current + delta, profile.lo(), profile.hi());

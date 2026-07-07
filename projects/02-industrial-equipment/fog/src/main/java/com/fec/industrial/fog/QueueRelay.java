@@ -23,6 +23,11 @@ public class QueueRelay {
         this.queueUrl = locateQueue(queueName);
     }
 
+    // docker-compose starts the fog container concurrently with LocalStack's
+    // bootstrap script that creates the SQS queue, so the queue frequently
+    // does not exist yet the moment this constructor runs. Rather than fail
+    // fast, poll with a fixed backoff for up to a minute (30 x 2s) to give
+    // the bootstrap container time to finish before giving up for good.
     private String locateQueue(String queueName) throws InterruptedException {
         int attempts = 30;
         for (int i = 0; i < attempts; i++) {

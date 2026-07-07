@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fleet Ops HUD</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/vendor/chart.umd.min.js"></script>
+</head>
+<body>
+  <header class="hud-bar">
+    <div class="hud-brand">
+      <span class="hud-brand-mark" aria-hidden="true"></span>
+      <div>
+        <h1>FLEET OPS</h1>
+        <p class="hud-brand-sub">Warehouse AMR Monitoring &mdash; Zones A / B</p>
+      </div>
+    </div>
+    <div id="hud-counters" class="hud-counters"></div>
+  </header>
+
+  <div id="hud-banner" class="hud-banner nominal">FLEET NOMINAL</div>
+
+  <main class="hud-main">
+    <section class="roster-panel">
+      <div class="roster-head">
+        <span class="roster-title">ROSTER</span>
+        <span class="roster-hint">click a row for full telemetry</span>
+      </div>
+      <div class="roster-scroll">
+        <table class="roster-table">
+          <thead>
+            <tr>
+              <th class="col-led"></th>
+              <th>Robot</th>
+              <th>Metric</th>
+              <th>Latest</th>
+              <th>Trend</th>
+              <th>Range</th>
+              <th>Updated</th>
+            </tr>
+          </thead>
+          <tbody id="roster-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="detail-panel">
+      <div class="detail-head">
+        <span class="detail-title">TELEMETRY DETAIL</span>
+        <span id="detail-subject" class="detail-subject"></span>
+      </div>
+      <div id="detail-grid" class="detail-grid"></div>
+    </section>
+  </main>
+
+  <footer id="hud-footer" class="hud-footer"></footer>
+
+  <script src="/static/dashboard.js"></script>
+</body>
+</html>

@@ -36,7 +36,11 @@ public class CityDashboardApp {
     static final String RELAY_HEALTH_URL = System.getenv().getOrDefault("FOG_HEALTH_URL", "http://fog:8000/health");
     static final String RELAY_THRESHOLDS_URL = System.getenv().getOrDefault("FOG_THRESHOLDS_URL", "http://fog:8000/thresholds");
     static final String[] METRIC_TYPES = {"vehicle_count", "air_quality_pm25", "noise_level", "parking_occupancy", "ambient_light"};
-    static final int PIPELINE_FRESH_SECONDS = 30;
+    // ambient_light's own configured cadence (dispatch up to 16s + a 10s fog window)
+    // already accounts for up to ~26s of inherent latency before Lambda even runs,
+    // so 30s left almost no margin and caused frequent false "stale" flips under
+    // normal operation -- 45s gives real headroom without masking a genuine stall.
+    static final int PIPELINE_FRESH_SECONDS = 45;
 
     static final AtomicReference<DynamoDbClient> dynamoRef = new AtomicReference<>();
     static final AtomicReference<SqsClient> sqsRef = new AtomicReference<>();
