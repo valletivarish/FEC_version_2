@@ -101,7 +101,7 @@ function ensurePowerTrendChart() {
       maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
       plugins: {
-        legend: { labels: { color: "#a9c2d6", font: { family: "SF Mono, Consolas, monospace", size: 11 } } },
+        legend: { labels: { color: "#a9c2d6", font: { size: 11 } } },
       },
       scales: {
         x: { ticks: { color: "#a9c2d6", font: { size: 10 } }, grid: { color: "#23496d" } },
