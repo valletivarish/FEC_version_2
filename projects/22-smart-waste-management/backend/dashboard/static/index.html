@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Waste Management Monitor</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/vendor/chart.umd.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div>
+        <h1>Smart Waste Management Monitor</h1>
+        <p class="brand-sub">Two collection districts &mdash; fill level, thermal, gas, weight &amp; lid activity, live</p>
+      </div>
+    </div>
+    <div id="health-strip" class="health-strip"></div>
+  </header>
+
+  <section id="alert-banner" class="alert-banner" hidden></section>
+
+  <main class="content">
+    <section aria-label="Collection priority list">
+      <h2 class="section-title">Collection Priority List</h2>
+      <p class="section-note">Every bin across both districts, ranked by fill level &mdash; the bin needing collection soonest sits at the top of the queue.</p>
+      <div class="priority-wrap">
+        <table id="priority-table" class="priority-table">
+          <thead>
+            <tr>
+              <th scope="col">District</th>
+              <th scope="col">Fill Level</th>
+              <th scope="col">Status</th>
+            </tr>
+          </thead>
+          <tbody id="priority-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section aria-label="District readings">
+      <h2 class="section-title">District Readings</h2>
+      <div id="district-grid" class="district-grid"></div>
+    </section>
+
+    <section aria-label="Fill level trend">
+      <h2 class="section-title">Fill Level Trend</h2>
+      <div class="trend-grid">
+        <div class="trend-card">
+          <h4>Fill Level &mdash; both districts</h4>
+          <canvas id="trend-fill_level_pct" width="560" height="180"></canvas>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="pipeline-footer">
+    <span id="backend-stats" class="backend-stats"></span>
+  </footer>
+
+  <script src="/static/dashboard.js"></script>
+</body>
+</html>

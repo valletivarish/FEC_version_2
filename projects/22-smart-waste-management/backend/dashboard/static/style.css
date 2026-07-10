@@ -1,0 +1,268 @@
+/* Smart Waste Management Monitor -- municipal-services teal-green +
+   charcoal theme. Dark charcoal background with a deep, saturated teal-green
+   accent -- the inverse light/dark balance of 12-smart-building-energy's
+   green/white scorecard theme, and a different hue depth entirely from every
+   other sibling dashboard in this portfolio.
+
+   The primary view (below) is a plain sorted worklist table -- all bins
+   across both districts in one list, ordered by fill level descending, the
+   way a dispatcher's task queue is ordered by urgency rather than grouped by
+   site. This is a different structural axis from every sibling: not a
+   per-site card grid, not a reading-by-site matrix table, not a tile/dial
+   grid, not a heatmap. Per-district raw readings are demoted to a secondary
+   section beneath it. Zero custom SVG anywhere -- the brand mark below is
+   drawn with plain CSS shapes, same technique as other sibling dashboards. */
+
+:root {
+  --charcoal: #1c2022;
+  --surface: #262b2e;
+  --surface-2: #2f3538;
+  --line: #3a4245;
+  --line-strong: #4a5458;
+  --ink: #eef4f2;
+  --ink-dim: #9db0ac;
+  --teal: #1a7a6e;
+  --teal-strong: #22a294;
+  --teal-soft: #1f3b38;
+  --alert: #e0794f;
+  --alert-soft: #3d2c24;
+  --ok: #3fae94;
+  --ok-soft: #203833;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  background: var(--charcoal);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 20px 26px;
+  background: var(--surface);
+  border-bottom: 2px solid var(--teal);
+}
+.brand { display: flex; align-items: center; gap: 14px; }
+.brand-mark {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 6px;
+  background: var(--teal-soft);
+  border: 2px solid var(--teal-strong);
+  position: relative;
+}
+.brand-mark::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  height: 40%;
+  background: var(--teal-strong);
+  border-radius: 2px 2px 0 0;
+}
+.brand-mark::after {
+  content: "";
+  position: absolute;
+  left: 9px;
+  right: 9px;
+  top: 5px;
+  height: 2px;
+  background: var(--teal-strong);
+}
+.topbar h1 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.brand-sub { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-dim); }
+
+.health-strip { display: flex; gap: 8px; flex-wrap: wrap; }
+.health-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 5px 11px;
+  border-radius: 3px;
+  background: var(--teal-soft);
+  border: 1px solid var(--line-strong);
+  color: var(--teal-strong);
+}
+.health-pill .swatch { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+.health-pill.down { background: var(--alert-soft); color: var(--alert); border-color: #6b4736; }
+.health-pill.down .swatch { background: var(--alert); }
+
+.alert-banner {
+  padding: 11px 26px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--alert-soft);
+  color: var(--alert);
+  border-bottom: 1px solid #6b4736;
+}
+
+.content { max-width: 1180px; margin: 0 auto; padding: 26px; display: flex; flex-direction: column; gap: 34px; }
+.section-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin: 0 0 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.section-note { margin: 10px 0 12px; font-size: 12.5px; color: var(--ink-dim); }
+
+/* Primary structural view: a plain sorted worklist table, not a per-site
+   card grid or a reading-by-site matrix. */
+.priority-wrap {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+}
+table.priority-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+table.priority-table th,
+table.priority-table td {
+  border-bottom: 1px solid var(--line);
+  padding: 13px 16px;
+  text-align: left;
+  vertical-align: middle;
+}
+table.priority-table thead th {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  background: var(--surface-2);
+  border-bottom: 2px solid var(--teal);
+}
+table.priority-table tbody tr:last-child td { border-bottom: none; }
+table.priority-table tbody tr.urgent td { background: rgba(224, 121, 79, 0.06); }
+
+.bin-name { font-weight: 700; font-size: 13.5px; }
+.bin-rank { display: block; font-size: 10.5px; font-weight: 400; color: var(--ink-dim); margin-top: 1px; }
+
+.fill-cell .fill-value { font-size: 16px; font-weight: 700; }
+.fill-cell .fill-value .unit { font-size: 10.5px; font-weight: 500; color: var(--ink-dim); margin-left: 2px; }
+meter.priority-meter { display: block; width: 100%; max-width: 180px; height: 9px; margin-top: 6px; }
+meter.priority-meter::-webkit-meter-bar { background: var(--charcoal); border: 1px solid var(--line-strong); border-radius: 5px; }
+meter.priority-meter::-webkit-meter-optimum-value { background: var(--teal-strong); border-radius: 5px; }
+meter.priority-meter.danger::-webkit-meter-optimum-value,
+meter.priority-meter.danger::-webkit-meter-suboptimum-value { background: var(--alert); }
+meter.priority-meter { accent-color: var(--teal-strong); }
+meter.priority-meter.danger { accent-color: var(--alert); }
+
+.status-badge {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 4px 10px;
+  border-radius: 3px;
+  background: var(--ok-soft);
+  color: var(--ok);
+  border: 1px solid #2c5449;
+}
+.status-badge.alert { background: var(--alert-soft); color: var(--alert); border-color: #6b4736; }
+.status-badge-list { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+
+/* Secondary section: per-district cards with all 5 raw readings as rows. */
+.district-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+.district-card {
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 16px 18px;
+}
+.district-card h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.district-card .district-status { margin: 0 0 12px; }
+.reading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+.reading-row:first-of-type { border-top: none; }
+.reading-row .reading-label { font-size: 12px; color: var(--ink-dim); flex: 0 0 40%; }
+.reading-row .reading-body { flex: 1; text-align: right; }
+.reading-row .reading-value { font-size: 14px; font-weight: 700; }
+.reading-row .reading-value .unit { font-size: 10px; font-weight: 500; color: var(--ink-dim); margin-left: 2px; }
+.reading-row meter { display: block; width: 100%; height: 7px; margin-top: 4px; }
+.reading-row meter::-webkit-meter-bar { background: var(--charcoal); border: 1px solid var(--line-strong); border-radius: 4px; }
+.reading-row meter::-webkit-meter-optimum-value { background: var(--teal-strong); border-radius: 4px; }
+.reading-row meter.danger::-webkit-meter-optimum-value,
+.reading-row meter.danger::-webkit-meter-suboptimum-value { background: var(--alert); }
+.reading-row meter { accent-color: var(--teal-strong); }
+.reading-row meter.danger { accent-color: var(--alert); }
+
+.trend-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+.trend-card {
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 14px 16px 10px;
+  overflow-x: auto;
+}
+.trend-card h4 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.trend-card canvas { width: 100% !important; }
+
+.pipeline-footer {
+  padding: 12px 26px 24px;
+  font-size: 11.5px;
+  color: var(--ink-dim);
+  border-top: 1px solid var(--line);
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+@media (max-width: 480px) {
+  .topbar { padding: 14px 16px; }
+  .content { padding: 12px; gap: 22px; }
+  table.priority-table th,
+  table.priority-table td { padding: 9px 8px; }
+  table.priority-table thead th { font-size: 9px; }
+  .bin-name { font-size: 12.5px; }
+  .fill-cell .fill-value { font-size: 13px; }
+  meter.priority-meter { max-width: 90px; height: 8px; }
+  .status-badge { font-size: 9px; padding: 3px 7px; }
+  .district-grid { grid-template-columns: 1fr; }
+}
