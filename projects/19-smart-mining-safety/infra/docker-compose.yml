@@ -1,0 +1,157 @@
+name: msm
+
+x-aws-env: &aws-env
+  AWS_ENDPOINT_URL: http://localstack:4566
+  AWS_REGION: eu-west-1
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  localstack:
+    image: localstack/localstack:3.8
+    ports:
+      - "4584:4566"
+    environment:
+      SERVICES: sqs,dynamodb,lambda
+      DEBUG: "0"
+      LAMBDA_KEEPALIVE_MS: "0"
+    volumes:
+      - ./localstack/init.sh:/etc/localstack/init/ready.d/init.sh
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  fog:
+    build:
+      context: ../fog
+    environment:
+      <<: *aws-env
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: msm-shaft-agg
+    depends_on:
+      - localstack
+    restart: unless-stopped
+
+  # one-shot: deploys SafetyHandler as a real Lambda wired to the SQS queue
+  processor:
+    build:
+      context: ../backend/processor
+    environment:
+      <<: *aws-env
+      SQS_QUEUE_NAME: msm-shaft-agg
+      TABLE_NAME: msm-readings
+      LAMBDA_FUNCTION_NAME: msm-processor
+    depends_on:
+      - localstack
+    restart: "no"
+
+  dashboard:
+    build:
+      context: ../backend/dashboard
+    ports:
+      - "8098:8000"
+    environment:
+      <<: *aws-env
+      TABLE_NAME: msm-readings
+      SQS_QUEUE_NAME: msm-shaft-agg
+      LAMBDA_FUNCTION_NAME: msm-processor
+    depends_on:
+      - localstack
+    restart: unless-stopped
+
+  sensor-methane-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: methane_ppm
+      SITE_ID: shaft-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  sensor-methane-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: methane_ppm
+      SITE_ID: shaft-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-co-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: co_ppm
+      SITE_ID: shaft-a
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-co-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: co_ppm
+      SITE_ID: shaft-b
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  sensor-dust-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: dust_concentration_mgm3
+      SITE_ID: shaft-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "12"
+
+  sensor-dust-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: dust_concentration_mgm3
+      SITE_ID: shaft-b
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "13"
+
+  sensor-vibration-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: ground_vibration_mms
+      SITE_ID: shaft-a
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "7"
+
+  sensor-vibration-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: ground_vibration_mms
+      SITE_ID: shaft-b
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "6"
+
+  sensor-temp-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: ambient_temp_c
+      SITE_ID: shaft-a
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "15"
+
+  sensor-temp-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: ambient_temp_c
+      SITE_ID: shaft-b
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "14"

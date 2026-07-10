@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Mining Safety Monitor</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/vendor/chart.umd.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div>
+        <h1>Smart Mining Safety Monitor</h1>
+        <p class="brand-sub">Two shafts, live &mdash; underground safety and environmental telemetry</p>
+      </div>
+    </div>
+    <div id="health-strip" class="health-strip"></div>
+  </header>
+
+  <section id="alert-banner" class="alert-banner" hidden></section>
+
+  <main class="content">
+    <section aria-label="Shaft safety status" class="status-row">
+      <div id="status-shaft-a" class="status-tile"></div>
+      <div id="status-shaft-b" class="status-tile"></div>
+    </section>
+
+    <section aria-label="Shaft A readings">
+      <h2 class="section-title">Shaft A</h2>
+      <div id="shaft-a-rows" class="reading-rows"></div>
+    </section>
+
+    <section aria-label="Shaft B readings">
+      <h2 class="section-title">Shaft B</h2>
+      <div id="shaft-b-rows" class="reading-rows"></div>
+    </section>
+
+    <section aria-label="Methane trend">
+      <h2 class="section-title">Methane Trend</h2>
+      <div class="trend-grid">
+        <div class="trend-card">
+          <h4>Methane (ppm), by shaft</h4>
+          <canvas id="trend-methane" width="560" height="180"></canvas>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="pipeline-footer">
+    <span id="backend-stats" class="backend-stats"></span>
+  </footer>
+
+  <script src="/static/dashboard.js"></script>
+</body>
+</html>
