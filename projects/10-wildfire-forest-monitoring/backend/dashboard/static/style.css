@@ -1,0 +1,354 @@
+/* Wildfire & Forest Monitoring -- charcoal/ember forest-watch theme.
+   Structural signature: each station's PRIMARY element is a radial fire-risk
+   dial (conic-gradient arc, 0-4 score band-colored green->red) rather than a
+   sensor card, gauge cluster, table row, or the radial-metric-chip ring used
+   by 09-aquaculture-fish-farm. The dial is a genuinely derived metric
+   visualization, not a raw-value display. Raw sensor readings sit below the
+   dial as a plain secondary tile grid -- deliberately NOT arranged radially,
+   so the radial treatment stays reserved for the one thing in this project
+   that is actually a computed score. */
+
+:root {
+  --char-deep: #14100c;
+  --char-mid: #1e1810;
+  --surface: #241d14;
+  --surface-raised: #2c2318;
+  --line: #3a2e1e;
+  --bark: #e8ddc9;
+  --bark-dim: #a89b82;
+  --ember: #e8622c;
+  --ember-soft: rgba(232, 98, 44, 0.18);
+  --safe: #4a9c6d;
+  --elevated: #8fae3f;
+  --watch: #d9a63b;
+  --warning: #e0762e;
+  --extreme: #d43b2f;
+  --danger-soft: rgba(212, 59, 47, 0.18);
+  --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-stack);
+  background: linear-gradient(180deg, var(--char-mid) 0%, var(--char-deep) 100%);
+  color: var(--bark);
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 18px 28px;
+  border-bottom: 3px solid var(--ember);
+  background: rgba(20, 16, 12, 0.6);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: conic-gradient(from 200deg, var(--safe), var(--watch), var(--extreme), var(--safe));
+  flex-shrink: 0;
+  box-shadow: 0 0 0 3px rgba(232, 98, 44, 0.15);
+}
+
+h1 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.brand-subtitle {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--bark-dim);
+}
+
+.summary-readout {
+  display: flex;
+  gap: 18px;
+  margin: 0;
+  flex-wrap: wrap;
+}
+
+.summary-readout div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 90px;
+}
+
+.summary-readout dt {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--bark-dim);
+}
+
+.summary-readout dd {
+  margin: 2px 0 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.alert-banner {
+  padding: 10px 28px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--line);
+}
+
+.alert-banner.calm {
+  background: rgba(74, 156, 109, 0.12);
+  color: var(--safe);
+}
+
+.alert-banner.hot {
+  background: var(--danger-soft);
+  color: var(--extreme);
+  border-bottom-color: var(--extreme);
+}
+
+.content {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+}
+
+.section-title {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--bark-dim);
+  margin: 0 0 14px;
+  font-weight: 600;
+}
+
+/* ---- Station cards: radial fire-risk dial as the primary element ---- */
+
+.station-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 22px;
+  margin-bottom: 40px;
+}
+
+.station-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.station-card.has-alert {
+  border-color: var(--extreme);
+  box-shadow: 0 0 0 3px var(--danger-soft), 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.station-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.station-name {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0;
+  text-transform: capitalize;
+}
+
+.station-status {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(74, 156, 109, 0.15);
+  color: var(--safe);
+}
+
+.station-status.alert {
+  background: var(--danger-soft);
+  color: var(--extreme);
+}
+
+/* The dial itself: an SVG arc gauge sweeping 270 degrees, needle-free,
+   filled by score band color, with the numeric 0-4 score and word label
+   centered inside. Rendered by dashboard.js as inline SVG per station. */
+.risk-dial-wrap {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+
+.risk-dial {
+  width: 148px;
+  height: 148px;
+  flex-shrink: 0;
+}
+
+.risk-dial-caption {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.risk-score {
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.risk-band-label {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.risk-band-safe { color: var(--safe); }
+.risk-band-elevated { color: var(--elevated); }
+.risk-band-watch { color: var(--watch); }
+.risk-band-warning { color: var(--warning); }
+.risk-band-extreme { color: var(--extreme); }
+
+.risk-hint {
+  font-size: 11px;
+  color: var(--bark-dim);
+  max-width: 180px;
+}
+
+/* Secondary detail tiles: all 5 raw sensor readings, deliberately a plain
+   grid (not radial) so the radial treatment stays unique to the dial. */
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 8px;
+}
+
+.detail-tile {
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.detail-tile.flagged {
+  border-color: var(--warning);
+  background: rgba(224, 118, 46, 0.14);
+}
+
+.detail-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--bark-dim);
+  margin-bottom: 3px;
+}
+
+.detail-value {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.detail-value .unit {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--bark-dim);
+  margin-left: 2px;
+}
+
+.detail-range {
+  font-size: 10px;
+  color: var(--bark-dim);
+  margin-top: 2px;
+}
+
+.detail-empty {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: var(--bark-dim);
+  padding: 8px 0;
+}
+
+/* ---- Trend ---- */
+
+.trend-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+  height: 280px;
+}
+
+.pipeline-footer {
+  text-align: center;
+  padding: 16px;
+  font-size: 12px;
+  color: var(--bark-dim);
+  border-top: 1px solid var(--line);
+}
+
+.pipeline-footer span {
+  margin: 0 8px;
+}
+
+.pipeline-footer span.down {
+  color: var(--extreme);
+}
+
+/* ---- Mobile ---- */
+@media (max-width: 480px) {
+  .top-bar {
+    padding: 14px 16px;
+  }
+
+  .summary-readout {
+    gap: 12px;
+  }
+
+  .summary-readout div {
+    min-width: 70px;
+    align-items: flex-start;
+  }
+
+  .content {
+    padding: 18px 12px 40px;
+  }
+
+  .station-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .risk-dial-wrap {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .risk-dial {
+    width: 120px;
+    height: 120px;
+  }
+
+  .trend-panel {
+    height: 220px;
+  }
+}

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wildfire &amp; Forest Monitoring</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/vendor/chart.umd.min.js"></script>
+</head>
+<body>
+  <header class="top-bar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div>
+        <h1>Wildfire &amp; Forest Monitoring</h1>
+        <p class="brand-subtitle">Ranger station fire-risk telemetry</p>
+      </div>
+    </div>
+    <dl id="summary-readout" class="summary-readout"></dl>
+  </header>
+
+  <section id="alert-banner" class="alert-banner calm">All stations within normal conditions</section>
+
+  <main class="content">
+    <section class="stations-section">
+      <h2 class="section-title">Fire Risk by Station</h2>
+      <div id="station-grid" class="station-grid"></div>
+    </section>
+
+    <section class="trend-section">
+      <h2 class="section-title">Smoke Density Trend &mdash; Both Stations</h2>
+      <div class="trend-panel">
+        <canvas id="smoke-trend-chart"></canvas>
+      </div>
+    </section>
+  </main>
+
+  <footer id="pipeline-footer" class="pipeline-footer"></footer>
+
+  <script src="/static/dashboard.js"></script>
+</body>
+</html>
