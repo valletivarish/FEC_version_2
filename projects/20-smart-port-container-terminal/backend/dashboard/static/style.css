@@ -1,0 +1,180 @@
+/* Smart Port & Container Terminal Monitor -- crisp steel-blue palette with a
+   safety-orange accent reserved strictly for active alert text. The primary
+   view is a plain INLINE TEXT status line per berth ("Crane: Nominal | Wind:
+   Safe | ...") -- colour is applied only to the flagged word itself, never
+   a tile or card background. Secondary readings are plain rows using the
+   browser's own native <meter> element. No hand-drawn icon or SVG anywhere. */
+
+:root {
+  --steel: #14384d;
+  --steel-panel: #1c4e6b;
+  --steel-panel-raised: #275f80;
+  --steel-line: #326f92;
+  --ink: #eef4f8;
+  --ink-dim: #a9c3d3;
+  --crane-orange: #c13b15;
+  --crane-orange-soft: #3a2410;
+  --ok: #3fae6a;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  background: var(--steel);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 20px 26px;
+  background: var(--steel-panel);
+  border-bottom: 2px solid var(--crane-orange);
+}
+.brand { display: flex; align-items: center; gap: 14px; }
+.brand-mark {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 6px;
+  background: var(--crane-orange);
+}
+.topbar h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+.brand-sub { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-dim); }
+
+.health-strip { display: flex; gap: 8px; flex-wrap: wrap; }
+.health-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  padding: 5px 11px;
+  border-radius: 20px;
+  background: var(--steel-panel-raised);
+  border: 1px solid var(--steel-line);
+  color: var(--ink-dim);
+}
+.health-pill .swatch { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+.health-pill.down .swatch { background: var(--crane-orange); }
+.health-pill.down { color: #ffcaa6; }
+
+.alert-banner {
+  padding: 11px 26px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--crane-orange-soft);
+  color: #ffb789;
+  border-bottom: 1px solid #5a3210;
+}
+
+.content { max-width: 1180px; margin: 0 auto; padding: 26px; display: flex; flex-direction: column; gap: 32px; }
+.section-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--crane-orange);
+  margin: 0 0 14px;
+}
+
+/* Primary structural view: a plain inline text status line per berth --
+   NOT a coloured tile/card. Colour only ever touches the flagged word. */
+.status-section { display: flex; flex-direction: column; gap: 10px; }
+.status-line {
+  padding: 16px 20px;
+  border-radius: 10px;
+  background: var(--steel-panel);
+  border: 1px solid var(--steel-line);
+  font-size: 15px;
+  line-height: 1.8;
+}
+.status-line .berth-label {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-right: 10px;
+  font-size: 12px;
+}
+.status-line .seg-label { color: var(--ink-dim); }
+.status-line .seg-value { font-weight: 700; color: var(--ink); }
+.status-line .seg-value.active { color: var(--crane-orange); }
+.status-line .sep { color: var(--steel-line); margin: 0 6px; }
+
+/* Secondary: plain reading rows with a native <meter> bar. */
+.reading-rows { display: flex; flex-direction: column; gap: 10px; }
+.reading-row {
+  background: var(--steel-panel);
+  border: 1px solid var(--steel-line);
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+.reading-row.has-alert { border-color: var(--crane-orange); box-shadow: 0 0 0 1px var(--crane-orange); }
+
+.row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.row-label { font-size: 12.5px; font-weight: 700; letter-spacing: 0.02em; color: var(--ink-dim); text-transform: uppercase; }
+.row-value { font-size: 20px; font-weight: 700; }
+.row-value .row-unit { font-size: 12px; font-weight: 500; color: var(--ink-dim); margin-left: 4px; }
+
+meter.row-meter {
+  width: 100%;
+  height: 9px;
+  margin-bottom: 6px;
+}
+meter.row-meter::-webkit-meter-bar {
+  background: var(--steel);
+  border: none;
+  border-radius: 5px;
+}
+meter.row-meter::-webkit-meter-optimum-value { background: var(--crane-orange); border-radius: 5px; }
+meter.row-meter.danger::-webkit-meter-optimum-value,
+meter.row-meter.danger::-webkit-meter-suboptimum-value { background: var(--crane-orange); }
+meter.row-meter { accent-color: var(--crane-orange); }
+
+.row-stats { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--ink-dim); }
+
+.row-alert { margin-top: 8px; font-size: 10.5px; font-weight: 700; color: var(--crane-orange); }
+
+.no-data { font-size: 12px; color: var(--ink-dim); }
+
+.trend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+.trend-card {
+  background: var(--steel-panel);
+  border: 1px solid var(--steel-line);
+  border-radius: 10px;
+  padding: 12px 14px 8px;
+  overflow-x: auto;
+}
+.trend-card h4 { margin: 0 0 6px; font-size: 12px; font-weight: 700; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+.trend-card canvas { width: 100% !important; }
+
+.pipeline-footer {
+  padding: 12px 26px 24px;
+  font-size: 11.5px;
+  color: var(--ink-dim);
+  border-top: 1px solid var(--steel-line);
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+@media (max-width: 480px) {
+  .topbar { padding: 16px 18px; }
+  .content { padding: 18px; gap: 24px; }
+  .status-line { font-size: 13px; line-height: 2.1; }
+}

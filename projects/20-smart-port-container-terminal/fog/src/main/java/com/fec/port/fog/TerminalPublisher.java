@@ -1,0 +1,104 @@
+package com.fec.port.fog;
+
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.services.sqs.model.GetQueueUrlRequest;
+import software.amazon.awssdk.services.sqs.model.SendMessageBatchRequest;
+import software.amazon.awssdk.services.sqs.model.SendMessageBatchRequestEntry;
+
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Publishes one SQS message per non-empty (sensor_type, site_id) group, but
+ * batches every group from a single flush cycle into ONE
+ * SendMessageBatchRequest call (chunked defensively at 10 entries, the SQS
+ * batch limit) instead of one SendMessage call per group. Every other Java
+ * fog sibling in this portfolio calls the single-message send API once per
+ * group (02's QueueRelay.emit/07's RelayPublisher.publish/08's and 09's
+ * QueuePublisher.publish/16's TransitPublisher.publish all wrap
+ * sendMessage(); 19's SafetyPublisher.emit wraps the ASYNC client's
+ * sendMessage()). This still uses the plain synchronous SqsClient, so it is
+ * not identical to 19's async design either -- the axis this class changes
+ * is send SHAPE (one API call per window, not one per group), not sync-vs-
+ * async. Queue-URL resolution uses a LINEAR backoff (starts at 500ms, grows
+ * by 500ms per attempt, caps at 4000ms, 20 attempts) rather than 02/07/08/
+ * 09/16's fixed 30x2s loop or 04's exponential backoff or 19's non-blocking
+ * CompletableFuture retry chain, and is resolved lazily on first publish
+ * (not eagerly in the constructor like every sibling above).
+ */
+public class TerminalPublisher {
+
+    private static final int MAX_ATTEMPTS = 20;
+    private static final long INITIAL_DELAY_MS = 500;
+    private static final long MAX_DELAY_MS = 4000;
+    private static final int BATCH_LIMIT = 10;
+
+    private final SqsClient client;
+    private final String queueName;
+    private final Object resolveLock = new Object();
+    private volatile String queueUrl;
+
+    public TerminalPublisher(String endpointUrl, String region, String queueName) {
+        var builder = SqsClient.builder()
+            .region(Region.of(region))
+            .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
+        if (endpointUrl != null) builder.endpointOverride(URI.create(endpointUrl));
+        this.client = builder.build();
+        this.queueName = queueName;
+    }
+
+    private String resolveQueueUrl() {
+        String cached = queueUrl;
+        if (cached != null) return cached;
+        synchronized (resolveLock) {
+            if (queueUrl != null) return queueUrl;
+            long delayMs = INITIAL_DELAY_MS;
+            for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+                try {
+                    queueUrl = client.getQueueUrl(GetQueueUrlRequest.builder().queueName(queueName).build()).queueUrl();
+                    return queueUrl;
+                } catch (Exception exc) {
+                    if (attempt == MAX_ATTEMPTS) {
+                        throw new IllegalStateException("queue " + queueName + " never became available", exc);
+                    }
+                    sleep(delayMs);
+                    delayMs = Math.min(delayMs + INITIAL_DELAY_MS, MAX_DELAY_MS);
+                }
+            }
+            throw new IllegalStateException("queue " + queueName + " never became available");
+        }
+    }
+
+    private static void sleep(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("interrupted while waiting for the queue to become available", ie);
+        }
+    }
+
+    /** One publication = one already-evaluated window plus the alerts fired for it. */
+    public record Publication(WindowAggregate window, List<String> alerts) {}
+
+    public void publishBatch(List<Publication> batch) {
+        if (batch.isEmpty()) return;
+        String url = resolveQueueUrl();
+        for (int offset = 0; offset < batch.size(); offset += BATCH_LIMIT) {
+            List<Publication> chunk = batch.subList(offset, Math.min(offset + BATCH_LIMIT, batch.size()));
+            List<SendMessageBatchRequestEntry> entries = new ArrayList<>();
+            for (int i = 0; i < chunk.size(); i++) {
+                Publication p = chunk.get(i);
+                entries.add(SendMessageBatchRequestEntry.builder()
+                    .id("m" + i)
+                    .messageBody(BatchPayloadJson.build(p.window(), p.alerts()))
+                    .build());
+            }
+            client.sendMessageBatch(SendMessageBatchRequest.builder().queueUrl(url).entries(entries).build());
+        }
+    }
+}

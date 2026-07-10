@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Port &amp; Container Terminal Monitor</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/vendor/chart.umd.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div>
+        <h1>Smart Port &amp; Container Terminal Monitor</h1>
+        <p class="brand-sub">Two berths, live &mdash; crane, yard and cold-chain telemetry</p>
+      </div>
+    </div>
+    <div id="health-strip" class="health-strip"></div>
+  </header>
+
+  <section id="alert-banner" class="alert-banner" hidden></section>
+
+  <main class="content">
+    <section aria-label="Berth operational status" class="status-section">
+      <h2 class="section-title">Operational Status</h2>
+      <div id="status-berth-a" class="status-line"></div>
+      <div id="status-berth-b" class="status-line"></div>
+    </section>
+
+    <section aria-label="Berth A readings">
+      <h2 class="section-title">Berth A</h2>
+      <div id="berth-a-rows" class="reading-rows"></div>
+    </section>
+
+    <section aria-label="Berth B readings">
+      <h2 class="section-title">Berth B</h2>
+      <div id="berth-b-rows" class="reading-rows"></div>
+    </section>
+
+    <section aria-label="Crane load trend">
+      <h2 class="section-title">Crane Load Trend</h2>
+      <div class="trend-grid">
+        <div class="trend-card">
+          <h4>Crane load (kg), by berth</h4>
+          <canvas id="trend-crane" width="560" height="180"></canvas>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="pipeline-footer">
+    <span id="backend-stats" class="backend-stats"></span>
+  </footer>
+
+  <script src="/static/dashboard.js"></script>
+</body>
+</html>
