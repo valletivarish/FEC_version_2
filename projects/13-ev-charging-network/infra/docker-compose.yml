@@ -1,0 +1,160 @@
+name: ecn
+
+x-aws-env: &aws-env
+  AWS_ENDPOINT_URL: http://localstack:4566
+  AWS_REGION: eu-west-1
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  localstack:
+    image: localstack/localstack:3.8
+    ports:
+      - "4578:4566"
+    environment:
+      SERVICES: sqs,dynamodb,lambda
+      DEBUG: "0"
+      LAMBDA_KEEPALIVE_MS: "0"
+    volumes:
+      - ./localstack/init.sh:/etc/localstack/init/ready.d/init.sh
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  fog:
+    build:
+      context: ../fog
+    environment:
+      <<: *aws-env
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: ecn-hub-agg
+    depends_on:
+      - localstack
+    restart: unless-stopped
+
+  # one-shot: packages handler.py+transform.py as a real Lambda wired to the
+  # SQS queue via an event source mapping (see deploy_lambda.py)
+  processor:
+    build:
+      context: ../backend/processor
+    environment:
+      <<: *aws-env
+      SQS_QUEUE_NAME: ecn-hub-agg
+      TABLE_NAME: ecn-readings
+      LAMBDA_FUNCTION_NAME: ecn-processor
+    depends_on:
+      - localstack
+    restart: "no"
+
+  dashboard:
+    build:
+      context: ../backend/dashboard
+    ports:
+      - "8092:8000"
+    environment:
+      <<: *aws-env
+      TABLE_NAME: ecn-readings
+      SQS_QUEUE_NAME: ecn-hub-agg
+      LAMBDA_FUNCTION_NAME: ecn-processor
+      FOG_HEALTH_URL: http://fog:8000/health
+      FOG_THRESHOLDS_URL: http://fog:8000/thresholds
+    depends_on:
+      - localstack
+    restart: unless-stopped
+
+  sensor-current-h1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: charging_current_a
+      SITE_ID: hub-1
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  sensor-current-h2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: charging_current_a
+      SITE_ID: hub-2
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-soc-h1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: battery_soc_pct
+      SITE_ID: hub-1
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-soc-h2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: battery_soc_pct
+      SITE_ID: hub-2
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  sensor-temp-h1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: station_temp_c
+      SITE_ID: hub-1
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-temp-h2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: station_temp_c
+      SITE_ID: hub-2
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-gridload-h1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: grid_load_kw
+      SITE_ID: hub-1
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "12"
+
+  sensor-gridload-h2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: grid_load_kw
+      SITE_ID: hub-2
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "13"
+
+  sensor-session-h1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: session_duration_min
+      SITE_ID: hub-1
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "15"
+
+  sensor-session-h2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: session_duration_min
+      SITE_ID: hub-2
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "16"

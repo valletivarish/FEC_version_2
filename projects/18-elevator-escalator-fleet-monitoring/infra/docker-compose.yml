@@ -1,0 +1,157 @@
+name: eef
+
+x-aws-env: &aws-env
+  AWS_ENDPOINT_URL: http://localstack:4566
+  AWS_REGION: eu-west-1
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  localstack:
+    image: localstack/localstack:3.8
+    ports:
+      - "4583:4566"
+    environment:
+      SERVICES: sqs,dynamodb,lambda
+      DEBUG: "0"
+      LAMBDA_KEEPALIVE_MS: "0"
+    volumes:
+      - ./localstack/init.sh:/etc/localstack/init/ready.d/init.sh
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  fog:
+    build:
+      context: ../fog
+    environment:
+      <<: *aws-env
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: eef-tower-agg
+    depends_on:
+      - localstack
+    restart: unless-stopped
+
+  # one-shot: packages handler.js and deploys it as a real Lambda wired to the SQS queue
+  processor:
+    build:
+      context: ../backend/processor
+    environment:
+      <<: *aws-env
+      SQS_QUEUE_NAME: eef-tower-agg
+      TABLE_NAME: eef-readings
+      LAMBDA_FUNCTION_NAME: eef-processor
+    depends_on:
+      - localstack
+    restart: "no"
+
+  dashboard:
+    build:
+      context: ../backend/dashboard
+    ports:
+      - "8097:8000"
+    environment:
+      <<: *aws-env
+      TABLE_NAME: eef-readings
+      SQS_QUEUE_NAME: eef-tower-agg
+      LAMBDA_FUNCTION_NAME: eef-processor
+    depends_on:
+      - localstack
+    restart: unless-stopped
+
+  sensor-motor-temp-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: motor_temp_c
+      SITE_ID: tower-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  sensor-motor-temp-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: motor_temp_c
+      SITE_ID: tower-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-door-cycle-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: door_cycle_count
+      SITE_ID: tower-a
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-door-cycle-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: door_cycle_count
+      SITE_ID: tower-b
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  sensor-cab-vibration-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: cab_vibration_mm
+      SITE_ID: tower-a
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "6"
+
+  sensor-cab-vibration-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: cab_vibration_mm
+      SITE_ID: tower-b
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "5"
+
+  sensor-load-weight-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: load_weight_kg
+      SITE_ID: tower-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "7"
+
+  sensor-load-weight-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: load_weight_kg
+      SITE_ID: tower-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "6"
+
+  sensor-travel-speed-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: travel_speed_mps
+      SITE_ID: tower-a
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "5"
+
+  sensor-travel-speed-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: travel_speed_mps
+      SITE_ID: tower-b
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "4"

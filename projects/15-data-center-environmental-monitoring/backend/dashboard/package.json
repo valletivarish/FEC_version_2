@@ -1,0 +1,12 @@
+{
+  "name": "dce-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@aws-sdk/client-api-gateway": "^3.699.0"
+  }
+}

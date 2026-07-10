@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solar Farm Monitoring</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-title">
+    <h1>Solar Farm Monitoring</h1>
+    <p class="subtitle">Fog and Edge Computing CA &mdash; two-array efficiency heatmap</p>
+  </div>
+  <div class="status-strip" id="status-strip">
+    <span class="status-item"><span class="dot" id="dot-gateway"></span>Gateway</span>
+    <span class="status-item"><span class="dot" id="dot-queue"></span>Queue</span>
+    <span class="status-item"><span class="dot" id="dot-lambda"></span>Processor</span>
+    <span class="status-item"><span class="dot" id="dot-pipeline"></span>Pipeline</span>
+  </div>
+</header>
+
+<main>
+  <section class="backend-stats" id="backend-stats">
+    <span id="stat-queue-waiting">queue waiting: &ndash;</span>
+    <span id="stat-queue-inflight">in flight: &ndash;</span>
+    <span id="stat-items">records stored: &ndash;</span>
+    <span id="stat-freshness">freshest window: &ndash;</span>
+  </section>
+
+  <section class="heatmap-section">
+    <h2>Live Efficiency Index</h2>
+    <p class="section-note">
+      efficiency_index = average of an inverter-output band score and a panel-temperature band score,
+      per array, per recent window. Formula documented in backend/dashboard/scoring.py and readme.txt.
+    </p>
+    <div id="heatmap-grid" class="heatmap-grid"><p class="loading-note">Loading efficiency data&hellip;</p></div>
+    <div class="heatmap-legend">
+      <span class="legend-item"><span class="legend-swatch band-excellent"></span>excellent (&ge;80)</span>
+      <span class="legend-item"><span class="legend-swatch band-good"></span>good (&ge;60)</span>
+      <span class="legend-item"><span class="legend-swatch band-fair"></span>fair (&ge;40)</span>
+      <span class="legend-item"><span class="legend-swatch band-poor"></span>poor (&ge;20)</span>
+      <span class="legend-item"><span class="legend-swatch band-critical"></span>critical (&lt;20)</span>
+    </div>
+  </section>
+
+  <section class="arrays-section" id="arrays-section">
+    <p class="loading-note">Loading array readings&hellip;</p>
+  </section>
+
+  <section class="trend-section">
+    <h2>Inverter Output Trend</h2>
+    <p class="section-note">Recent window averages per array (kW).</p>
+    <div class="chart-wrap">
+      <canvas id="output-trend-chart"></canvas>
+    </div>
+  </section>
+
+  <section class="rules-section">
+    <h2>Alert Rules</h2>
+    <p class="section-note">Descriptive mirror of the fog node's real threshold rules (fog/alerts.py). Does not drive evaluation &mdash; shown here for reference only.</p>
+    <div id="rules-list" class="rules-list"><p class="loading-note">Loading rules&hellip;</p></div>
+  </section>
+</main>
+
+<footer>
+  <p>Data refreshes every 2.5 seconds. Efficiency index formula documented in backend/dashboard/scoring.py and readme.txt.</p>
+</footer>
+
+<script src="/static/vendor/chart.umd.min.js"></script>
+<script src="/static/dashboard.js"></script>
+</body>
+</html>

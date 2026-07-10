@@ -1,0 +1,152 @@
+"use strict";
+
+const http = require("node:http");
+const { createStation, submit, snapshotAndClear } = require("./ringBuffer");
+const { summarizeWindow } = require("./aggregation");
+const { evaluateAlerts, RULES } = require("./alerts");
+const { createPublisher } = require("./publisher");
+
+const WINDOW_SECONDS = parseFloat(process.env.WINDOW_SECONDS || "10");
+const QUEUE_NAME = process.env.SQS_QUEUE_NAME || "dce-hall-agg";
+const ENDPOINT = process.env.AWS_ENDPOINT_URL;
+const REGION = process.env.AWS_REGION || "eu-west-1";
+
+const REQUIRED_FIELDS = ["sensor_type", "site_id", "readings"];
+
+function validateIngestBody(body) {
+  if (body === null || typeof body !== "object" || Array.isArray(body)) {
+    return "request body must be a JSON object";
+  }
+  for (const field of REQUIRED_FIELDS) {
+    if (!(field in body)) return `missing required field: ${field}`;
+  }
+  if (typeof body.sensor_type !== "string" || body.sensor_type.length === 0) {
+    return "sensor_type must be a non-empty string";
+  }
+  if (typeof body.site_id !== "string" || body.site_id.length === 0) {
+    return "site_id must be a non-empty string";
+  }
+  if (!Array.isArray(body.readings) || body.readings.length === 0) {
+    return "readings must be a non-empty array";
+  }
+  for (const reading of body.readings) {
+    if (reading === null || typeof reading !== "object") return "each reading must be an object";
+    if (typeof reading.value !== "number" || Number.isNaN(reading.value)) {
+      return "each reading must have a numeric value";
+    }
+    if (typeof reading.ts !== "string") return "each reading must have a string ts";
+  }
+  return null;
+}
+
+function readJsonBody(req) {
+  return new Promise((resolve, reject) => {
+    let raw = "";
+    req.on("data", (chunk) => {
+      raw += chunk;
+      if (raw.length > 1_000_000) {
+        reject(new Error("request body too large"));
+        req.destroy();
+      }
+    });
+    req.on("end", () => {
+      if (raw.length === 0) return resolve({});
+      try {
+        resolve(JSON.parse(raw));
+      } catch (err) {
+        reject(new Error(`invalid JSON: ${err.message}`));
+      }
+    });
+    req.on("error", reject);
+  });
+}
+
+function sendJson(res, status, body) {
+  const text = JSON.stringify(body);
+  res.writeHead(status, { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(text) });
+  res.end(text);
+}
+
+function sealGroup(group, windowStart, windowEnd) {
+  const summary = summarizeWindow(group.sensorType, group.siteId, group.unit, group.readings, windowStart, windowEnd);
+  summary.alerts = evaluateAlerts(group.sensorType, summary);
+  return summary;
+}
+
+function drainWindow(station, windowStart, windowEnd) {
+  return snapshotAndClear(station).map((group) => sealGroup(group, windowStart, windowEnd));
+}
+
+function buildHandler(station) {
+  return async function handler(req, res) {
+    try {
+      const url = new URL(req.url, "http://localhost");
+
+      if (req.method === "GET" && url.pathname === "/health") {
+        return sendJson(res, 200, { status: "ok" });
+      }
+
+      if (req.method === "GET" && url.pathname === "/thresholds") {
+        return sendJson(res, 200, RULES);
+      }
+
+      if (req.method === "POST" && url.pathname === "/ingest") {
+        let body;
+        try {
+          body = await readJsonBody(req);
+        } catch (err) {
+          return sendJson(res, 400, { error: err.message });
+        }
+        const validationError = validateIngestBody(body);
+        if (validationError) {
+          return sendJson(res, 400, { error: validationError });
+        }
+        submit(station, body.sensor_type, body.site_id, body.unit, body.readings);
+        return sendJson(res, 202, { accepted: body.readings.length });
+      }
+
+      return sendJson(res, 404, { error: "not found" });
+    } catch (err) {
+      sendJson(res, 500, { error: err.message || "internal error" });
+    }
+  };
+}
+
+// Synchronous with respect to SQS: this function only drains the ring
+// buffer station and emits "window-closed" on the publisher's emitter. It
+// never awaits a network call itself -- publisher.js's attachPublisher
+// listener owns the actual send_message_batch call. See fog/publisher.js.
+function flushOnce(station, emitter) {
+  const windowEnd = new Date().toISOString();
+  const windowStart = new Date(Date.now() - WINDOW_SECONDS * 1000).toISOString();
+  const messages = drainWindow(station, windowStart, windowEnd);
+  emitter.emit("window-closed", messages);
+  return messages;
+}
+
+function createApp(station = createStation()) {
+  const server = http.createServer(buildHandler(station));
+  server.station = station;
+  return server;
+}
+
+async function start() {
+  const app = createApp();
+  const publisher = await createPublisher({ endpoint: ENDPOINT, region: REGION, queueName: QUEUE_NAME });
+
+  setInterval(() => {
+    try {
+      flushOnce(app.station, publisher.emitter);
+    } catch (err) {
+      console.log(`window flush error: ${err.message}`);
+    }
+  }, WINDOW_SECONDS * 1000);
+
+  app.listen(8000, () => console.log("fog listening on :8000"));
+}
+
+if (require.main === module) {
+  start();
+}
+
+module.exports = { createApp, validateIngestBody, drainWindow, sealGroup, flushOnce };

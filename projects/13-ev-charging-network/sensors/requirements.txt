@@ -1,0 +1,3 @@
+# Intentionally empty: sensors/sensor.py only imports Python stdlib
+# modules (json, os, random, threading, time, urllib, concurrent.futures,
+# dataclasses, datetime) -- no third-party dependencies needed.

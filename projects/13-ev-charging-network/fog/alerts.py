@@ -1,0 +1,49 @@
+"""Alert rules as a flat list of plain dicts -- the 4th distinct alert-rule
+idiom across this portfolio's Python projects: 01 keeps THRESHOLDS as a
+dict-of-lists-of-tuples keyed by sensor_type; 05 wires one hand-written
+_check_<key> function per exception through a dict-dispatch table
+(_EVALUATORS); 12 defines a frozen, __post_init__-validated Rule dataclass
+and stores every rule in one flat RULES list. Here a rule is nothing more
+than {sensor_type, field, op, limit, key} -- no class, no dataclass, no
+dispatch table -- and evaluate_rules() is a small generic pure function
+that takes the rule list as an explicit parameter (rather than reading a
+module global), so it is exercised in tests against any rule set without
+monkeypatching module state.
+"""
+
+RULES = [
+    {"sensor_type": "station_temp_c", "field": "avg", "op": ">", "limit": 45, "key": "overheat_risk"},
+    {"sensor_type": "charging_current_a", "field": "avg", "op": ">", "limit": 32, "key": "overcurrent"},
+    {"sensor_type": "grid_load_kw", "field": "avg", "op": ">", "limit": 80, "key": "grid_strain"},
+    {"sensor_type": "session_duration_min", "field": "avg", "op": ">", "limit": 180, "key": "stalled_session"},
+]
+
+
+def evaluate_rules(rules, sensor_type, summary):
+    """Return every alert key among `rules` whose sensor_type matches and
+    whose comparison against `summary` trips. battery_soc_pct has no entry
+    in RULES at all, so it always evaluates to [] -- the charging-bay UI
+    shows it as a secondary reading with no alert badge, by design."""
+    fired = []
+    for rule in rules:
+        if rule["sensor_type"] != sensor_type:
+            continue
+        value = summary[rule["field"]]
+        op, limit = rule["op"], rule["limit"]
+        if (op == ">" and value > limit) or (op == "<" and value < limit):
+            fired.append(rule["key"])
+    return fired
+
+
+def thresholds_payload(rules):
+    """Group `rules` by sensor_type for the purely-descriptive /thresholds
+    endpoint. Built fresh from `rules` on every call so it can never drift
+    from what evaluate_rules() actually enforces. Sensor types absent from
+    `rules` (battery_soc_pct) are simply absent from the payload, rather
+    than padded with an empty list, since they carry no rule at all."""
+    grouped = {}
+    for rule in rules:
+        grouped.setdefault(rule["sensor_type"], []).append(
+            {"field": rule["field"], "op": rule["op"], "limit": rule["limit"], "key": rule["key"]}
+        )
+    return grouped

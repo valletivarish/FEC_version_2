@@ -1,0 +1,160 @@
+name: sfm
+
+x-aws-env: &aws-env
+  AWS_ENDPOINT_URL: http://localstack:4566
+  AWS_REGION: eu-west-1
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  localstack:
+    image: localstack/localstack:3.8
+    ports:
+      - "4582:4566"
+    environment:
+      SERVICES: sqs,dynamodb,lambda
+      DEBUG: "0"
+      LAMBDA_KEEPALIVE_MS: "0"
+    volumes:
+      - ./localstack/init.sh:/etc/localstack/init/ready.d/init.sh
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  fog:
+    build:
+      context: ../fog
+    environment:
+      <<: *aws-env
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: sfm-array-agg
+    depends_on:
+      - localstack
+    restart: unless-stopped
+
+  # one-shot: packages handler.py+transform.py as a real Lambda wired to the
+  # SQS queue via an event source mapping (see deploy_lambda.py)
+  processor:
+    build:
+      context: ../backend/processor
+    environment:
+      <<: *aws-env
+      SQS_QUEUE_NAME: sfm-array-agg
+      TABLE_NAME: sfm-readings
+      LAMBDA_FUNCTION_NAME: sfm-processor
+    depends_on:
+      - localstack
+    restart: "no"
+
+  dashboard:
+    build:
+      context: ../backend/dashboard
+    ports:
+      - "8096:8000"
+    environment:
+      <<: *aws-env
+      TABLE_NAME: sfm-readings
+      SQS_QUEUE_NAME: sfm-array-agg
+      LAMBDA_FUNCTION_NAME: sfm-processor
+      FOG_HEALTH_URL: http://fog:8000/health
+      FOG_THRESHOLDS_URL: http://fog:8000/thresholds
+    depends_on:
+      - localstack
+    restart: unless-stopped
+
+  sensor-irradiance-a1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: irradiance_wm2
+      SITE_ID: array-1
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  sensor-irradiance-a2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: irradiance_wm2
+      SITE_ID: array-2
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-panel-temp-a1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: panel_temp_c
+      SITE_ID: array-1
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-panel-temp-a2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: panel_temp_c
+      SITE_ID: array-2
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  sensor-inverter-a1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: inverter_output_kw
+      SITE_ID: array-1
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "12"
+
+  sensor-inverter-a2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: inverter_output_kw
+      SITE_ID: array-2
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "13"
+
+  sensor-dc-voltage-a1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: dc_voltage_v
+      SITE_ID: array-1
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-dc-voltage-a2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: dc_voltage_v
+      SITE_ID: array-2
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-soiling-a1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: soiling_index_pct
+      SITE_ID: array-1
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "15"
+
+  sensor-soiling-a2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: soiling_index_pct
+      SITE_ID: array-2
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "16"

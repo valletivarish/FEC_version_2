@@ -1,0 +1,207 @@
+name: dce
+
+networks:
+  dce_net:
+    name: dce_net
+
+x-aws-env: &aws-env
+  AWS_ENDPOINT_URL: http://localstack:4566
+  AWS_REGION: eu-west-1
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+  networks:
+    - dce_net
+
+services:
+  localstack:
+    image: localstack/localstack:3.8
+    ports:
+      - "4580:4566"
+    environment:
+      SERVICES: sqs,dynamodb,lambda,apigateway
+      DEBUG: "0"
+      LAMBDA_KEEPALIVE_MS: "0"
+      # Lambda executor containers (dce-processor, dce-api) join this same
+      # docker-compose network so they can resolve "fog" and "localstack"
+      # by hostname -- required for dce-api's fog health/thresholds calls.
+      LAMBDA_DOCKER_NETWORK: dce_net
+    volumes:
+      - ./localstack/init.sh:/etc/localstack/init/ready.d/init.sh
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - dce_net
+
+  fog:
+    build:
+      context: ../fog
+    environment:
+      <<: *aws-env
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: dce-hall-agg
+    depends_on:
+      - localstack
+    restart: unless-stopped
+    networks:
+      - dce_net
+
+  # one-shot: packages backend/processor/handler.js and deploys it as a real
+  # Lambda (dce-processor) wired to the SQS queue via an event source mapping
+  processor:
+    build:
+      context: ../backend/processor
+    environment:
+      <<: *aws-env
+      SQS_QUEUE_NAME: dce-hall-agg
+      TABLE_NAME: dce-readings
+      LAMBDA_FUNCTION_NAME: dce-processor
+    depends_on:
+      - localstack
+    restart: "no"
+    networks:
+      - dce_net
+
+  # one-shot: packages backend/api/handler.js, deploys it as the dce-api
+  # Lambda, then provisions a real API Gateway REST API ({proxy+} resource,
+  # ANY method, AWS_PROXY integration) deployed to stage "local" in front
+  # of it. This is Nithin's individually-required backend architecture.
+  api-deploy:
+    build:
+      context: ../backend/api
+    environment:
+      <<: *aws-env
+      TABLE_NAME: dce-readings
+      SQS_QUEUE_NAME: dce-hall-agg
+      LAMBDA_FUNCTION_NAME: dce-processor
+      API_FUNCTION_NAME: dce-api
+      API_GATEWAY_NAME: dce-api-gateway
+      API_STAGE_NAME: local
+      FOG_HEALTH_URL: http://fog:8000/health
+      FOG_THRESHOLDS_URL: http://fog:8000/thresholds
+    depends_on:
+      - localstack
+      - fog
+    restart: "no"
+    networks:
+      - dce_net
+
+  dashboard:
+    build:
+      context: ../backend/dashboard
+    ports:
+      - "8094:8000"
+    environment:
+      <<: *aws-env
+      API_GATEWAY_NAME: dce-api-gateway
+      API_STAGE_NAME: local
+    depends_on:
+      localstack:
+        condition: service_started
+      # api-deploy must fully finish (exit 0) before the dashboard starts,
+      # since the dashboard resolves the API Gateway invoke URL exactly
+      # ONCE at startup (per spec) and does not retry that resolution
+      # again later -- waiting on real container completion here, not
+      # just container start, is what makes that one-shot resolution safe.
+      api-deploy:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    networks:
+      - dce_net
+
+  sensor-temp-h1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: temperature_c
+      SITE_ID: hall-1
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  sensor-temp-h2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: temperature_c
+      SITE_ID: hall-2
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-humidity-h1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: humidity_pct
+      SITE_ID: hall-1
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-humidity-h2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: humidity_pct
+      SITE_ID: hall-2
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  sensor-airflow-h1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: airflow_cfm
+      SITE_ID: hall-1
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "7"
+
+  sensor-airflow-h2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: airflow_cfm
+      SITE_ID: hall-2
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "6"
+
+  sensor-power-h1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: power_load_kw
+      SITE_ID: hall-1
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "6"
+
+  sensor-power-h2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: power_load_kw
+      SITE_ID: hall-2
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "5"
+
+  sensor-dust-h1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: dust_density_ugm3
+      SITE_ID: hall-1
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-dust-h2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: dust_density_ugm3
+      SITE_ID: hall-2
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"

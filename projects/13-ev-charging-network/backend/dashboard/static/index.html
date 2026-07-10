@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EV Charging Network</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-title">
+    <h1>EV Charging Network</h1>
+    <p class="subtitle">Fog and Edge Computing CA &mdash; two-hub charging bay monitor</p>
+  </div>
+  <div class="status-strip" id="status-strip">
+    <span class="status-item"><span class="dot" id="dot-gateway"></span>Gateway</span>
+    <span class="status-item"><span class="dot" id="dot-queue"></span>Queue</span>
+    <span class="status-item"><span class="dot" id="dot-lambda"></span>Processor</span>
+    <span class="status-item"><span class="dot" id="dot-pipeline"></span>Pipeline</span>
+  </div>
+</header>
+
+<main>
+  <section class="backend-stats" id="backend-stats">
+    <span id="stat-queue-waiting">queue waiting: &ndash;</span>
+    <span id="stat-queue-inflight">in flight: &ndash;</span>
+    <span id="stat-items">records stored: &ndash;</span>
+    <span id="stat-freshness">freshest window: &ndash;</span>
+  </section>
+
+  <section class="hub-grid" id="hub-grid">
+    <p class="loading-note">Loading hub data&hellip;</p>
+  </section>
+
+  <section class="trend-section">
+    <h2>Grid Load Trend</h2>
+    <p class="section-note">Recent window averages per hub (kW draw on the local grid connection).</p>
+    <div class="chart-wrap">
+      <canvas id="grid-load-trend-chart" height="90"></canvas>
+    </div>
+  </section>
+
+  <section class="rules-section">
+    <h2>Alert Rules</h2>
+    <p class="section-note">Descriptive mirror of the fog node's real threshold rules (fog/alerts.py). Does not drive evaluation &mdash; shown here for reference only.</p>
+    <div id="rules-list" class="rules-list"><p class="loading-note">Loading rules&hellip;</p></div>
+  </section>
+</main>
+
+<footer>
+  <p>Data refreshes every 2.5 seconds.</p>
+</footer>
+
+<script src="/static/vendor/chart.umd.min.js"></script>
+<script src="/static/dashboard.js"></script>
+</body>
+</html>

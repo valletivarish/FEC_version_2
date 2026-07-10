@@ -1,0 +1,186 @@
+/* Public Transit Fleet Monitor -- deep transit-authority navy with a
+   safety-orange accent. Each depot is a section of plain cards, one card per
+   vehicle/sensor type, summarizing that depot's whole fleet for that metric
+   against the browser's own native <meter> element -- no hand-drawn
+   illustration, no bus/route icon, anywhere. */
+
+:root {
+  --navy-deep: #0a1930;
+  --navy-panel: #112d52;
+  --navy-panel-raised: #17396a;
+  --line: #24487c;
+  --orange: #ff5a1f;
+  --orange-soft: #47230f;
+  --ink: #eef3fa;
+  --ink-dim: #8fa6cc;
+  --ok: #3ecf8e;
+  --alert: #ff4d4d;
+  --alert-soft: #401b16;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  background: var(--navy-deep);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 20px 26px;
+  background: var(--navy-panel);
+  border-bottom: 2px solid var(--orange);
+}
+.brand { display: flex; align-items: center; gap: 14px; }
+.brand-mark {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 6px;
+  background: var(--orange);
+}
+.topbar h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+.brand-sub { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-dim); }
+
+.health-strip { display: flex; gap: 8px; flex-wrap: wrap; }
+.health-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  padding: 5px 11px;
+  border-radius: 20px;
+  background: var(--navy-panel-raised);
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
+}
+.health-pill .swatch { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+.health-pill.down .swatch { background: var(--alert); }
+.health-pill.down { color: #ffb3ab; }
+
+.alert-banner {
+  padding: 11px 26px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--alert-soft);
+  color: #ffb3ab;
+  border-bottom: 1px solid #5c261f;
+}
+
+.content { max-width: 1180px; margin: 0 auto; padding: 26px; display: flex; flex-direction: column; gap: 32px; }
+.section-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--orange);
+  margin: 0 0 14px;
+}
+
+.depot-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.metric-card {
+  position: relative;
+  background: var(--navy-panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+}
+.metric-card.has-alert { border-color: var(--alert); box-shadow: 0 0 0 1px var(--alert); }
+
+.metric-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.metric-card-head .name { font-size: 12px; font-weight: 700; letter-spacing: 0.02em; color: var(--ink-dim); text-transform: uppercase; }
+
+.metric-card .value {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.metric-card .value .unit { font-size: 12px; font-weight: 500; color: var(--ink-dim); margin-left: 4px; }
+
+meter.reading-meter {
+  width: 100%;
+  height: 9px;
+  margin-bottom: 8px;
+}
+meter.reading-meter::-webkit-meter-bar {
+  background: var(--navy-deep);
+  border: none;
+  border-radius: 5px;
+}
+meter.reading-meter::-webkit-meter-optimum-value {
+  background: var(--orange);
+  border-radius: 5px;
+}
+meter.reading-meter.danger::-webkit-meter-optimum-value,
+meter.reading-meter.danger::-webkit-meter-suboptimum-value {
+  background: var(--alert);
+}
+meter.reading-meter { accent-color: var(--orange); }
+meter.reading-meter.danger { accent-color: var(--alert); }
+
+.metric-card .stats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10.5px;
+  color: var(--ink-dim);
+}
+
+.metric-card .alert-badge {
+  margin-top: 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--alert);
+}
+
+.metric-card .no-data {
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+
+.trend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+}
+.trend-card {
+  background: var(--navy-panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px 8px;
+  overflow-x: auto;
+}
+.trend-card h4 { margin: 0 0 6px; font-size: 12px; font-weight: 700; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+.trend-card canvas { width: 100% !important; }
+
+.pipeline-footer {
+  padding: 12px 26px 24px;
+  font-size: 11.5px;
+  color: var(--ink-dim);
+  border-top: 1px solid var(--line);
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+@media (max-width: 480px) {
+  .topbar { padding: 16px 18px; }
+  .content { padding: 18px; gap: 24px; }
+  .depot-cards { grid-template-columns: 1fr; }
+}
