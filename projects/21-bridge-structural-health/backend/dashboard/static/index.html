@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bridge &amp; Structural Health Monitoring</title>
+<link rel="stylesheet" href="/static/style.css" />
+<script src="/static/vendor/chart.umd.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>Bridge &amp; Structural Health Monitoring</h1>
+  <p class="subtitle">Span A / Span B &mdash; live structural sensor pipeline</p>
+</header>
+
+<main>
+  <section class="panel" id="health-panel">
+    <h2>Pipeline Health</h2>
+    <div class="pill-row" id="health-pills"></div>
+  </section>
+
+  <section class="panel" id="pipeline-panel">
+    <h2>Data Flow</h2>
+    <div class="stage-row" id="pipeline-stages"></div>
+  </section>
+
+  <section class="panel" id="stats-panel">
+    <h2>Backend Stats</h2>
+    <div class="stats-row" id="backend-stats"></div>
+  </section>
+
+  <section class="span-grid" id="span-grid"></section>
+
+  <section class="panel trend-panel">
+    <h2>Strain Trend (microstrain)</h2>
+    <canvas id="strain-trend-chart" height="90"></canvas>
+  </section>
+</main>
+
+<footer>
+  Bridge &amp; Structural Health Monitoring &mdash; Fog and Edge Computing coursework, Phase 1 (LocalStack)
+</footer>
+
+<script src="/static/dashboard.js"></script>
+</body>
+</html>

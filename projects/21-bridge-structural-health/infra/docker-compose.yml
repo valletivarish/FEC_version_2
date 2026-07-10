@@ -1,0 +1,160 @@
+name: bshm
+
+x-aws-env: &aws-env
+  AWS_ENDPOINT_URL: http://localstack:4566
+  AWS_REGION: eu-west-1
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  localstack:
+    image: localstack/localstack:3.8
+    ports:
+      - "4586:4566"
+    environment:
+      SERVICES: sqs,dynamodb,lambda
+      DEBUG: "0"
+      LAMBDA_KEEPALIVE_MS: "0"
+    volumes:
+      - ./localstack/init.sh:/etc/localstack/init/ready.d/init.sh
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  fog:
+    build:
+      context: ../fog
+    environment:
+      <<: *aws-env
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: bshm-span-agg
+    depends_on:
+      - localstack
+    restart: unless-stopped
+
+  # one-shot: packages handler.py+transform.py, deploys them as a real
+  # Lambda, and wires an SQS event source mapping to bshm-span-agg
+  processor:
+    build:
+      context: ../backend/processor
+    environment:
+      <<: *aws-env
+      SQS_QUEUE_NAME: bshm-span-agg
+      TABLE_NAME: bshm-readings
+      LAMBDA_FUNCTION_NAME: bshm-processor
+    depends_on:
+      - localstack
+    restart: "no"
+
+  dashboard:
+    build:
+      context: ../backend/dashboard
+    ports:
+      - "8100:8000"
+    environment:
+      <<: *aws-env
+      TABLE_NAME: bshm-readings
+      SQS_QUEUE_NAME: bshm-span-agg
+      LAMBDA_FUNCTION_NAME: bshm-processor
+      FOG_HEALTH_URL: http://fog:8000/health
+      FOG_THRESHOLDS_URL: http://fog:8000/thresholds
+    depends_on:
+      - localstack
+    restart: unless-stopped
+
+  sensor-strain-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: strain_microstrain
+      SITE_ID: span-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  sensor-strain-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: strain_microstrain
+      SITE_ID: span-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-vibration-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: deck_vibration_mms
+      SITE_ID: span-a
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "6"
+
+  sensor-vibration-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: deck_vibration_mms
+      SITE_ID: span-b
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "7"
+
+  sensor-tilt-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: tilt_angle_deg
+      SITE_ID: span-a
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-tilt-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: tilt_angle_deg
+      SITE_ID: span-b
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  sensor-traffic-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: traffic_load_tonnes
+      SITE_ID: span-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "12"
+
+  sensor-traffic-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: traffic_load_tonnes
+      SITE_ID: span-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-expansion-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: expansion_joint_mm
+      SITE_ID: span-a
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "14"
+
+  sensor-expansion-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: expansion_joint_mm
+      SITE_ID: span-b
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "15"
