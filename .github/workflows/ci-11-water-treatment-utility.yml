@@ -1,0 +1,57 @@
+name: ci-11-water-treatment-utility
+
+on:
+  push:
+  pull_request:
+
+defaults:
+  run:
+    working-directory: projects/11-water-treatment-utility
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm install
+        working-directory: projects/11-water-treatment-utility/sensors
+      - run: npm test
+        working-directory: projects/11-water-treatment-utility/sensors
+      - run: npm install
+        working-directory: projects/11-water-treatment-utility/fog
+      - run: npm test
+        working-directory: projects/11-water-treatment-utility/fog
+      - run: npm install
+        working-directory: projects/11-water-treatment-utility/backend/processor
+      - run: npm test
+        working-directory: projects/11-water-treatment-utility/backend/processor
+      - run: npm install
+        working-directory: projects/11-water-treatment-utility/backend/dashboard
+      - run: npm test
+        working-directory: projects/11-water-treatment-utility/backend/dashboard
+
+  integration:
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install boto3==1.35.90
+      - name: Bring up the stack
+        run: docker compose -f infra/docker-compose.yml up -d --build
+      - name: Verify end-to-end data flow
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+        run: python scripts/verify_pipeline.py
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -f infra/docker-compose.yml logs
+      - name: Tear down
+        if: always()
+        run: docker compose -f infra/docker-compose.yml down -v

@@ -1,0 +1,157 @@
+name: wtu
+
+x-aws-env: &aws-env
+  AWS_ENDPOINT_URL: http://localstack:4566
+  AWS_REGION: eu-west-1
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  localstack:
+    image: localstack/localstack:3.8
+    ports:
+      - "4576:4566"
+    environment:
+      SERVICES: sqs,dynamodb,lambda
+      DEBUG: "0"
+      LAMBDA_KEEPALIVE_MS: "0"
+    volumes:
+      - ./localstack/init.sh:/etc/localstack/init/ready.d/init.sh
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  fog:
+    build:
+      context: ../fog
+    environment:
+      <<: *aws-env
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: wtu-plant-agg
+    depends_on:
+      - localstack
+    restart: unless-stopped
+
+  # one-shot: packages handler.js and deploys it as a real Lambda wired to the SQS queue
+  processor:
+    build:
+      context: ../backend/processor
+    environment:
+      <<: *aws-env
+      SQS_QUEUE_NAME: wtu-plant-agg
+      TABLE_NAME: wtu-readings
+      LAMBDA_FUNCTION_NAME: wtu-processor
+    depends_on:
+      - localstack
+    restart: "no"
+
+  dashboard:
+    build:
+      context: ../backend/dashboard
+    ports:
+      - "8090:8000"
+    environment:
+      <<: *aws-env
+      TABLE_NAME: wtu-readings
+      SQS_QUEUE_NAME: wtu-plant-agg
+      LAMBDA_FUNCTION_NAME: wtu-processor
+    depends_on:
+      - localstack
+    restart: unless-stopped
+
+  sensor-turbidity-p1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: turbidity_ntu
+      SITE_ID: plant-1
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  sensor-turbidity-p2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: turbidity_ntu
+      SITE_ID: plant-2
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-ph-p1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: ph_level
+      SITE_ID: plant-1
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-ph-p2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: ph_level
+      SITE_ID: plant-2
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  sensor-chlorine-p1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: chlorine_ppm
+      SITE_ID: plant-1
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "7"
+
+  sensor-chlorine-p2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: chlorine_ppm
+      SITE_ID: plant-2
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "6"
+
+  sensor-flow-p1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: flow_rate_lps
+      SITE_ID: plant-1
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "6"
+
+  sensor-flow-p2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: flow_rate_lps
+      SITE_ID: plant-2
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "5"
+
+  sensor-pressure-p1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: pressure_bar
+      SITE_ID: plant-1
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-pressure-p2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: pressure_bar
+      SITE_ID: plant-2
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"

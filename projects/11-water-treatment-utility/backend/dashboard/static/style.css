@@ -1,0 +1,243 @@
+/* Water Treatment Utility Monitor -- light engineering/blueprint theme.
+   Primary view is a compact matrix table (rows = readings, columns =
+   plants) with a native <meter> per cell against that reading's configured
+   range, styled with thin blue linework rather than any hand-illustrated
+   diagram. This is the inverse orientation of 05-cold-chain-logistics'
+   manifest table (many rows = shipments, columns = attributes) and a
+   different structure entirely from the per-site card layouts used by
+   02-industrial-equipment and 09-aquaculture-fish-farm, while still only
+   using standard/native building blocks per the brief. */
+
+:root {
+  --bg: #eef4f9;
+  --surface: #ffffff;
+  --line: #c3d6e5;
+  --line-strong: #8fb0c9;
+  --ink: #14304a;
+  --ink-dim: #5c7286;
+  --accent: #1c6ea4;
+  --accent-soft: #dceaf4;
+  --alert: #b3402b;
+  --alert-soft: #fbe9e4;
+  --ok: #2f7d55;
+  --ok-soft: #e3f3ea;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 20px 26px;
+  background: var(--surface);
+  border-bottom: 2px solid var(--line-strong);
+}
+.brand { display: flex; align-items: center; gap: 14px; }
+.brand-mark {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border: 2px solid var(--accent);
+  border-radius: 2px;
+  position: relative;
+}
+.brand-mark::before,
+.brand-mark::after {
+  content: "";
+  position: absolute;
+  background: var(--accent);
+}
+.brand-mark::before { top: 50%; left: 3px; right: 3px; height: 1px; transform: translateY(-50%); }
+.brand-mark::after { left: 50%; top: 3px; bottom: 3px; width: 1px; transform: translateX(-50%); }
+.topbar h1 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.brand-sub { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-dim); }
+
+.health-strip { display: flex; gap: 8px; flex-wrap: wrap; }
+.health-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 5px 11px;
+  border-radius: 3px;
+  background: var(--accent-soft);
+  border: 1px solid var(--line);
+  color: var(--accent);
+}
+.health-pill .swatch { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+.health-pill.down { background: var(--alert-soft); color: var(--alert); border-color: #e3b7ac; }
+.health-pill.down .swatch { background: var(--alert); }
+
+.alert-banner {
+  padding: 11px 26px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--alert-soft);
+  color: var(--alert);
+  border-bottom: 1px solid #e3b7ac;
+}
+
+.content { max-width: 1180px; margin: 0 auto; padding: 26px; display: flex; flex-direction: column; gap: 34px; }
+.section-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.matrix-wrap {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+}
+
+table.matrix-table {
+  width: 100%;
+  min-width: 480px;
+  border-collapse: collapse;
+}
+table.matrix-table th,
+table.matrix-table td {
+  border-bottom: 1px solid var(--line);
+  padding: 12px 16px;
+  text-align: left;
+  vertical-align: top;
+}
+table.matrix-table thead th {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  background: var(--accent-soft);
+  border-bottom: 2px solid var(--line-strong);
+}
+table.matrix-table th.row-head-col,
+table.matrix-table td:first-child {
+  width: 34%;
+}
+table.matrix-table tbody th {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  background: transparent;
+}
+table.matrix-table tbody tr:last-child th,
+table.matrix-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.unit-tag { display: block; font-size: 10.5px; font-weight: 400; color: var(--ink-dim); margin-top: 1px; }
+
+.reading-cell .value { font-size: 16px; font-weight: 700; }
+.reading-cell .value .unit { font-size: 10.5px; font-weight: 500; color: var(--ink-dim); margin-left: 3px; }
+.reading-cell.flagged .value { color: var(--alert); }
+.reading-cell .cell-alert {
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--alert);
+  background: var(--alert-soft);
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+.reading-cell .empty { color: var(--ink-dim); font-weight: 400; }
+
+meter.cell-meter { display: block; width: 100%; max-width: 160px; height: 8px; margin-top: 6px; }
+meter.cell-meter::-webkit-meter-bar { background: var(--bg); border: 1px solid var(--line); border-radius: 4px; }
+meter.cell-meter::-webkit-meter-optimum-value { background: var(--accent); border-radius: 4px; }
+meter.cell-meter.danger::-webkit-meter-optimum-value,
+meter.cell-meter.danger::-webkit-meter-suboptimum-value { background: var(--alert); }
+meter.cell-meter { accent-color: var(--accent); }
+meter.cell-meter.danger { accent-color: var(--alert); }
+
+.compliance-strip { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.plant-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 3px;
+  background: var(--ok-soft);
+  color: var(--ok);
+  border: 1px solid #bfe0cd;
+}
+.plant-status.alert { background: var(--alert-soft); color: var(--alert); border-color: #e3b7ac; }
+.plant-status .swatch { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+.trend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+}
+.trend-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 12px 14px 8px;
+  overflow-x: auto;
+}
+.trend-card h4 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.trend-card canvas { width: 100% !important; }
+
+.pipeline-footer {
+  padding: 12px 26px 24px;
+  font-size: 11.5px;
+  color: var(--ink-dim);
+  border-top: 1px solid var(--line);
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+@media (max-width: 480px) {
+  .topbar { padding: 16px 18px; }
+  .content { padding: 14px; gap: 22px; }
+  /* Below ~480px the matrix table shrinks to fit both plant columns in the
+     viewport at once (min-width dropped) rather than relying solely on the
+     wrapper's horizontal scroll -- both readings stay visible side by side
+     even on a 375px-wide phone. */
+  table.matrix-table { min-width: 0; }
+  table.matrix-table th, table.matrix-table td { padding: 8px 6px; }
+  table.matrix-table th.row-head-col, table.matrix-table td:first-child { width: 32%; }
+  table.matrix-table thead th { font-size: 9.5px; }
+  .unit-tag { font-size: 9px; }
+  .reading-cell .value { font-size: 13px; }
+  .reading-cell .value .unit { font-size: 9px; }
+  .reading-cell .cell-alert { font-size: 8.5px; padding: 1px 4px; }
+  meter.cell-meter { max-width: 70px; height: 7px; }
+}
