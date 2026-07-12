@@ -1,0 +1,160 @@
+name: mvs
+
+x-aws-env: &aws-env
+  AWS_ENDPOINT_URL: http://localstack:4566
+  AWS_REGION: eu-west-1
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  localstack:
+    image: localstack/localstack:3.8
+    ports:
+      - "4588:4566"
+    environment:
+      SERVICES: sqs,dynamodb,lambda
+      DEBUG: "0"
+      LAMBDA_KEEPALIVE_MS: "0"
+    volumes:
+      - ./localstack/init.sh:/etc/localstack/init/ready.d/init.sh
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  fog:
+    build:
+      context: ../fog
+    environment:
+      <<: *aws-env
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: mvs-vessel-agg
+    depends_on:
+      - localstack
+    restart: unless-stopped
+
+  # one-shot: packages handler.py+transform.py, deploys them as a real
+  # Lambda, and wires an SQS event source mapping to mvs-vessel-agg
+  processor:
+    build:
+      context: ../backend/processor
+    environment:
+      <<: *aws-env
+      SQS_QUEUE_NAME: mvs-vessel-agg
+      TABLE_NAME: mvs-readings
+      LAMBDA_FUNCTION_NAME: mvs-processor
+    depends_on:
+      - localstack
+    restart: "no"
+
+  dashboard:
+    build:
+      context: ../backend/dashboard
+    ports:
+      - "8102:8000"
+    environment:
+      <<: *aws-env
+      TABLE_NAME: mvs-readings
+      SQS_QUEUE_NAME: mvs-vessel-agg
+      LAMBDA_FUNCTION_NAME: mvs-processor
+      FOG_HEALTH_URL: http://fog:8000/health
+      FOG_THRESHOLDS_URL: http://fog:8000/thresholds
+    depends_on:
+      - localstack
+    restart: unless-stopped
+
+  sensor-engine-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: engine_room_temp_c
+      SITE_ID: vessel-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  sensor-engine-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: engine_room_temp_c
+      SITE_ID: vessel-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-fuel-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: fuel_consumption_lph
+      SITE_ID: vessel-a
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-fuel-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: fuel_consumption_lph
+      SITE_ID: vessel-b
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  sensor-ballast-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: ballast_water_level_pct
+      SITE_ID: vessel-a
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "12"
+
+  sensor-ballast-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: ballast_water_level_pct
+      SITE_ID: vessel-b
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "13"
+
+  sensor-hull-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: hull_vibration_mm
+      SITE_ID: vessel-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "14"
+
+  sensor-hull-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: hull_vibration_mm
+      SITE_ID: vessel-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-passenger-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: passenger_count
+      SITE_ID: vessel-a
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "15"
+
+  sensor-passenger-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: passenger_count
+      SITE_ID: vessel-b
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "16"

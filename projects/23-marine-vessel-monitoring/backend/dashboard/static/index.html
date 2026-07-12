@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Marine Vessel Monitoring</title>
+<link rel="stylesheet" href="/static/style.css" />
+<script src="/static/vendor/chart.umd.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>Marine Vessel Monitoring</h1>
+  <p class="subtitle">Vessel A / Vessel B, bridge instrument console</p>
+</header>
+
+<main>
+  <section class="panel" id="health-panel">
+    <h2>Pipeline Health</h2>
+    <div class="pill-row" id="health-pills"></div>
+  </section>
+
+  <section class="panel" id="pipeline-panel">
+    <h2>Data Flow</h2>
+    <div class="stage-row" id="pipeline-stages"></div>
+  </section>
+
+  <section class="panel" id="stats-panel">
+    <h2>Backend Stats</h2>
+    <div class="stats-row" id="backend-stats"></div>
+  </section>
+
+  <section class="panel" id="console-panel">
+    <h2>Bridge Console: Vessel Comparison</h2>
+    <div class="console-table-wrap">
+      <table class="console-table" id="console-table">
+        <thead>
+          <tr>
+            <th>Reading</th>
+            <th>Vessel A</th>
+            <th>Vessel B</th>
+          </tr>
+        </thead>
+        <tbody id="console-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel trend-panel">
+    <h2>Engine Room Temperature Trend</h2>
+    <div class="trend-chart-frame">
+      <canvas id="trend-chart"></canvas>
+    </div>
+  </section>
+
+  <section class="panel" id="log-panel">
+    <h2>Voyage Log</h2>
+    <ol class="voyage-log" id="voyage-log"></ol>
+  </section>
+</main>
+
+<footer>
+  Marine Vessel Monitoring, Fog and Edge Computing coursework, Phase 1 (LocalStack)
+</footer>
+
+<script src="/static/dashboard.js"></script>
+</body>
+</html>
