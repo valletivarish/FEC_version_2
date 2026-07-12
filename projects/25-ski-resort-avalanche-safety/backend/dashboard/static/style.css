@@ -1,0 +1,275 @@
+/* Ski Resort & Avalanche Safety Monitor -- crisp icy-blue/white alpine
+   theme. Primary view is a horizontal risk-level gauge per slope: a plain
+   LOW/MODERATE/HIGH/EXTREME text scale drawn against a native <meter>, not
+   a colored tile, dial, heatmap, or status-line -- a structural axis not
+   used by any of this portfolio's other 22 dashboards. Secondary detail
+   (the 5 per-slope readings) is a plain label/value list with a small
+   <meter> per reading, deliberately not a rows-x-columns matrix table (that
+   layout is 11-water-treatment-utility's primary view). Standard system
+   font stack only, zero custom SVG, zero emoji throughout. */
+
+:root {
+  --bg: #eef5fb;
+  --surface: #ffffff;
+  --line: #c9dcec;
+  --line-strong: #8fb7d6;
+  --ink: #0f2c47;
+  --ink-dim: #5a7690;
+  --accent: #0b6fa8;
+  --accent-soft: #e0eef8;
+  --alert: #b23a2f;
+  --alert-soft: #fbeae7;
+  --ok: #1f7a5c;
+  --ok-soft: #e2f3ec;
+  --risk-low: #1f7a5c;
+  --risk-moderate: #b58a1f;
+  --risk-high: #c0602a;
+  --risk-extreme: #b23a2f;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 20px 26px;
+  background: var(--surface);
+  border-bottom: 2px solid var(--line-strong);
+}
+.brand { display: flex; align-items: center; gap: 14px; }
+.brand-mark {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border: 2px solid var(--accent);
+  border-radius: 2px;
+  position: relative;
+}
+.brand-mark::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  background: var(--accent);
+  transform: translateX(-50%) rotate(20deg);
+}
+.brand-mark::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  background: var(--accent);
+  transform: translateX(-50%) rotate(-20deg);
+}
+.topbar h1 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.brand-sub { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-dim); }
+
+.health-strip { display: flex; gap: 8px; flex-wrap: wrap; }
+.health-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 5px 11px;
+  border-radius: 3px;
+  background: var(--accent-soft);
+  border: 1px solid var(--line);
+  color: var(--accent);
+}
+.health-pill .swatch { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+.health-pill.down { background: var(--alert-soft); color: var(--alert); border-color: #e3b7ac; }
+.health-pill.down .swatch { background: var(--alert); }
+
+.alert-banner {
+  padding: 11px 26px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--alert-soft);
+  color: var(--alert);
+  border-bottom: 1px solid #e3b7ac;
+}
+
+.content { max-width: 1180px; margin: 0 auto; padding: 26px; display: flex; flex-direction: column; gap: 34px; }
+.section-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* Primary view: risk-level gauge cards, one per slope. Each card is a
+   plain LOW/MODERATE/HIGH/EXTREME text scale drawn beneath a single
+   horizontal native <meter> -- the meter's value is the risk index
+   (0=LOW .. 3=EXTREME), not a raw sensor reading. */
+.risk-gauge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+.risk-gauge-card {
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 18px 20px;
+}
+.risk-gauge-card .slope-name {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin: 0 0 6px;
+}
+.risk-gauge-card .risk-level-text {
+  font-size: 26px;
+  font-weight: 800;
+  margin: 0 0 12px;
+  letter-spacing: 0.01em;
+}
+.risk-level-text.risk-LOW { color: var(--risk-low); }
+.risk-level-text.risk-MODERATE { color: var(--risk-moderate); }
+.risk-level-text.risk-HIGH { color: var(--risk-high); }
+.risk-level-text.risk-EXTREME { color: var(--risk-extreme); }
+
+meter.risk-meter {
+  display: block;
+  width: 100%;
+  height: 14px;
+  margin-bottom: 6px;
+  accent-color: var(--accent);
+}
+meter.risk-meter::-webkit-meter-bar { background: var(--bg); border: 1px solid var(--line); border-radius: 7px; }
+meter.risk-meter::-webkit-meter-optimum-value { background: var(--risk-low); border-radius: 7px; }
+meter.risk-meter::-webkit-meter-suboptimum-value { background: var(--risk-moderate); border-radius: 7px; }
+meter.risk-meter::-webkit-meter-even-less-good-value { background: var(--risk-extreme); border-radius: 7px; }
+
+.risk-scale-ticks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ink-dim);
+  margin-bottom: 12px;
+}
+.risk-scale-ticks span.active { color: var(--ink); }
+
+.risk-active-alerts { display: flex; flex-direction: column; gap: 5px; }
+.risk-active-alerts .alert-line {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--alert);
+  background: var(--alert-soft);
+  padding: 4px 9px;
+  border-radius: 3px;
+}
+.risk-active-alerts .no-alerts { font-size: 11.5px; color: var(--ok); font-weight: 600; }
+
+/* Secondary detail: a plain per-slope reading list, not a matrix table. */
+.reading-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+.reading-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 14px 18px;
+}
+.reading-panel h3 {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.reading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+}
+.reading-row:last-child { border-bottom: none; }
+.reading-row .reading-label { font-size: 12.5px; color: var(--ink-dim); flex: 0 0 42%; }
+.reading-row .reading-value { font-size: 14px; font-weight: 700; text-align: right; flex: 0 0 auto; }
+.reading-row .reading-value .unit { font-size: 10px; font-weight: 500; color: var(--ink-dim); margin-left: 2px; }
+.reading-row.flagged .reading-value { color: var(--alert); }
+meter.reading-meter { flex: 1 1 auto; height: 7px; margin: 0 8px; accent-color: var(--accent); }
+meter.reading-meter.danger { accent-color: var(--alert); }
+meter.reading-meter::-webkit-meter-bar { background: var(--bg); border: 1px solid var(--line); border-radius: 4px; }
+meter.reading-meter::-webkit-meter-optimum-value { background: var(--accent); border-radius: 4px; }
+meter.reading-meter.danger::-webkit-meter-optimum-value,
+meter.reading-meter.danger::-webkit-meter-suboptimum-value { background: var(--alert); }
+
+.trend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+}
+.trend-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 12px 14px 8px;
+  overflow-x: auto;
+}
+.trend-card h4 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.trend-card canvas { width: 100% !important; }
+
+.pipeline-footer {
+  padding: 12px 26px 24px;
+  font-size: 11.5px;
+  color: var(--ink-dim);
+  border-top: 1px solid var(--line);
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+@media (max-width: 480px) {
+  .topbar { padding: 16px 18px; }
+  .content { padding: 14px; gap: 22px; }
+  .risk-gauge-grid, .reading-panel-grid { grid-template-columns: 1fr; }
+  .risk-gauge-card .risk-level-text { font-size: 21px; }
+  .reading-row .reading-label { font-size: 11.5px; }
+  .reading-row .reading-value { font-size: 12.5px; }
+  meter.reading-meter { margin: 0 6px; }
+}

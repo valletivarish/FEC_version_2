@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ski Resort &amp; Avalanche Safety Monitor</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/vendor/chart.umd.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div>
+        <h1>Ski Resort &amp; Avalanche Safety Monitor</h1>
+        <p class="brand-sub">Two monitored slopes, snowpack, snow temperature, wind, seismic activity &amp; lift status, live</p>
+      </div>
+    </div>
+    <div id="health-strip" class="health-strip"></div>
+  </header>
+
+  <section id="alert-banner" class="alert-banner" hidden></section>
+
+  <main class="content">
+    <section aria-label="Avalanche risk gauge">
+      <h2 class="section-title">Slope Avalanche Risk</h2>
+      <div id="risk-gauge-grid" class="risk-gauge-grid"></div>
+    </section>
+
+    <section aria-label="Sensor readings">
+      <h2 class="section-title">Sensor Readings</h2>
+      <div id="reading-panel-grid" class="reading-panel-grid"></div>
+    </section>
+
+    <section aria-label="Trends">
+      <h2 class="section-title">Window-Average Trends</h2>
+      <div id="trend-grid" class="trend-grid"></div>
+    </section>
+  </main>
+
+  <footer class="pipeline-footer">
+    <span id="backend-stats" class="backend-stats"></span>
+  </footer>
+
+  <script src="/static/dashboard.js"></script>
+</body>
+</html>

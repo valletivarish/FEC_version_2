@@ -1,0 +1,157 @@
+name: ska
+
+x-aws-env: &aws-env
+  AWS_ENDPOINT_URL: http://localstack:4566
+  AWS_REGION: eu-west-1
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  localstack:
+    image: localstack/localstack:3.8
+    ports:
+      - "4590:4566"
+    environment:
+      SERVICES: sqs,dynamodb,lambda
+      DEBUG: "0"
+      LAMBDA_KEEPALIVE_MS: "0"
+    volumes:
+      - ./localstack/init.sh:/etc/localstack/init/ready.d/init.sh
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  fog:
+    build:
+      context: ../fog
+    environment:
+      <<: *aws-env
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: ska-slope-agg
+    depends_on:
+      - localstack
+    restart: unless-stopped
+
+  # one-shot: packages handler.js and deploys it as a real Lambda wired to the SQS queue
+  processor:
+    build:
+      context: ../backend/processor
+    environment:
+      <<: *aws-env
+      SQS_QUEUE_NAME: ska-slope-agg
+      TABLE_NAME: ska-readings
+      LAMBDA_FUNCTION_NAME: ska-processor
+    depends_on:
+      - localstack
+    restart: "no"
+
+  dashboard:
+    build:
+      context: ../backend/dashboard
+    ports:
+      - "8104:8000"
+    environment:
+      <<: *aws-env
+      TABLE_NAME: ska-readings
+      SQS_QUEUE_NAME: ska-slope-agg
+      LAMBDA_FUNCTION_NAME: ska-processor
+    depends_on:
+      - localstack
+    restart: unless-stopped
+
+  sensor-snowpack-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: snowpack_depth_cm
+      SITE_ID: slope-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  sensor-snowpack-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: snowpack_depth_cm
+      SITE_ID: slope-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-snowtemp-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: snow_temp_c
+      SITE_ID: slope-a
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-snowtemp-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: snow_temp_c
+      SITE_ID: slope-b
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  sensor-wind-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: wind_speed_kmh
+      SITE_ID: slope-a
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "6"
+
+  sensor-wind-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: wind_speed_kmh
+      SITE_ID: slope-b
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "5"
+
+  sensor-seismic-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: seismic_vibration_mg
+      SITE_ID: slope-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "7"
+
+  sensor-seismic-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: seismic_vibration_mg
+      SITE_ID: slope-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "6"
+
+  sensor-lift-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: lift_chair_count
+      SITE_ID: slope-a
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-lift-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: lift_chair_count
+      SITE_ID: slope-b
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "8"
