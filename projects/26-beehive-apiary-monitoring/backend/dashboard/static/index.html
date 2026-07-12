@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Beehive &amp; Apiary Monitor</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/vendor/chart.umd.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div>
+        <h1>Beehive &amp; Apiary Monitor</h1>
+        <p class="brand-sub">Two apiaries, hive weight, brood temperature, humidity, acoustic signature &amp; entrance traffic, live</p>
+      </div>
+    </div>
+    <div id="health-strip" class="health-strip"></div>
+  </header>
+
+  <section id="alert-banner" class="alert-banner" hidden></section>
+
+  <main class="content">
+    <section aria-label="Colony health summary">
+      <h2 class="section-title">Colony Health Summary</h2>
+      <div id="narrative-list" class="narrative-list"></div>
+    </section>
+
+    <section aria-label="Trends">
+      <h2 class="section-title">Window-Average Trends</h2>
+      <div id="trend-grid" class="trend-grid"></div>
+    </section>
+  </main>
+
+  <footer class="pipeline-footer">
+    <span id="backend-stats" class="backend-stats"></span>
+  </footer>
+
+  <script src="/static/dashboard.js"></script>
+</body>
+</html>

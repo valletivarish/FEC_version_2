@@ -1,0 +1,217 @@
+/* Beehive & Apiary Monitor -- warm honey-gold/amber-brown apiary theme.
+   Primary view is a narrative "colony health summary" readout: one card per
+   apiary carrying a single plain-English sentence combining hive-weight
+   trend direction with brood-temperature stability, followed by the 5 raw
+   readings as secondary rows with a native <meter> each. This is a
+   genuinely different structural axis from every sibling dashboard in this
+   portfolio -- not a tile grid, badge set, heatmap, dial, status-line,
+   priority-list, matrix table, scorecard, or labeled-scale gauge (see
+   readme.txt for the full comparison). The accent is a deep amber-brown
+   (#a35a12). Its hue sits close to 17-solar-farm-monitoring's goldenrod
+   heatmap, so the real separation from it is lightness, not hue: this
+   palette stays materially darker and richer (L ~35% vs 17's ~53%) and
+   pairs it with a dark coffee-brown header band, rather than relying on
+   hue alone to read as a different color. */
+
+:root {
+  --bg: #f4e8ce;
+  --surface: #fffaf0;
+  --header-bg: #3b2712;
+  --header-ink: #f4e0b0;
+  --ink: #3b2712;
+  --ink-dim: #8a6f4e;
+  --line: #e0c894;
+  --line-strong: #c9a35b;
+  --accent: #a35a12;
+  --accent-soft: #f1dcae;
+  --alert: #9c3b23;
+  --alert-soft: #f5ddd0;
+  --ok: #5f7a33;
+  --ok-soft: #e8eed9;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 20px 26px;
+  background: var(--header-bg);
+  border-bottom: 2px solid var(--line-strong);
+}
+.brand { display: flex; align-items: center; gap: 14px; }
+.brand-mark {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 50%;
+  background: repeating-linear-gradient(
+    135deg,
+    var(--accent) 0 4px,
+    var(--header-ink) 4px 8px
+  );
+  border: 2px solid var(--header-ink);
+}
+.topbar h1 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--header-ink);
+}
+.brand-sub { margin: 3px 0 0; font-size: 12.5px; color: var(--accent-soft); }
+
+.health-strip { display: flex; gap: 8px; flex-wrap: wrap; }
+.health-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 5px 11px;
+  border-radius: 3px;
+  background: rgba(244, 224, 176, 0.14);
+  border: 1px solid rgba(244, 224, 176, 0.3);
+  color: var(--header-ink);
+}
+.health-pill .swatch { width: 6px; height: 6px; border-radius: 50%; background: #8fbf5e; }
+.health-pill.down { background: rgba(156, 59, 35, 0.25); border-color: rgba(156, 59, 35, 0.5); }
+.health-pill.down .swatch { background: #e08a6a; }
+
+.alert-banner {
+  padding: 11px 26px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--alert-soft);
+  color: var(--alert);
+  border-bottom: 1px solid #dba48f;
+}
+
+.content { max-width: 1180px; margin: 0 auto; padding: 26px; display: flex; flex-direction: column; gap: 34px; }
+.section-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* Primary structural axis: a narrative readout, one card per apiary. */
+.narrative-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 18px;
+}
+.narrative-card {
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-left: 5px solid var(--accent);
+  border-radius: 4px;
+  padding: 18px 20px;
+}
+.narrative-card.flagged { border-left-color: var(--alert); }
+.narrative-heading {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.narrative-sentence {
+  margin: 0 0 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+.narrative-alert-flag {
+  display: inline-block;
+  margin-bottom: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--alert);
+  background: var(--alert-soft);
+  padding: 3px 8px;
+  border-radius: 3px;
+}
+
+.reading-list { list-style: none; margin: 0; padding: 10px 0 0; border-top: 1px solid var(--line); }
+.reading-row {
+  display: grid;
+  grid-template-columns: 40% 25% 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+}
+.reading-row:last-child { border-bottom: none; }
+.reading-label { color: var(--ink-dim); font-weight: 600; }
+.reading-value { font-weight: 700; color: var(--ink); }
+.reading-value .reading-unit { font-size: 10px; font-weight: 500; color: var(--ink-dim); margin-left: 3px; }
+.reading-row.flagged .reading-value { color: var(--alert); }
+.reading-empty { color: var(--ink-dim); font-style: italic; grid-column: 2 / span 2; }
+
+meter.reading-meter { display: block; width: 100%; height: 8px; }
+meter.reading-meter::-webkit-meter-bar { background: var(--bg); border: 1px solid var(--line); border-radius: 4px; }
+meter.reading-meter::-webkit-meter-optimum-value { background: var(--accent); border-radius: 4px; }
+meter.reading-meter.danger::-webkit-meter-optimum-value,
+meter.reading-meter.danger::-webkit-meter-suboptimum-value { background: var(--alert); }
+meter.reading-meter { accent-color: var(--accent); }
+meter.reading-meter.danger { accent-color: var(--alert); }
+
+.trend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+}
+.trend-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 12px 14px 8px;
+  overflow-x: auto;
+}
+.trend-card h4 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.trend-card canvas { width: 100% !important; }
+
+.pipeline-footer {
+  padding: 12px 26px 24px;
+  font-size: 11.5px;
+  color: var(--ink-dim);
+  border-top: 1px solid var(--line);
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+@media (max-width: 480px) {
+  .topbar { padding: 16px 18px; }
+  .content { padding: 14px; gap: 22px; }
+  .narrative-list { grid-template-columns: 1fr; gap: 12px; }
+  .narrative-card { padding: 14px 16px; }
+  .narrative-heading { font-size: 14px; }
+  .narrative-sentence { font-size: 13px; }
+  .reading-row { grid-template-columns: 36% 22% 1fr; font-size: 11.5px; gap: 6px; }
+}
