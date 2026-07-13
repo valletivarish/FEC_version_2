@@ -469,6 +469,15 @@ Real resources created:
                                        -EC2, never the student's browser, so
                                        it is unaffected by campus network
                                        policy)
+  Elastic IP      54.204.136.193 (allocation eipalloc-0d769166f544d0320,
+                                       associated with the EC2 instance above
+                                       so its public IP stays fixed across a
+                                       stop/start instead of changing each
+                                       time; the dashboard Lambda's
+                                       FOG_HEALTH_URL/FOG_THRESHOLDS_URL env
+                                       vars point at this IP and need
+                                       updating only if this address is ever
+                                       released and a new one allocated)
 
 Live URLs:
   Dashboard (open this):  https://swm-frontend-548539235319.s3.us-east-1.amazonaws.com/index.html

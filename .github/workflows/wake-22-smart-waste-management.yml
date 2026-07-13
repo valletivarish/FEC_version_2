@@ -98,7 +98,7 @@ jobs:
       - name: Smoke test fog reachability and the dashboard API
         run: |
           IP=$(aws ec2 describe-instances --instance-ids "$INSTANCE_ID" --region "$AWS_REGION" --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
-          echo "fog's health endpoint should be reachable at http://$IP:8100/health (note: this IP may differ from any previously recorded one -- EC2 assigns a new public IP each time an instance starts, unless an Elastic IP is attached). The dashboard itself (S3 + API Gateway) does not depend on the EC2 instance and is not what this step is checking -- this verifies fog specifically came back up."
+          echo "fog's health endpoint should be reachable at http://$IP:8100/health -- this should be the Elastic IP 54.204.136.193 (allocation eipalloc-0d769166f544d0320), which stays fixed across stop/start; if it prints something else, the EIP was released and reallocated, and the dashboard Lambda's FOG_HEALTH_URL/FOG_THRESHOLDS_URL env vars need updating to match. The dashboard itself (S3 + API Gateway) does not depend on the EC2 instance and is not what this step is checking -- this verifies fog specifically came back up."
           for i in $(seq 1 12); do
             if curl -sf -m 8 "http://$IP:8100/health"; then
               echo ""
