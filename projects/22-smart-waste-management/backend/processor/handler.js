@@ -10,10 +10,13 @@ let client;
 function documentClient() {
   if (client) return client;
   const config = { region: process.env.AWS_REGION || "eu-west-1" };
-  if (process.env.AWS_ENDPOINT_URL) config.endpoint = process.env.AWS_ENDPOINT_URL;
-  if (process.env.AWS_ACCESS_KEY_ID) {
+  if (process.env.AWS_ENDPOINT_URL) {
+    config.endpoint = process.env.AWS_ENDPOINT_URL;
+    // LocalStack accepts any static credentials; real AWS issues temporary
+    // ones (session token required) via the execution role, so this
+    // override must not apply outside the LocalStack case.
     config.credentials = {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID || "test",
       secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "test",
     };
   }
