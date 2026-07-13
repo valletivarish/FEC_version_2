@@ -1,6 +1,14 @@
 Smart Waste Management Fog/Edge Pipeline
 Fog and Edge Computing (H9FECC) - CA Project
 
+ATTRIBUTION
+-----------
+This project (22-smart-waste-management) is the individual CA submission
+of Gundeti Sachin Reddy, Student ID X23432721. It has been deployed to a
+real AWS account (AWS Academy Learner Lab, account 548539235319, us-east-1)
+under that student's own AWS Academy credentials -- see DEPLOYMENT (AWS)
+below for the live resources and their names.
+
 All commands below assume your working directory is this folder
 (projects/22-smart-waste-management/), not the repo root.
 
@@ -413,3 +421,62 @@ whichever district has the highest fill level first, rather than a fixed
 left-to-right/row order keyed by site_id the way every sibling's matrix
 table or per-site card grid is laid out. The design generalises directly
 to more collection points without any structural change.
+
+DEPLOYMENT (AWS)
+----------------
+This project has been deployed and tested on a real AWS account (not
+LocalStack): AWS Academy Learner Lab, account 548539235319, region
+us-east-1, under Gundeti Sachin Reddy's (X23432721) own AWS Academy
+credentials.
+
+Real resources created:
+  DynamoDB table  swm-readings     (same sensor_type/sort_key schema)
+  SQS queue       swm-district-agg
+  Lambda function swm-processor    (nodejs20.x, LabRole execution role,
+                                     event-source-mapping to the queue)
+  EC2 instance    i-022c30cf73b0c10db (t3.small, tag Name=swm-dashboard-host,
+                                     LabInstanceProfile, no SSH/key-pair --
+                                     managed entirely via SSM Session
+                                     Manager, security group open only on
+                                     tcp/8101)
+  S3 bucket       swm-deploy-548539235319 (deployment staging only)
+
+The EC2 instance runs fog + dashboard + all 10 sensor containers via
+infra/docker-compose.aws.yml (a variant of infra/docker-compose.yml with
+the localstack service and the one-shot Lambda-deploy service removed,
+since the Lambda above was deployed for real directly via the AWS CLI
+instead of docker-compose's processor service).
+
+Why EC2 and not a fully serverless dashboard: the brief's cloud-deployment
+requirement is scoped to the "backend layer" (queues/FaaS/DB), which here
+is genuinely serverless (SQS + Lambda + DynamoDB, no EC2 involved). The
+fog node and sensors are described in the brief as "virtual (coded)" with
+no explicit cloud-deployment requirement of their own. EC2 was used only
+to host fog + the dashboard's own small HTTP server + the sensor
+containers as long-running processes (something Lambda is not suited to
+for a continuous sensor loop or a persistent dashboard server) once the
+scope was widened to run the entire stack in the cloud rather than only
+the backend. Running just the backend on AWS while keeping fog/sensors
+local (pointed at the real AWS endpoints instead of LocalStack) would have
+satisfied the brief without EC2 at all; EC2 was an explicit scope choice,
+not a requirement.
+
+Two Node.js AWS-client-construction bugs were found and fixed during this
+deployment (handler.js, awsClients.js, publishQueue.js all hardcoded
+LocalStack-style static test credentials on a check that is also true for
+real Lambda/EC2 execution-role credentials, which additionally require a
+session token the hardcoded override omitted) -- see commits 59f1f6a and
+ea6c9eb for the fix. This is a real, worth-citing finding for the report:
+tests passing against LocalStack did not catch a real-AWS-only failure
+mode, only the actual deployment did.
+
+Because the deployment was left running rather than torn down after
+verification, session/lab expiry (this is a time-limited AWS Academy
+Learner Lab session) may eventually reclaim the EC2 instance and/or its
+public IP; the DynamoDB table, SQS queue, and Lambda function are more
+likely to persist across a lab reset than the EC2 instance is. To tear
+everything down: terminate the EC2 instance, delete the SQS queue, delete
+the Lambda function (and its event-source-mapping), delete the DynamoDB
+table, empty and delete the S3 bucket, and delete the security group
+(swm-dashboard-sg) -- all resources are uniquely named with the swm-
+prefix or tagged Project=FEC-22-smart-waste-management, safe to filter on.
