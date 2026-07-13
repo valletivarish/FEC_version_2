@@ -31,11 +31,15 @@ const _jobs = [];
 let _pumping = false;
 
 function configure(endpoint, region) {
-  _client = new SQSClient({
-    endpoint,
-    region,
-    credentials: { accessKeyId: "test", secretAccessKey: "test" },
-  });
+  const config = { region };
+  if (endpoint) {
+    // LocalStack accepts any static credentials; real AWS issues temporary
+    // ones (session token required) via the execution role, so this
+    // override must not apply outside the LocalStack case.
+    config.endpoint = endpoint;
+    config.credentials = { accessKeyId: "test", secretAccessKey: "test" };
+  }
+  _client = new SQSClient(config);
   _queueUrlPromise = null;
   _resolvedQueueUrl = null;
 }
