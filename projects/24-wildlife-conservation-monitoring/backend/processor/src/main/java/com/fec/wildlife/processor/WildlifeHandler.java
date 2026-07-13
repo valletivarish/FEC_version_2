@@ -28,10 +28,14 @@ public class WildlifeHandler implements RequestHandler<SQSEvent, Map<String, Obj
         if (client == null) {
             String endpoint = System.getenv("AWS_ENDPOINT_URL");
             String region = System.getenv().getOrDefault("AWS_REGION", "eu-west-1");
-            var builder = DynamoDbClient.builder()
-                .region(Region.of(region))
-                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
-            if (endpoint != null) builder.endpointOverride(URI.create(endpoint));
+            var builder = DynamoDbClient.builder().region(Region.of(region));
+            // LocalStack accepts any static credentials; real AWS issues temporary
+            // ones (session token required) via the execution role, so this
+            // override must not apply outside the LocalStack case.
+            if (endpoint != null) {
+                builder.endpointOverride(URI.create(endpoint));
+                builder.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
+            }
             client = builder.build();
         }
         return client;

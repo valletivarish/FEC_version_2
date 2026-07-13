@@ -26,10 +26,14 @@ public class ReservePublisher {
     private volatile String queueUrl;
 
     public ReservePublisher(String endpointUrl, String region, String queueName) {
-        var builder = SqsClient.builder()
-            .region(Region.of(region))
-            .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
-        if (endpointUrl != null) builder.endpointOverride(URI.create(endpointUrl));
+        var builder = SqsClient.builder().region(Region.of(region));
+        // LocalStack accepts any static credentials; real AWS issues temporary
+        // ones (session token required) via the execution role, so this
+        // override must not apply outside the LocalStack case.
+        if (endpointUrl != null) {
+            builder.endpointOverride(URI.create(endpointUrl));
+            builder.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
+        }
         this.client = builder.build();
         this.queueName = queueName;
     }

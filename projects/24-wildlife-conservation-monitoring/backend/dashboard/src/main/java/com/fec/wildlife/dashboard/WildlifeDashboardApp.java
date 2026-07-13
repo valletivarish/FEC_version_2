@@ -75,9 +75,14 @@ public class WildlifeDashboardApp {
     }
 
     private static <B extends software.amazon.awssdk.awscore.client.builder.AwsClientBuilder<B, T>, T> T awsClient(B builder) {
-        builder.region(Region.of(REGION))
-            .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
-        if (ENDPOINT != null) builder.endpointOverride(URI.create(ENDPOINT));
+        builder.region(Region.of(REGION));
+        // LocalStack accepts any static credentials; real AWS issues temporary
+        // ones (session token required) via the execution role, so this
+        // override must not apply outside the LocalStack case.
+        if (ENDPOINT != null) {
+            builder.endpointOverride(URI.create(ENDPOINT));
+            builder.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
+        }
         return builder.build();
     }
 
