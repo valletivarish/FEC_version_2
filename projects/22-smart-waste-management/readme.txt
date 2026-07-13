@@ -480,3 +480,31 @@ the Lambda function (and its event-source-mapping), delete the DynamoDB
 table, empty and delete the S3 bucket, and delete the security group
 (swm-dashboard-sg) -- all resources are uniquely named with the swm-
 prefix or tagged Project=FEC-22-smart-waste-management, safe to filter on.
+
+WAKING THE DEPLOYMENT BACK UP AFTER A LAB SESSION ENDS
+-------------------------------------------------------
+.github/workflows/wake-22-smart-waste-management.yml is a manually
+triggered (workflow_dispatch) GitHub Actions workflow for exactly this
+situation: an AWS Academy Learner Lab session ended, its EC2 instance got
+stopped by the platform, and a fresh session (with new temporary
+credentials) has since been started. Trigger it from the Actions tab,
+supplying that fresh session's Access Key ID, Secret Access Key, and
+Session Token as run inputs. It verifies the credentials resolve to the
+expected account (548539235319), confirms the DynamoDB table/SQS
+queue/Lambda function still exist (if the lab did a full account reset
+rather than just stopping the instance, it fails fast here with a message
+saying a full redeploy is needed instead), starts the EC2 instance if
+stopped, waits for SSM, runs docker-compose up (idempotent -- a no-op if
+containers are already running), and smoke-tests the live dashboard.
+
+Security note: the workflow masks the three credential inputs in its own
+logs, but GitHub still retains the raw values in the run's stored
+inputs/metadata regardless of masking. Repository secrets would avoid
+that at the cost of updating three secret values instead of three run
+inputs each time a session refreshes -- a reasonable upgrade if this
+residual exposure matters for your use case.
+
+The EC2 instance's public IP can change whenever it stops and starts
+again (no Elastic IP is attached) -- the workflow's final step prints
+whatever the current IP is; do not assume the dashboard is still at
+54.90.126.221 after a wake-up.

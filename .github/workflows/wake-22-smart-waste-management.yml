@@ -1,0 +1,126 @@
+name: wake-22-smart-waste-management
+
+# Manual trigger only. AWS Academy Learner Lab sessions are time-limited
+# (~4 hours) and issue temporary credentials; when a session ends, its EC2
+# instance is commonly stopped by the platform. Run this workflow after
+# starting a fresh Learner Lab session, pasting that session's three
+# credential values, to bring project 22's real-AWS deployment back up
+# without redeploying it from scratch.
+#
+# Security note: workflow_dispatch inputs are masked in this workflow's own
+# logs (via aws-actions/configure-aws-credentials), but GitHub still retains
+# the raw input values in the run's metadata/API regardless of masking.
+# Repository secrets (Settings -> Secrets and variables -> Actions) would
+# avoid that, at the cost of having to update three secret values instead
+# of three run inputs every time a session refreshes. This workflow uses
+# inputs, as requested; switch to secrets.* if that residual exposure
+# matters for your use case.
+
+on:
+  workflow_dispatch:
+    inputs:
+      aws_access_key_id:
+        description: "AWS Access Key ID (ASIA...) from the current Learner Lab session's AWS Details panel"
+        required: true
+      aws_secret_access_key:
+        description: "AWS Secret Access Key from the current Learner Lab session"
+        required: true
+      aws_session_token:
+        description: "AWS Session Token from the current Learner Lab session"
+        required: true
+
+env:
+  AWS_REGION: us-east-1
+  INSTANCE_ID: i-022c30cf73b0c10db
+  EXPECTED_ACCOUNT_ID: "548539235319"
+  TABLE_NAME: swm-readings
+  QUEUE_NAME: swm-district-agg
+  FUNCTION_NAME: swm-processor
+
+jobs:
+  wake:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ github.event.inputs.aws_access_key_id }}
+          aws-secret-access-key: ${{ github.event.inputs.aws_secret_access_key }}
+          aws-session-token: ${{ github.event.inputs.aws_session_token }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify this is the expected AWS Academy account
+        run: |
+          ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+          if [ "$ACCOUNT" != "$EXPECTED_ACCOUNT_ID" ]; then
+            echo "::error::Credentials resolved to account $ACCOUNT, expected $EXPECTED_ACCOUNT_ID. Refusing to proceed against an unexpected account."
+            exit 1
+          fi
+          echo "confirmed account $ACCOUNT"
+
+      - name: Confirm the backend resources still exist
+        run: |
+          aws dynamodb describe-table --table-name "$TABLE_NAME" --region "$AWS_REGION" >/dev/null \
+            || { echo "::error::DynamoDB table $TABLE_NAME not found -- this Learner Lab session likely reset the account. Full redeploy is needed, not just a wake-up (see readme.txt DEPLOYMENT (AWS) section)."; exit 1; }
+          aws sqs get-queue-url --queue-name "$QUEUE_NAME" --region "$AWS_REGION" >/dev/null \
+            || { echo "::error::SQS queue $QUEUE_NAME not found -- full redeploy is needed, not just a wake-up."; exit 1; }
+          aws lambda get-function --function-name "$FUNCTION_NAME" --region "$AWS_REGION" >/dev/null \
+            || { echo "::error::Lambda function $FUNCTION_NAME not found -- full redeploy is needed, not just a wake-up."; exit 1; }
+          echo "backend resources confirmed present"
+
+      - name: Start the EC2 instance if it is stopped
+        run: |
+          STATE=$(aws ec2 describe-instances --instance-ids "$INSTANCE_ID" --region "$AWS_REGION" --query "Reservations[0].Instances[0].State.Name" --output text)
+          echo "current instance state: $STATE"
+          if [ "$STATE" = "stopped" ]; then
+            aws ec2 start-instances --instance-ids "$INSTANCE_ID" --region "$AWS_REGION"
+            aws ec2 wait instance-running --instance-ids "$INSTANCE_ID" --region "$AWS_REGION"
+          elif [ "$STATE" != "running" ]; then
+            echo "::error::Instance is in state '$STATE' (not stopped or running) -- it may have been terminated by a lab reset. Full redeploy is needed, not just a wake-up."
+            exit 1
+          fi
+
+      - name: Wait for the SSM agent to come online
+        run: |
+          for i in $(seq 1 30); do
+            STATUS=$(aws ssm describe-instance-information --filters "Key=InstanceIds,Values=$INSTANCE_ID" --region "$AWS_REGION" --query "InstanceInformationList[0].PingStatus" --output text 2>/dev/null || echo "None")
+            echo "attempt $i: $STATUS"
+            [ "$STATUS" = "Online" ] && exit 0
+            sleep 10
+          done
+          echo "::error::SSM agent never came online"
+          exit 1
+
+      - name: Ensure the docker-compose stack is up
+        run: |
+          CMD_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=["systemctl is-active docker || systemctl start docker","cd /home/ec2-user/swm/infra && docker-compose -f docker-compose.aws.yml up -d","docker ps --format \"{{.Names}}\\t{{.Status}}\""]' \
+            --region "$AWS_REGION" --query "Command.CommandId" --output text)
+          for i in $(seq 1 20); do
+            STATUS=$(aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" --region "$AWS_REGION" --query "Status" --output text 2>/dev/null || echo "Pending")
+            [ "$STATUS" = "Success" ] && break
+            if [ "$STATUS" = "Failed" ]; then
+              echo "::error::docker-compose up failed"
+              aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" --region "$AWS_REGION" --query "StandardErrorContent" --output text
+              exit 1
+            fi
+            sleep 5
+          done
+          aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" --region "$AWS_REGION" --query "StandardOutputContent" --output text
+
+      - name: Smoke test the live dashboard
+        run: |
+          IP=$(aws ec2 describe-instances --instance-ids "$INSTANCE_ID" --region "$AWS_REGION" --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
+          echo "dashboard should be reachable at http://$IP:8101 (note: this IP may differ from any previously recorded one -- EC2 assigns a new public IP each time an instance starts, unless an Elastic IP is attached)"
+          for i in $(seq 1 12); do
+            if curl -sf -m 8 "http://$IP:8101/api/health"; then
+              echo ""
+              echo "dashboard is up at http://$IP:8101"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::dashboard did not respond after wake-up"
+          exit 1
