@@ -1,33 +1,18 @@
 name: wake-22-smart-waste-management
 
-# Manual trigger only. AWS Academy Learner Lab sessions are time-limited
-# (~4 hours) and issue temporary credentials; when a session ends, its EC2
-# instance is commonly stopped by the platform. Run this workflow after
-# starting a fresh Learner Lab session, pasting that session's three
-# credential values, to bring project 22's real-AWS deployment back up
-# without redeploying it from scratch.
-#
-# Security note: workflow_dispatch inputs are masked in this workflow's own
-# logs (via aws-actions/configure-aws-credentials), but GitHub still retains
-# the raw input values in the run's metadata/API regardless of masking.
-# Repository secrets (Settings -> Secrets and variables -> Actions) would
-# avoid that, at the cost of having to update three secret values instead
-# of three run inputs every time a session refreshes. This workflow uses
-# inputs, as requested; switch to secrets.* if that residual exposure
-# matters for your use case.
+# Manual trigger only -- no schedule, no automatic wake-up. AWS Academy
+# Learner Lab sessions are time-limited (~4 hours) and issue temporary
+# credentials; when a session ends, its EC2 instance is commonly stopped
+# by the platform. Before running this workflow from the Actions tab,
+# update the three repository secrets below with the current Learner Lab
+# session's values (Settings -> Secrets and variables -> Actions ->
+# AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_SESSION_TOKEN), then
+# trigger a run to bring project 22's real-AWS deployment back up without
+# redeploying it from scratch. Repository secrets are encrypted and never
+# shown in logs or run metadata, unlike workflow_dispatch inputs.
 
 on:
-  workflow_dispatch:
-    inputs:
-      aws_access_key_id:
-        description: "AWS Access Key ID (ASIA...) from the current Learner Lab session's AWS Details panel"
-        required: true
-      aws_secret_access_key:
-        description: "AWS Secret Access Key from the current Learner Lab session"
-        required: true
-      aws_session_token:
-        description: "AWS Session Token from the current Learner Lab session"
-        required: true
+  workflow_dispatch: {}
 
 env:
   AWS_REGION: us-east-1
@@ -44,9 +29,9 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ github.event.inputs.aws_access_key_id }}
-          aws-secret-access-key: ${{ github.event.inputs.aws_secret_access_key }}
-          aws-session-token: ${{ github.event.inputs.aws_session_token }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Verify this is the expected AWS Academy account

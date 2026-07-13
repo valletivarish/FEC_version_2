@@ -484,25 +484,26 @@ prefix or tagged Project=FEC-22-smart-waste-management, safe to filter on.
 WAKING THE DEPLOYMENT BACK UP AFTER A LAB SESSION ENDS
 -------------------------------------------------------
 .github/workflows/wake-22-smart-waste-management.yml is a manually
-triggered (workflow_dispatch) GitHub Actions workflow for exactly this
-situation: an AWS Academy Learner Lab session ended, its EC2 instance got
-stopped by the platform, and a fresh session (with new temporary
-credentials) has since been started. Trigger it from the Actions tab,
-supplying that fresh session's Access Key ID, Secret Access Key, and
-Session Token as run inputs. It verifies the credentials resolve to the
-expected account (548539235319), confirms the DynamoDB table/SQS
-queue/Lambda function still exist (if the lab did a full account reset
-rather than just stopping the instance, it fails fast here with a message
-saying a full redeploy is needed instead), starts the EC2 instance if
-stopped, waits for SSM, runs docker-compose up (idempotent -- a no-op if
-containers are already running), and smoke-tests the live dashboard.
+triggered (workflow_dispatch, no schedule -- it only ever runs when a
+student explicitly clicks Run workflow) GitHub Actions workflow for
+exactly this situation: an AWS Academy Learner Lab session ended, its EC2
+instance got stopped by the platform, and a fresh session (with new
+temporary credentials) has since been started.
 
-Security note: the workflow masks the three credential inputs in its own
-logs, but GitHub still retains the raw values in the run's stored
-inputs/metadata regardless of masking. Repository secrets would avoid
-that at the cost of updating three secret values instead of three run
-inputs each time a session refreshes -- a reasonable upgrade if this
-residual exposure matters for your use case.
+Before triggering a run, update three repository secrets with the fresh
+session's values (repo Settings -> Secrets and variables -> Actions ->
+New repository secret): AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,
+AWS_SESSION_TOKEN. Repository secrets are encrypted at rest and are never
+shown in workflow logs or run metadata, unlike workflow_dispatch inputs.
+Then trigger the workflow from the Actions tab (no inputs to fill in).
+
+It verifies the credentials resolve to the expected account
+(548539235319), confirms the DynamoDB table/SQS queue/Lambda function
+still exist (if the lab did a full account reset rather than just
+stopping the instance, it fails fast here with a message saying a full
+redeploy is needed instead), starts the EC2 instance if stopped, waits
+for SSM, runs docker-compose up (idempotent -- a no-op if containers are
+already running), and smoke-tests the live dashboard.
 
 The EC2 instance's public IP can change whenever it stops and starts
 again (no Elastic IP is attached) -- the workflow's final step prints
