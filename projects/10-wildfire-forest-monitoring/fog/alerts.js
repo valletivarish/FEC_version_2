@@ -1,16 +1,6 @@
 "use strict";
 
-// Alert rules as a flat array of plain rule-descriptor objects, each
-// independently testable against a window summary. This is a third
-// representation distinct from both a generic [field, op, limit] lookup
-// table (03-patient-vitals) and a per-sensor-type dispatch object of
-// inspector functions (06-offshore-wind-farm): here there is no lookup by
-// sensor type at all, evaluation is a single filter+map over the whole rule
-// list, and each rule owns its own predicate closure instead of a shared
-// comparison operator string.
-//
-// Thresholds are evaluated on the window aggregate (avg), not a single raw
-// reading, so one noisy sample cannot fire a false alert.
+// Flat array of rule-descriptor objects each owning its own predicate closure, evaluated via filter+map with no sensor-type dispatch lookup -- the third distinct alert-rule representation in this portfolio.
 const RULES = [
   { sensorType: "temperature_c", key: "extreme_heat", test: (summary) => summary.avg > 42 },
   { sensorType: "smoke_density_ppm", key: "fire_detected", test: (summary) => summary.avg > 150 },

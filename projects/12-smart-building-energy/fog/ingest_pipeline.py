@@ -1,22 +1,4 @@
-"""Buffering via a real producer/consumer pipeline built on the stdlib
-queue.Queue, the 3rd distinct buffering shape in the portfolio's Python
-projects.
-
-01 writes straight into a shared defaultdict(list) from inside the async
-request handler (no queue at all; buffer-then-reduce, single event loop).
-05 pushes onto an asyncio.Queue and folds each batch into a WindowAccumulator
-of RollingStat objects from an asyncio background task (streaming fold,
-single-threaded cooperative concurrency).
-
-This project's fog node has no event loop -- http.server.ThreadingHTTPServer
-runs one real OS thread per request -- so asyncio.Queue is the wrong tool
-(it is not thread-safe across threads without call_soon_threadsafe
-gymnastics). queue.Queue *is* thread-safe by design, so /ingest handler
-threads simply call enqueue_batch() and return; a single dedicated consumer
-thread owns _buffers exclusively and is the only thing that ever writes to
-it, decoupling request handling from buffering the same way 05 decouples
-ingest from accumulation, but with real threads instead of coroutines.
-"""
+"""Thread-safe stdlib queue.Queue feeding a single dedicated consumer thread that owns _buffers exclusively -- the 3rd distinct buffering shape in this portfolio's Python projects."""
 
 import queue
 import threading

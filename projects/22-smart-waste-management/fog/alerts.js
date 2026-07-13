@@ -1,25 +1,6 @@
 "use strict";
 
-// Alert rules as plain control flow -- a switch statement keyed on
-// sensor_type -- rather than any data structure at all. Every sibling fog
-// service in this portfolio represents its rules as *some* lookup
-// structure: 03-patient-vitals uses a generic [field, op, limit, key]
-// tuple-array object (VITAL_LIMITS); 06-offshore-wind-farm uses a
-// per-sensor-type dispatch object of named inspector functions
-// (INSPECTORS); 10-wildfire-forest-monitoring uses a flat array of
-// {sensorType, key, test} rule-descriptor objects walked with
-// RULES.filter().map(); 11-water-treatment-utility uses a
-// Map<sensorType, Function> of closures built by a makeThreshold() factory;
-// 15-data-center-environmental-monitoring uses a plain object literal keyed
-// by sensor_type, walked with Object.entries(RULES).filter(); and
-// 18-elevator-escalator-fleet-monitoring uses an AlertEngine class instance
-// wrapping a Map<sensorType, [{predicateFn, key}]> built via
-// registerRule(). None of those is a switch statement: there is no
-// container to look a sensor type up in here at all, evaluateAlerts()
-// simply branches on sensorType directly and returns the fired key(s)
-// inline in each case. Thresholds are always evaluated on the window
-// aggregate (avg, or max for lid_open_count), never a single raw reading,
-// so one noisy sample cannot trip an alert by itself.
+// Alert rules as a bare switch statement branching directly on sensor_type with no lookup structure at all -- the 7th distinct alert-rule idiom in this portfolio's fog services -- evaluated against window aggregates (avg, or max for lid_open_count), never a single raw reading.
 function evaluateAlerts(sensorType, summary) {
   switch (sensorType) {
     case "fill_level_pct":

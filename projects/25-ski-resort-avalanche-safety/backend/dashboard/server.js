@@ -122,17 +122,7 @@ async function handleThresholds(deps, res) {
   sendJson(res, result.status, result.body);
 }
 
-// HTTP routing dispatches on a template-literal key built as
-// `${req.method} ${pathname}`, matched inside a switch(true) block -- the
-// same mechanism as fog/app.js. Fixed routes match with `key === "..."`;
-// the one path-parameterised route (per-slope detail) matches with a
-// `SLOPE_ID_PATTERN.test(key)` case, with the id itself pulled back out of
-// url.pathname inside that case rather than via a regex capture group. No
-// sibling Node dashboard backend in this portfolio dispatches this way: 03/
-// 06 use Express; 10/15 use hand-written if/else chains; 11's backend/
-// dashboard/router.js and 18/22's router.js/trie all hold their own
-// separate routing-table data structure rather than switching directly on
-// a composed method+path string.
+// Routing dispatches on a `${method} ${pathname}` key matched inside a switch(true), distinct from every sibling Node dashboard's Express/if-else/routing-table approach.
 function buildRequestHandler(deps) {
   return async function handler(req, res) {
     try {

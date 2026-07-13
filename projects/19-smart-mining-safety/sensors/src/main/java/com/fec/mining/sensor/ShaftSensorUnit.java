@@ -12,20 +12,7 @@ import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
 
-/**
- * Simulates one sensor type at one mine shaft. Every other Java sensor
- * sibling in this portfolio schedules sampling/dispatching with either a
- * single while(true) loop juggling two "next fire" deadlines with an
- * adaptive short sleep (02, 07, 08, 09), two tasks on a shared
- * ScheduledExecutorService (04), or two java.util.Timer instances (16).
- * This class uses neither: sampling and dispatching are two independent
- * daemon-vs-worker java.lang.Thread objects, each with its own plain
- * Thread.sleep(intervalMillis) loop at its OWN fixed interval, coordinated
- * purely through a LinkedBlockingQueue<Reading> -- the sample thread is the
- * sole producer (offer()), the dispatch thread is the sole consumer
- * (drainTo()). There is no shared List and no synchronized(buffer) block
- * anywhere in this class, unlike 04/16's synchronized-Deque/List handoff.
- */
+/** Two independent daemon/worker Thread objects, each with its own plain Thread.sleep loop, handed off lock-free through a producer/consumer LinkedBlockingQueue<Reading> instead of this portfolio's other Java sensors' shared-deadline loop, ScheduledExecutorService, or dual java.util.Timer approaches. */
 public class ShaftSensorUnit {
 
     record Profile(String unit, double lo, double hi, double start, double step) {}

@@ -1,35 +1,4 @@
-"""Threshold rules as a flat list of plain dicts whose "op" value is a real
-function object imported from the stdlib operator module (operator.gt /
-operator.lt) -- the 8th distinct alert-rule idiom in the portfolio's Python
-projects.
-
-01's fog/alerts.py keeps THRESHOLDS as a dict-of-lists-of-tuples keyed by
-sensor_type and loops over agg[field] with an if/elif on the operator
-string. 05's fog/alerts.py wires one hand-written _check_<key> function per
-exception through a dict-dispatch table (_EVALUATORS). 12's fog/alerts.py
-defines a frozen, __post_init__-validated Rule dataclass filtered by a
-generator expression at call time. 13's fog/alerts.py keeps a flat list of
-plain dicts consumed by a generic evaluate_rules(rules, sensor_type,
-summary) function, again dispatching on the operator string. 14's
-fog/alerts.py keys an enum.Enum-tagged dict[str, dict[AlertKey, Callable]]
-of lambdas. 17's fog/alerts.py builds an abc.ABC Strategy hierarchy
-(ThresholdRule with AboveLimitRule/BelowLimitRule subclasses) and calls
-rule.evaluate(summary) polymorphically. 21's fog/alerts.py keeps a flat list
-of typing.NamedTuple records dispatched via `match rule.op: case "avg_gt":
-...`.
-
-None of those seven store the comparison itself as a first-class callable
--- every one of them re-derives "greater than"/"less than" behaviour from a
-string tag at evaluation time (if/elif, match/case, dict-dispatch, or a
-lambda hand-written to match the intended comparison). Here operator.gt /
-operator.lt ARE the rule's "op" value: evaluate() calls
-rule["op"](summary[rule["field"]], rule["limit"]) directly -- no string
-comparison, lambda, dispatch table, or class method anywhere in the
-evaluation path. thresholds_payload() maps each function object back to its
-display symbol (">"/"<") only for the purely-descriptive /thresholds
-endpoint, via _OP_SYMBOLS, since operator.gt/operator.lt themselves are not
-JSON-serialisable and evaluate() never consults _OP_SYMBOLS.
-"""
+"""Threshold rules store operator.gt/operator.lt themselves as the "op" value, invoked directly in evaluate() with no string/lambda/class dispatch -- the 8th distinct alert-rule idiom in this portfolio's Python projects."""
 
 import operator
 

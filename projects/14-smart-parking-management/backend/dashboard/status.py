@@ -1,14 +1,4 @@
-"""Per-lot occupancy status badge: a plain 4-tier text/colour badge derived
-from this window's occupancy percentage and active alert count.
-
-Deliberately independent of fog's alert thresholds (fog/alerts.py) -- a lot
-can drift from "normal" through "busy" to "near_full" well before its
-occupied_spaces window average ever crosses 270 and trips
-near_full_capacity, the same "earlier, graded signal" idea as
-12-smart-building-energy's letter-grade efficiency badge, but as a 4-tier
-occupancy status instead of a 5-tier A-F grade, and with any active alert
-forcing the badge straight to "alert" regardless of the raw percentage.
-"""
+"""Per-lot 4-tier occupancy badge (normal/busy/near_full/alert), computed independently of fog/alerts.py's thresholds, with any active alert forcing "alert" regardless of percentage."""
 
 OCCUPANCY_BUSY_PCT = 75.0
 OCCUPANCY_NEAR_FULL_PCT = 90.0

@@ -1,21 +1,4 @@
-"""Threshold rules as an enum.Enum of alert keys mapped through
-dict[str, dict[AlertKey, Callable[[dict], bool]]] -- the 4th distinct
-alert-rule idiom in the portfolio's Python projects.
-
-01 keeps THRESHOLDS as a dict-of-lists-of-tuples keyed by sensor_type and
-loops over agg[field] with an if/elif on the operator string. 05 keeps one
-hand-written _check_<key> function per exception, wired through a
-dict-dispatch table (_EVALUATORS). 12 defines every rule as a frozen,
-__post_init__-validated Rule dataclass instance in one flat RULES list (not
-keyed by sensor_type at all) and filters that flat list.
-
-Here every alert has a named AlertKey enum member (no bare strings floating
-around as rule identifiers), and RULES is keyed first by sensor_type, then
-by AlertKey, straight to a lambda predicate over the window summary --
-sensor_type lookup is an O(1) dict access rather than a linear scan or a
-list filter, and evaluate() itself is a single filtering comprehension over
-that inner dict's items.
-"""
+"""RULES keyed by sensor_type then by a named AlertKey enum member to a lambda predicate, evaluated via one filtering comprehension -- the 4th distinct alert-rule idiom in this portfolio's Python projects."""
 
 from enum import Enum
 from typing import Callable

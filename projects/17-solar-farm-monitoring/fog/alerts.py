@@ -1,17 +1,4 @@
-"""Threshold rules as a class-based Strategy pattern, the 4th distinct
-alert-rule idiom in the portfolio's Python projects: 01 keeps a
-dict-of-lists-of-tuples keyed by sensor_type and loops over agg[field]; 05
-wires one hand-written _check_<key> function per exception through a
-dict-dispatch table; 12 keeps a flat list of frozen dataclass instances
-filtered by a generator expression at call time.
-
-Here every rule is an instance of a concrete subclass of the abstract base
-ThresholdRule (built on abc.ABC), each implementing its own evaluate(self,
-summary) -> str | None. Rule instances live in one flat list, RULES, and
-evaluate() below is just `for rule in RULES: ... rule.evaluate(summary)` --
-a real polymorphic Strategy dispatch through the ABC's evaluate() contract,
-not a lookup table or a comprehension over dataclass fields.
-"""
+"""Class-based Strategy pattern with polymorphic evaluate() dispatch through an abc.ABC base -- the 4th distinct alert-rule idiom in this portfolio's Python projects."""
 
 from abc import ABC, abstractmethod
 

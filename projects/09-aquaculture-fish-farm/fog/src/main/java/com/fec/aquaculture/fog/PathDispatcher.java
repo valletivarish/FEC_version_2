@@ -12,20 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
 
-/**
- * Single HttpServer.createContext("/", ...) registration: every request
- * lands on the same dispatcher and is matched at request time against an
- * ordered List of (path predicate, handler) entries, instead of registering
- * one createContext per route at startup. This differs from every other
- * routing shape in the portfolio: 02 has no reusable router at all (routes
- * wired directly in main(), no error boundary), 04's RouteServer and 07's
- * Router both still register one createContext per route (accumulated then
- * wired, or wired immediately), and 08's Route enum iterates values() once
- * in wireAll() to register one context per constant. Here there is exactly
- * one registered context; routing is a runtime decision, not a startup-time
- * one. Every dispatch is wrapped in a try/catch translating any uncaught
- * exception into a structured 500 JSON response.
- */
+/** Single createContext("/", ...) registration dispatching at request time over an ordered List<Route> of (path predicate, handler) pairs, rather than one createContext per route at startup. */
 final class PathDispatcher implements HttpHandler {
 
     private final List<Route> routes = new ArrayList<>();

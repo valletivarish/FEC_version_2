@@ -1,20 +1,6 @@
 "use strict";
 
-// Fixed-size ring buffer: a plain JS array of length RING_CAPACITY per
-// (sensor_type, site_id) key, with a manually tracked write-index that
-// wraps around via modulo. Genuinely different accumulation strategy from
-// every other Node sibling in this portfolio: 03-patient-vitals buffers
-// into a push()-growing shared array-per-key, 06-offshore-wind-farm folds
-// each value into a live streaming accumulator (no raw list kept at all),
-// 10-wildfire-forest-monitoring buffers into a Map via an EventEmitter
-// "reading" event, and 11-water-treatment-utility defers ALL grouping to
-// flush time over one flat write-ahead-log array. Here storage is fixed
-// capacity from the moment a key is first seen: a write beyond
-// RING_CAPACITY overwrites the oldest still-unflushed slot. The window
-// timer is expected to drain every ring long before it wraps in normal
-// operation; wrapping only silently drops the oldest unflushed reading
-// under sustained overload, an explicit, documented trade-off of choosing
-// a ring buffer, not a bug.
+// Fixed-capacity ring buffer (array + modulo-wrapped write-index) that silently overwrites the oldest unflushed reading on overflow -- distinct from siblings' growing arrays, streaming accumulators, and Map-based buffering.
 const RING_CAPACITY = 256;
 const KEY_DELIM = "::";
 

@@ -1,27 +1,4 @@
-"""Marine vessel fog node: Tornado (tornado.web.Application, class-based
-RequestHandler subclasses) -- the 8th distinct Python HTTP framework/idiom
-in this portfolio: 01/05 use FastAPI, 12 uses stdlib http.server, 13 uses
-Flask, 14 uses stdlib wsgiref directly, 17 uses aiohttp.web, 21 uses Bottle.
-Every route below is a subclass of tornado.web.RequestHandler overriding
-get()/post(), not a decorator-registered function (Flask/Bottle/aiohttp) and
-not a hand-dispatched if/elif chain on a raw request object (http.server/
-wsgiref) -- routing itself is a list of (pattern, HandlerClass) tuples
-handed to tornado.web.Application, and the background window-flush job is a
-tornado.ioloop.PeriodicCallback rather than a bespoke sleep loop on its own
-thread.
-
-Responsibilities:
-  GET  /health       -> {"status": "ok"}
-  GET  /thresholds   -> descriptive mirror of alerts.RULES (does not drive
-                        evaluation -- alerts.evaluate() is the real engine)
-  POST /ingest       -> validates the batch (validation.py), then records
-                        it into buffering.py's plain dict (see buffering.py
-                        for why no lock is needed)
-  (background)       -> a PeriodicCallback fires flush() every
-                        WINDOW_SECONDS: aggregates + evaluates alerts per
-                        (sensor_type, site_id) group and fire-and-forget
-                        publishes one message per group (see publisher.py).
-"""
+"""Tornado (class-based RequestHandler subclasses overriding get()/post(), routed via a (pattern, HandlerClass) list to tornado.web.Application, with PeriodicCallback driving the background flush) -- the 8th distinct Python HTTP framework/idiom in this portfolio."""
 
 import json
 import os

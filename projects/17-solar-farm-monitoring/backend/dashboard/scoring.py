@@ -1,30 +1,4 @@
-"""Live per-array efficiency index.
-
-Combines the two readings that most directly describe how well a panel
-string is currently converting sunlight into usable power -- the array's
-inverter_output_kw window average (how much it is actually delivering) and
-its panel_temp_c window average (how far above its optimal operating band
-the panels are running, since crystalline-silicon panels lose conversion
-efficiency as they heat up) -- against two independently configured
-"optimal range" constants below, into a single 0-100 index.
-
-This is deliberately independent of the alert thresholds in
-fog/alerts.py: an array can drift toward "inefficient" well before it ever
-trips thermal_derate_risk or inverter_underperformance, so the index gives
-an earlier, graded signal instead of a binary ok/alert flag -- the same
-principle as 12-smart-building-energy's efficiency_score, but rendered here
-as a heatmap grid cell per recent window rather than a single letter-grade
-badge (see backend/dashboard/static/style.css for the grid).
-
-Formula:
-  1. output_component: a "rising" band -- 0 at or below OUTPUT_POOR_KW,
-     100 at or above OUTPUT_OPTIMAL_KW, linear in between. Higher inverter
-     output is better.
-  2. thermal_component: a "falling" band -- 100 at or below TEMP_OPTIMAL_C,
-     0 at or above TEMP_POOR_C, linear in between. Lower panel temperature
-     (up to the optimal band) is better.
-  3. efficiency_index = round((output_component + thermal_component) / 2, 1)
-"""
+"""Graded 0-100 efficiency_index (rising output band + falling thermal band, averaged) giving an earlier signal than fog/alerts.py's binary thresholds -- the same idiom as 12-smart-building-energy's efficiency_score, here rendered as a heatmap cell instead of a letter grade."""
 
 OUTPUT_POOR_KW = 20.0
 OUTPUT_OPTIMAL_KW = 110.0

@@ -1,15 +1,6 @@
 "use strict";
 
-// A declarative routing table: an ordered array of [method, regex, handler]
-// tuples, matched at request time with RegExp.exec() against the request
-// pathname. Capture groups in the pattern surface as match[1], match[2], ...
-// passed through to the handler, giving simple path-parameter support
-// without pulling in a router package. This is a fourth distinct dispatch
-// mechanism, still framework-free like 10-wildfire-forest-monitoring, but
-// unlike 10's hand-written if/else chain (no declarative table, no
-// path-parameter support), dispatch here is pattern matching over a table
-// that can be built and exercised in isolation from any HTTP server at all
-// -- see router.test.js, which never touches http.createServer.
+// Declarative [method, regex, handler] table matched via RegExp.exec() for capture-group path params -- the fourth distinct dispatch mechanism in this portfolio, unlike 10-wildfire-forest-monitoring's hand-written if/else chain.
 function createRouter() {
   const table = [];
 

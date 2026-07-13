@@ -20,27 +20,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Fog gateway for the public transit fleet pipeline: ingests batched
- * readings per (sensor_type, site_id) pair via the IntakeQueue, windows and
- * aggregates them every WINDOW_SECONDS, evaluates the real threshold rules
- * (TransitAlerts), and publishes one message per non-empty group to SQS.
- *
- * HTTP dispatch is a single HttpServer.createContext("/", ...) registration
- * whose handler (route()) resolves the request with a literal if/else if
- * chain over exchange.getRequestURI().getPath() -- no route table, no
- * predicate list, and no per-path createContext calls beyond the root one.
- * This is the sixth distinct HTTP dispatch shape in this portfolio's Java
- * lineage: 02 wires each route directly with its own createContext call
- * inline in main(), with no shared error boundary; 04's RouteServer and 07's
- * Router are both fluent builders that still register one createContext per
- * route (accumulate-then-wire, or wire-immediately); 08's Route enum
- * iterates values() once at startup to register one createContext per
- * constant; 09's PathDispatcher matches an ordered
- * List&lt;(Predicate&lt;String&gt;, HttpHandler)&gt; at request time. Here
- * there is exactly one registered context, and the routing decision inside
- * it is nothing more than a sequence of if/else if string comparisons.
- */
+/** Single HttpServer.createContext("/") whose route() resolves the path via a literal if/else if chain -- no route table, no predicate list, no per-path createContext calls -- the 6th distinct HTTP dispatch shape in this portfolio's Java lineage. */
 public class TransitGateway {
 
     static final ObjectMapper JSON = new ObjectMapper();

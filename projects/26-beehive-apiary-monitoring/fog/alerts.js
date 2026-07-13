@@ -1,30 +1,6 @@
 "use strict";
 
-// Alert rules as a single flat array of plain [field, op, limit, key]
-// tuples -- arrays, not objects, not classes, not a lookup structure keyed
-// by sensor type at all. Every sibling fog service in this portfolio wraps
-// its rules in some container keyed by sensor_type: 03-patient-vitals'
-// VITAL_LIMITS is an object mapping vital -> array of [field, op, limit,
-// key] tuples (the tuple shape is similar, but grouped per vital, looped
-// per vital in checkVital); 06-offshore-wind-farm uses an INSPECTORS
-// dispatch object of named functions; 10-wildfire-forest-monitoring uses a
-// flat array of {sensorType, key, test} rule *objects* filtered/mapped;
-// 11-water-treatment-utility uses a Map<sensorType, Function> built by a
-// makeThreshold() factory; 15-data-center-environmental-monitoring uses a
-// plain object literal keyed by sensor_type, walked with
-// Object.entries().filter(); 18-elevator-escalator-fleet-monitoring uses an
-// AlertEngine class instance; 22-smart-waste-management uses a switch
-// statement with no container at all. Here `field` folds the sensor type
-// into the tuple itself as "sensor_type.aggregateField" (e.g.
-// "internal_hive_temp_c.avg"), so RULES stays one single flat array with no
-// outer grouping structure whatsoever, and evaluateAlerts() below never
-// looks a sensor type up in anything -- it simply flatMaps every tuple
-// through the one shared generic comparator, evaluateRule(), which parses
-// the compound field to decide whether a given tuple even applies to this
-// summary.
-//
-// Thresholds are evaluated on the window aggregate (avg), never a single
-// raw reading, so one noisy sample cannot trip an alert on its own.
+// RULES is a single flat array of [field, op, limit, key] tuples with no per-sensor-type container -- field encodes "sensor_type.aggregateField" directly (e.g. "internal_hive_temp_c.avg"), the 8th distinct alert-rule idiom in this portfolio's fog services.
 const RULES = [
   ["internal_hive_temp_c.avg", ">", 36, "brood_overheat_risk"],
   ["internal_hive_temp_c.avg", "<", 32, "brood_chilling_risk"],

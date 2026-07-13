@@ -1,23 +1,6 @@
 "use strict";
 
-// Fog buffering as a plain JS object literal -- {} -- keyed by
-// "sensor_type::site_id" strings, whose values are plain arrays of raw
-// readings, grouped by key at ingest time (addReading below writes straight
-// into the right array the moment a reading arrives; there is no deferred
-// grouping step at flush time). This is a genuinely different top-level
-// container from every sibling Node fog service in this portfolio:
-// 03-patient-vitals groups at ingest into a Map (app.locals.pending);
-// 06-offshore-wind-farm folds each value into a live streaming accumulator
-// and never keeps a raw list; 10-wildfire-forest-monitoring groups into a
-// Map via an EventEmitter "reading" listener; 11-water-treatment-utility
-// defers ALL grouping to flush time over one flat write-ahead-log array;
-// 15-data-center-environmental-monitoring uses a fixed-capacity ring-buffer
-// array per key; 18-elevator-escalator-fleet-monitoring groups at ingest
-// into a Map cleared in place; 22-smart-waste-management groups at ingest
-// into a Map and swaps the whole Map reference at flush (double buffer).
-// None of the seven uses a bare `{}` object literal as the top-level
-// container -- here station.groups is exactly that, with Object.keys() used
-// to walk it and a fresh `{}` assigned back to station.groups on flush.
+// Fog buffering keyed by a bare `{}` object literal grouped at ingest time via Object.keys() -- the 8th distinct top-level fog-buffer container in this portfolio's Node projects, versus siblings' Map, streaming accumulator, or ring-buffer approaches.
 function createStation() {
   return { groups: {}, units: {} };
 }

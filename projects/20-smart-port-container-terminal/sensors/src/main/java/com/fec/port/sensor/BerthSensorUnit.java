@@ -15,28 +15,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Simulates one sensor type at one berth. Every other Java sensor sibling in
- * this portfolio schedules sampling/dispatching with either a single
- * while(true) loop juggling two "next fire" deadlines with an adaptive short
- * sleep (02, 07, 08, 09), two tasks on a shared 2-thread
- * ScheduledExecutorService (04), two java.util.Timer instances (16), or two
- * raw Thread objects handed off through a LinkedBlockingQueue (19). This
- * class uses none of those: sampling and dispatching are two independent
- * chains of one-shot Runnable tasks that each reschedule themselves via
- * scheduler.schedule(...) at the END of their own run() (not
- * scheduleAtFixedRate), both submitted to the SAME
- * Executors.newSingleThreadScheduledExecutor(). Because that executor only
- * ever runs one task at a time, the two chains can never execute
- * concurrently with each other, so the shared "buffer" list needs no lock,
- * no synchronized block and no concurrent collection anywhere in this class
- * -- a real, different consequence from every sibling above, all of which
- * need explicit synchronization (or a queue-based hand-off) because their
- * two chains genuinely can run at the same time. The trade-off: a slow
- * dispatch HTTP call delays the next sample tick, since both chains queue up
- * behind the same worker thread; DISPATCH_INTERVAL's 5s HTTP timeout bounds
- * how bad that delay can get.
- */
+/** Two self-rescheduling one-shot Runnable chains (sample, dispatch) share a single-thread ScheduledExecutorService, so serialized execution needs no lock on the buffer -- unlike siblings' shared while-loop, two-thread executor, dual Timers, or Thread+queue idioms. */
 public class BerthSensorUnit {
 
     record Profile(String unit, double lo, double hi, double start, double step) {}

@@ -66,17 +66,7 @@ def test_layout_sections_wrap_instead_of_overflowing():
 
 
 def test_grid_column_floor_never_exceeds_available_width_at_320px():
-    """Regression test for a 320px-viewport horizontal-overflow bug.
-
-    .grid used a hard `minmax(320px, 1fr)` column floor while also carrying
-    28px of horizontal padding on each side. At a 320px viewport (iPhone
-    SE/5 and similar small devices) the content box is only 320 - 56 = 264px
-    wide, so the 320px-floor card pushed ~28-56px past the viewport edge.
-
-    The fix wraps the floor in `min(320px, 100% - <padding>)` so the column
-    can never demand more width than the grid actually has to give, at any
-    viewport size. This test fails again if the raw 320px floor comes back.
-    """
+    """Regression test: .grid's minmax() column floor must be wrapped in min()/clamp() with a percentage term subtracting at least the grid's own padding, or a 320px viewport (e.g. iPhone SE) overflows horizontally."""
     rule = _grid_rule()
     assert "repeat(auto-fit," in rule, "expected repeat(auto-fit, minmax(...)) on .grid"
     floor = _minmax_floor(rule)

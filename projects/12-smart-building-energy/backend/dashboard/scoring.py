@@ -1,24 +1,4 @@
-"""Per-floor sustainability efficiency score/grade.
-
-Combines the two heaviest-impact readings -- energy_consumption_kw and
-co2_ppm (a poorly-ventilated, over-occupied floor drives both up together)
--- into a single 0-100 score, then maps that score onto a school-report-card
-letter grade (A-F). This is deliberately independent of the alert
-thresholds in fog/alerts.py: a floor can drift toward "inefficient" well
-before it ever trips peak_load_warning or poor_air_quality, so the score
-gives an earlier, graded signal instead of a binary ok/alert flag.
-
-Formula (documented here and in readme.txt REUSE section):
-  1. Each reading gets its own 0-100 band score via _band_score, linearly
-     interpolating between an "efficient" reference point (scores 100) and
-     a "poor" reference point (scores 0), clamped at both ends:
-       energy_consumption_kw: efficient <= 30 kW, poor >= 70 kW
-       co2_ppm:                efficient <= 600 ppm, poor >= 1200 ppm
-  2. The two band scores are averaged with equal weight into one
-     efficiency_score, rounded to 1 decimal place.
-  3. That score is mapped to a letter grade: A >= 90, B >= 75, C >= 60,
-     D >= 40, else F.
-"""
+"""Per-floor efficiency score: energy_consumption_kw and co2_ppm are each linearly band-scored to 0-100 and averaged, then mapped to an A-F letter grade, independent of fog/alerts.py's threshold-based alerts."""
 
 ENERGY_EFFICIENT_KW = 30.0
 ENERGY_POOR_KW = 70.0

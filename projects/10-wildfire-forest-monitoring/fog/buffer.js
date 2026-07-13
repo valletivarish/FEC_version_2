@@ -2,17 +2,7 @@
 
 const { EventEmitter } = require("node:events");
 
-// Event-driven buffering: the HTTP handler in app.js only validates the
-// request body and emits a "reading" event -- it never touches the buffer
-// directly. A single listener subscribed here owns the Map and does the
-// actual accumulation. This decouples ingestion from buffering via pub/sub,
-// distinct from both 03 (the Express handler pushes straight into a shared
-// buffer-then-reduce object) and 06 (the router calls a streaming-accumulator
-// module function directly). Readings are retained as a raw array per key
-// (same buffer-then-reduce style as 03 at the storage level), so the
-// aggregation math in aggregation.js runs once at flush time over the whole
-// array -- the event-driven dispatch is the differentiator here, not the
-// per-value fold.
+// Event-driven buffering: an EventEmitter "reading" listener owns the Map and does the accumulation, decoupling ingestion from buffering via pub/sub rather than a direct push (03) or streaming-accumulator call (06).
 const KEY_DELIM = "::";
 
 function keyOf(sensorType, siteId) {

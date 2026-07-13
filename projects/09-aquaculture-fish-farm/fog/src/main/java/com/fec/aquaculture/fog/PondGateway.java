@@ -16,24 +16,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Fog gateway for the fish-farm pipeline: ingests batched readings per
- * (sensor_type, site_id) pair, windows/aggregates them, evaluates the real
- * threshold rules, and publishes one message per non-empty group to SQS.
- *
- * Buffering is a single ConcurrentHashMap<PondKey, ReadingAccumulator>
- * mutated only through its own merge(). Each ingest is one atomic
- * buffers.merge(key, incoming, ReadingAccumulator::combine) call -- there is
- * no explicit lock anywhere in this class, no AtomicReference/AtomicInteger/
- * AtomicBoolean fencing, and no dedicated worker thread draining a mailbox.
- * Correctness rests entirely on ConcurrentHashMap's documented guarantee
- * that the remapping function passed to merge() is applied atomically per
- * key, combined with ReadingAccumulator being an immutable value type (so
- * there is nothing else to race on). The flush cycle swaps the whole map
- * reference itself out via a fresh ConcurrentHashMap and iterates the
- * retired one undisturbed, so ingest() during a flush simply lands in the
- * new map instead of contending with the reader.
- */
+/** Lock-free fog buffering via ConcurrentHashMap<PondKey, ReadingAccumulator>.merge() for atomic per-key combine, with flushWindow() swapping in a fresh map instead of locking so ingest() never contends with the drain. */
 public class PondGateway {
 
     static final ObjectMapper JSON = new ObjectMapper();

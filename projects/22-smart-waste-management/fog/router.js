@@ -1,20 +1,6 @@
 "use strict";
 
-// Prefix-tree (trie) path router. Every sibling Node service in this
-// portfolio dispatches with either an ordered array of [method, regex,
-// handler] tuples matched by RegExp.exec() (03/06's Express routers under
-// the hood, 11's fog/router.js + backend/dashboard/router.js,
-// 15-data-center-environmental-monitoring's backend/api/router.js ROUTES
-// array), a hand-written if/else chain with no path parameters at all
-// (10-wildfire-forest-monitoring's fog/app.js, 15's fog/app.js), or a
-// segment-array linear scan with an Express-style next() middleware chain
-// (18-elevator-escalator-fleet-monitoring's fog/router.js). This router is
-// none of those: routes are registered into an actual tree, one node per
-// path segment, and dispatch() walks that tree segment-by-segment instead
-// of scanning a list of patterns. A ":name" segment becomes a single
-// "param child" slot on its parent node (RFC-style path params, matching
-// segments by tree position rather than by a regex capture group), so
-// lookup cost tracks the path's depth, not the number of registered routes.
+// Prefix-tree (trie) path router: routes are registered one tree node per path segment (":name" becomes a paramChild slot) so dispatch() walks the tree by depth instead of scanning a regex/array/if-else route list like this portfolio's other Node services.
 function createNode() {
   return { children: new Map(), paramChild: null, paramName: null, handlers: new Map() };
 }

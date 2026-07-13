@@ -46,17 +46,7 @@ class DepotRepository {
         return items;
     }
 
-    /**
-     * Per-depot grouping endpoint: for each vehicle/sensor type, the latest
-     * window reported by each site_id (depot). Each window aggregate already
-     * represents every bus at that depot for that sensor type in the window
-     * (the fog groups by (sensor_type, site_id), not by individual vehicle),
-     * so this is the depot-wide summary the dashboard's card-per-vehicle-type
-     * layout reads directly -- distinct from 07's per-robot fleet roster
-     * table (robot as the primary axis) and 09's per-pond ring cards
-     * (site as the card, metric as a row inside it); here the depot is the
-     * section, and each vehicle type is its own summary card within it.
-     */
+    /** Per-depot grouping view keyed by site_id with vehicle type as the nested summary card -- distinct from 07's per-robot roster (robot as primary axis) and 09's per-pond ring cards (site as card, metric as row). */
     Map<String, Object> byDepot(DynamoDbClient client, String tableName, String[] sensorTypes, int historyPerType) {
         Map<String, Map<String, Object>> depots = new TreeMap<>();
         for (String sensorType : sensorTypes) {

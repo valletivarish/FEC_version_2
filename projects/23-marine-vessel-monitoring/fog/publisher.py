@@ -1,33 +1,4 @@
-"""SQS publishing via a dedicated single-worker
-concurrent.futures.ThreadPoolExecutor -- the 8th distinct publisher shape in
-the portfolio's Python projects.
-
-01's fog/publisher.py is a class (SqsPublisher) with a bounded sleep-retry
-loop in __init__, caching the client/URL as instance state. 05's
-fog/publisher.py is a @contextmanager factory (open_shipment_link) yielding
-a dataclass-backed ShipmentLink with its own jittered-backoff retry
-generator. 12's fog/publisher.py is a pair of functools.lru_cache-memoized
-functions. 13's fog/publisher.py is a manual module-level singleton
-(globals plus a get_client() function). 14's fog/publisher.py is a closure
-factory (make_publisher) returning an inner publish(). 17's fog/publisher.py
-runs a dedicated background thread draining a queue.SimpleQueue and
-shipping up to 10 messages per call via send_message_batch. 21's
-fog/publisher.py is a single stateless function, publish(client, queue_url,
-payload), caching nothing and taking an already-built client/URL as
-explicit parameters on every call.
-
-Every one of those seven either blocks the caller until the real network
-call returns, or hands the message to an explicit outbox queue that a
-separate loop drains (in 17's case, in batches). This module does neither:
-publish(message) submits client.send_message(...) as its own one-off task
-directly onto a dedicated ThreadPoolExecutor(max_workers=1) and returns the
-Future immediately without waiting on it -- fire-and-forget, one executor
-task per message, no outbox queue object, no drain loop, no batching. The
-executor's single worker thread still serialises every real network call
-(so publish order is preserved per publisher), but the caller (fog/app.py's
-flush(), driven by a Tornado PeriodicCallback) never blocks the IOLoop
-waiting for SQS to answer.
-"""
+"""Fire-and-forget publish() submits send_message onto a dedicated single-worker ThreadPoolExecutor and returns the Future unwaited -- the 8th distinct publisher shape in this portfolio's Python projects."""
 
 import json
 import time

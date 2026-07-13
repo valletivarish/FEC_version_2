@@ -1,19 +1,4 @@
-"""Solar farm sensor simulator: one process per (sensor_type, site_id) pair.
-
-5th distinct sensor-loop structure in the portfolio's Python projects. 01
-uses a single `while True: ... time.sleep(...)` loop. 05 uses the stdlib
-`sched` scheduler with two self-re-entering events on one queue. 12 uses two
-independently self-rearming `threading.Timer` chains.
-
-Here sampling and dispatch are two genuinely separate `threading.Thread`
-loops, each driven by `threading.Event().wait(timeout)` instead of
-`time.sleep`: the wait doubles as both the tick delay and the shutdown
-signal (a set stop_event returns True from wait() immediately and both
-loops exit), so no third mechanism is needed to stop the threads cleanly.
-Unlike 12's Timer chains -- which discard and re-arm a new Timer object
-every tick -- these two threads live for the process lifetime and simply
-loop internally.
-"""
+"""Solar farm sensor simulator: two separate threading.Thread loops (sample, dispatch) each gated by threading.Event().wait(timeout), which doubles as tick delay and shutdown signal -- the 5th distinct sensor-loop structure in this portfolio's Python projects."""
 
 import json
 import os

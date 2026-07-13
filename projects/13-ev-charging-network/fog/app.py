@@ -1,26 +1,4 @@
-"""EV charging-hub fog node: Flask (@app.route decorators, manual
-request.get_json() parsing, real 400 responses, no Pydantic anywhere) --
-the 4th distinct HTTP framework/idiom across this portfolio's Python
-projects (01/05 use FastAPI; 12 uses plain http.server.ThreadingHTTPServer).
-
-Buffering is a plain dict guarded directly by a threading.Lock -- no
-queue.Queue, no asyncio.Queue, no WindowAccumulator/RollingStat object at
-all. Every /ingest request (Flask's dev server runs each request on its
-own worker thread when threaded=True) takes the lock, mutates _buffer in
-place, and releases it; the background flush thread takes the same lock
-only long enough to snapshot-and-clear it.
-
-Responsibilities:
-  GET  /health       -> {"status": "ok"}
-  GET  /thresholds   -> descriptive mirror of alerts.RULES (does not drive
-                        evaluation -- evaluate_rules() is the real engine)
-  POST /ingest       -> validates the batch (validation.py), then buffers
-                        it under _lock
-  (background)       -> every WINDOW_SECONDS, flush_once() snapshots +
-                        clears the buffer, aggregates + evaluates alerts
-                        per (sensor_type, site_id) group, and publishes one
-                        message per group to SQS.
-"""
+"""EV charging-hub fog node: Flask with manual request.get_json() parsing and no Pydantic -- the 4th distinct HTTP framework/idiom in this portfolio's Python projects, buffering _buffer under a plain threading.Lock rather than a queue/accumulator object."""
 
 import os
 import threading

@@ -17,16 +17,7 @@ function jsonResponse(statusCode, body) {
   };
 }
 
-// API Gateway AWS_PROXY integration invokes this Lambda directly, handing
-// it the full request as event.httpMethod / event.path / event.
-// queryStringParameters. There is exactly one {proxy+} resource (plus
-// root "/") wired to this function -- see deploy_api.sh -- so this handler
-// does its own internal path/method routing (router.js's route()) rather
-// than relying on API Gateway to have a resource per endpoint. This is the
-// project's genuinely different backend architecture: a single Lambda
-// fronted by a real API Gateway REST API deployed to LocalStack, replacing
-// the directly-running dashboard REST API every other Node sibling in this
-// portfolio uses.
+// Single Lambda behind a real API Gateway {proxy+} REST API on LocalStack, doing its own internal path/method routing via router.js instead of per-endpoint API Gateway resources -- the one Node sibling in this portfolio not exposing a directly-running dashboard REST API.
 exports.handler = async (event) => {
   try {
     const method = event.httpMethod || "GET";

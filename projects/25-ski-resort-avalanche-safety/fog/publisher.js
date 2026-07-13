@@ -2,31 +2,7 @@
 
 const { SQSClient, GetQueueUrlCommand, SendMessageCommand } = require("@aws-sdk/client-sqs");
 
-// A JS Proxy-wrapped lazy client, not any of the six publisher shapes
-// already used by this portfolio's other six Node fog services:
-// 03-patient-vitals' QueueGateway is a class (constructor + init() +
-// send()); 06-offshore-wind-farm's createPublisher() is a closure factory
-// returning a fresh { publish, queueUrl } object per call;
-// 10-wildfire-forest-monitoring's publish() is a bare exported function
-// taking the SQS client as an explicit parameter every call, with a
-// module-level Map cache for queue-url memoization; 11-water-treatment-
-// utility's module.exports IS a single Object.freeze()'d object literal;
-// 15-data-center-environmental-monitoring decouples flush from send via an
-// EventEmitter "window-closed" listener that calls SendMessageBatchCommand;
-// 18-elevator-escalator-fleet-monitoring wires a real
-// stream.Transform/stream.Writable pipeline. None of the seven uses an ES6
-// Proxy.
-//
-// `target` starts as a genuinely empty object literal with nothing built on
-// it. The Proxy's get trap below is the ONLY place a real SQSClient is ever
-// constructed: the first time any caller reads a property that is not one
-// of the control methods (configure/useClient/reset/publish/queueUrl), the
-// trap lazily builds the client (unless a fake was already injected via
-// useClient) and caches it directly onto `target.client`, so every later
-// property access reuses that same cached instance. This makes
-// `publisher.send(...)` -- or any other property read -- transparently
-// trigger lazy init on first use; nothing in this module calls
-// `new SQSClient(...)` outside the trap.
+// An ES6 Proxy whose get trap lazily constructs and caches the SQSClient on first non-control property access -- the 7th distinct publisher shape among this portfolio's Node fog services.
 const target = { client: null };
 
 const config = { endpoint: undefined, region: "eu-west-1" };

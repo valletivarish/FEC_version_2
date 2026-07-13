@@ -1,28 +1,4 @@
-"""Bridge sensor simulator: one container per (sensor_type, site_id) pair.
-
-7th distinct sensor-loop structure in the portfolio's Python projects. 01's
-sensors/sensor.py uses a single `while True: ... time.sleep(...)` loop
-where dispatch is an elapsed-time comparison inside that same loop. 05's
-sensors/sensor.py uses the stdlib `sched` scheduler with two self-re-
-entering events on one queue, one thread. 12's sensors/sensor.py uses two
-independently self-rearming threading.Timer chains. 13's sensors/sensor.py
-uses a concurrent.futures.ThreadPoolExecutor with self-resubmitting
-Future.add_done_callback jobs. 14's sensors/sensor.py uses real asyncio --
-asyncio.gather over two coroutines on one event loop. 17's
-sensors/sensor.py uses two threading.Thread loops driven by
-threading.Event().wait(timeout).
-
-Every one of those six concurrency models runs inside a single OS process
-(threads, coroutines, or a plain sequential loop). Here sampling and
-dispatch are two genuinely separate OS processes, started via
-multiprocessing.Process: sample_process() generates readings on
-SAMPLE_INTERVAL and puts them onto a multiprocessing.Queue acting as the
-shared outbox; dispatch_process() independently drains that queue on
-DISPATCH_INTERVAL and POSTs whatever accumulated to the fog node. Neither
-process shares Python-level memory with the other -- the multiprocessing.Queue
-is the only channel between them, backed by a real OS pipe, not a shared
-list guarded by a lock.
-"""
+"""Bridge sensor simulator: sampling and dispatch run as two separate OS processes linked only by a multiprocessing.Queue (a real OS pipe) -- the 7th distinct sensor-loop concurrency structure in this portfolio's Python projects."""
 
 import json
 import multiprocessing as mp

@@ -1,20 +1,6 @@
 "use strict";
 
-// Alert rules represented as a Map<sensorType, Function>, where each
-// function is a small closure built once at module load by the makeThreshold
-// factory below, capturing its own field/operator/limit/key. Looking up a
-// rule is a single Map.get(sensorType) call at evaluation time -- there is
-// no shared [field, op, limit, key] lookup table looped over per vital
-// (03-patient-vitals' fog/alerts.js), no per-sensor-type dispatch object of
-// hand-written named functions (06-offshore-wind-farm's INSPECTORS), and no
-// flat array of rule-descriptor objects filtered/mapped over the whole list
-// (10-wildfire-forest-monitoring's RULES). Here construction and lookup are
-// both genuinely different: closures are manufactured by a factory and
-// stored as Map values, keyed for O(1) retrieval by sensor type.
-//
-// Thresholds are evaluated on the window aggregate (avg, or min for
-// pressure), never a single raw reading, so one noisy sample cannot trip an
-// alert on its own.
+// Alert rules as a Map<sensorType, Function> of factory-built closures (vs. 03-patient-vitals' looped lookup table, 06-offshore-wind-farm's dispatch object, or 10-wildfire-forest-monitoring's filtered rule array), evaluated against window aggregates rather than raw readings.
 function makeThreshold(field, op, limit, key) {
   const compare = op === ">" ? (value) => value > limit : (value) => value < limit;
   return function evaluate(summary) {

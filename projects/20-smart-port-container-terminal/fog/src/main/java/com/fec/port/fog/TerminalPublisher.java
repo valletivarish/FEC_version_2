@@ -12,24 +12,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Publishes one SQS message per non-empty (sensor_type, site_id) group, but
- * batches every group from a single flush cycle into ONE
- * SendMessageBatchRequest call (chunked defensively at 10 entries, the SQS
- * batch limit) instead of one SendMessage call per group. Every other Java
- * fog sibling in this portfolio calls the single-message send API once per
- * group (02's QueueRelay.emit/07's RelayPublisher.publish/08's and 09's
- * QueuePublisher.publish/16's TransitPublisher.publish all wrap
- * sendMessage(); 19's SafetyPublisher.emit wraps the ASYNC client's
- * sendMessage()). This still uses the plain synchronous SqsClient, so it is
- * not identical to 19's async design either -- the axis this class changes
- * is send SHAPE (one API call per window, not one per group), not sync-vs-
- * async. Queue-URL resolution uses a LINEAR backoff (starts at 500ms, grows
- * by 500ms per attempt, caps at 4000ms, 20 attempts) rather than 02/07/08/
- * 09/16's fixed 30x2s loop or 04's exponential backoff or 19's non-blocking
- * CompletableFuture retry chain, and is resolved lazily on first publish
- * (not eagerly in the constructor like every sibling above).
- */
+/** Batches every group from a flush cycle into ONE SendMessageBatchRequest (chunked at 10 entries) instead of one sendMessage call per group, with lazily-resolved queue URL backed by linear (not fixed or exponential) backoff -- the 10th distinct Java fog publishing idiom in this portfolio. */
 public class TerminalPublisher {
 
     private static final int MAX_ATTEMPTS = 20;

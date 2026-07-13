@@ -1,13 +1,4 @@
-"""SQS publishing as a manual module-level singleton -- the 4th distinct
-publisher shape across this portfolio's Python projects: 01's publisher.py
-is a class (SqsPublisher) with a retry loop in __init__; 05's is a
-contextlib.contextmanager factory (open_shipment_link) yielding a
-dataclass-backed ShipmentLink; 12's is a pair of functools.lru_cache-
-memoized functions. Here there is no decorator, no class, no context
-manager -- just a private _client global and a get_client() function that
-builds the boto3 client on first call and returns the cached instance on
-every call after that, by hand.
-"""
+"""SQS publishing via a private _client global cached by hand in get_client() -- the 4th distinct publisher shape in this portfolio's Python projects."""
 
 import json
 import os

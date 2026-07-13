@@ -9,17 +9,7 @@ import software.amazon.awssdk.services.sqs.model.SendMessageRequest;
 
 import java.net.URI;
 
-/**
- * SQS dispatch wrapped as a genuine AutoCloseable resource -- close() shuts
- * the underlying SqsClient down -- instead of the plain
- * hold-a-client-forever instance classes every other fog publisher in this
- * portfolio uses (02's QueueRelay, 04's RelayClient, 07's RelayPublisher,
- * 08's QueuePublisher, 09's QueuePublisher all build an SqsClient in their
- * constructor and never release it). main() below keeps one open for the
- * container's entire lifetime deliberately -- the process only ever exits by
- * being killed -- but this is the shape a try-with-resources caller (a
- * short-lived CLI tool, or a test) would actually use it in.
- */
+/** SQS dispatch wrapped as a genuine AutoCloseable resource whose close() shuts the SqsClient down, unlike this portfolio's other fog publishers (02, 04, 07, 08, 09) which hold their client forever. */
 public class TransitPublisher implements AutoCloseable {
 
     private final SqsClient client;

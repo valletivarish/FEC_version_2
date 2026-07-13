@@ -1,15 +1,4 @@
-"""Alert rules as a flat list of plain dicts -- the 4th distinct alert-rule
-idiom across this portfolio's Python projects: 01 keeps THRESHOLDS as a
-dict-of-lists-of-tuples keyed by sensor_type; 05 wires one hand-written
-_check_<key> function per exception through a dict-dispatch table
-(_EVALUATORS); 12 defines a frozen, __post_init__-validated Rule dataclass
-and stores every rule in one flat RULES list. Here a rule is nothing more
-than {sensor_type, field, op, limit, key} -- no class, no dataclass, no
-dispatch table -- and evaluate_rules() is a small generic pure function
-that takes the rule list as an explicit parameter (rather than reading a
-module global), so it is exercised in tests against any rule set without
-monkeypatching module state.
-"""
+"""Rules as a flat list of plain dicts with no class/dataclass/dispatch table -- the 4th distinct alert-rule idiom in this portfolio's Python projects."""
 
 RULES = [
     {"sensor_type": "station_temp_c", "field": "avg", "op": ">", "limit": 45, "key": "overheat_risk"},

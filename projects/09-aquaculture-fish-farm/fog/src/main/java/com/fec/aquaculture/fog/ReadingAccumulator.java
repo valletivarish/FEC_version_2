@@ -3,21 +3,7 @@ package com.fec.aquaculture.fog;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Immutable running accumulation of one buffer bucket's values. Every mutation
- * produces a brand new instance rather than touching shared state -- the class
- * itself owns no lock, no atomic field, and no dedicated thread. Concurrency
- * safety comes entirely from ConcurrentHashMap.merge()'s own guarantee that
- * the remapping function for a given key runs atomically (effectively
- * synchronized per-bucket internally), so combine() only ever needs to be a
- * pure function of two immutable accumulators. This is deliberately different
- * from every other Java sibling in this portfolio: 02 wraps a shared HashMap
- * in an explicit synchronized(lock), 04 layers AtomicReference/AtomicInteger/
- * AtomicBoolean fencing on top of a ConcurrentHashMap, 07 gives each
- * ConcurrentHashMap bucket its own ReentrantLock, and 08 removes the map
- * entirely in favour of a single actor thread draining a queue. Here the map
- * is the only synchronization primitive in play.
- */
+// Immutable accumulator combined solely via ConcurrentHashMap.merge()'s per-key atomicity guarantee -- no locks, atomics, or dedicated thread, unlike this portfolio's other Java fog buffering siblings.
 final class ReadingAccumulator {
 
     private final List<Double> values;

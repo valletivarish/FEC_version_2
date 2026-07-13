@@ -1,15 +1,6 @@
 "use strict";
 
-// Derives one plain-English "colony health summary" sentence per apiary
-// from its recent window history, combining hive-weight trend direction
-// with brood-nest temperature stability. This is the primary structural
-// view of this project's dashboard (see readme.txt) -- a narrative sentence
-// readout, not a tile, badge, heatmap, dial, status-line, priority-list,
-// matrix table, scorecard, or labeled-scale gauge -- so the derivation
-// lives here as a small, independently testable pure function rather than
-// being computed inline inside a route handler or the frontend, matching
-// the portfolio's convention of a per-project derived-metric module (e.g.
-// 10-wildfire-forest-monitoring's fireRisk.js).
+// Colony-health narrative-sentence readout -- distinct from this portfolio's tile/badge/heatmap/dial/gauge dashboard idioms -- implemented as a pure, testable derived-metric function per the per-project convention (e.g. fireRisk.js).
 const WEIGHT_RISE_KG = 0.5;
 const TEMP_STABLE_RANGE_C = 1.5;
 

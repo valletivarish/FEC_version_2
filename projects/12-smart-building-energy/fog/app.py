@@ -1,24 +1,4 @@
-"""Smart-building fog node: a plain http.server ThreadingHTTPServer, no
-FastAPI/Flask/ASGI anywhere. Every request is handled on its own OS thread
-(ThreadingHTTPServer's default behaviour); routes are dispatched by hand in
-FogHandler.do_GET/do_POST rather than through a framework router, and
-request/response bodies are encoded/decoded with plain json.loads/dumps
-against Pydantic-free dicts.
-
-Responsibilities:
-  GET  /health       -> {"status": "ok"}
-  GET  /thresholds   -> descriptive mirror of alerts.RULES (does not drive
-                        evaluation -- alerts.evaluate() is the real rule
-                        engine, see alerts.py)
-  POST /ingest       -> validates the batch (validation.py), then hands it
-                        to ingest_pipeline.enqueue_batch(); the actual
-                        buffering happens off-thread on the dedicated
-                        consumer thread started in main()
-  (background)       -> every WINDOW_SECONDS, flush_once() snapshots the
-                        buffer, aggregates + evaluates alerts per
-                        (sensor_type, site_id) group, and publishes one
-                        message per group to SQS.
-"""
+"""Fog node on a bare http.server ThreadingHTTPServer with hand-dispatched do_GET/do_POST routing and plain json.loads/dumps -- no FastAPI/Flask/ASGI/Pydantic anywhere."""
 
 import json
 import os

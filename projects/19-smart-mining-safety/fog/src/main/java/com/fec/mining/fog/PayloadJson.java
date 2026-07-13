@@ -7,22 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.util.List;
 
-/**
- * Builds the SQS message body for one window's aggregate.
- *
- * Every other Java fog sibling builds this exact payload differently: 02
- * and 16 hand-build a blank ObjectNode field-by-field with .put() calls; 04
- * and 08 serialize a POJO straight to a JSON string via
- * ObjectMapper.writeValueAsString() (nothing ever touches a tree); 09
- * writes the JSON token-by-token through Jackson's low-level JsonGenerator
- * streaming API (no tree, no POJO); 07 goes through a bespoke fluent
- * JsonBuilder wrapper class. This uses a hybrid of none of those: the
- * numeric/string fields are described once as an annotated record
- * (SafetyAggregatePayload) and turned into a JsonNode tree via
- * ObjectMapper.valueToTree() -- POJO-to-tree, not POJO-to-string -- and the
- * alerts array, which the payload record deliberately omits, is appended
- * onto that already-built tree afterwards with putArray()/add().
- */
+/** Builds the SQS payload by converting an annotated record to a JsonNode tree via ObjectMapper.valueToTree() -- POJO-to-tree, unlike sibling fog projects' put()-building, writeValueAsString(), streaming JsonGenerator, or fluent JsonBuilder approaches -- then appends the alerts array with putArray()/add(). */
 public class PayloadJson {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();

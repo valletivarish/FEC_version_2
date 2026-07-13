@@ -1,30 +1,6 @@
 "use strict";
 
-// A single shared "pulse" timer drives BOTH sampling and dispatch, instead
-// of each sensor container running one timer per concern. This is a
-// genuinely different scheduling idiom from every Node sibling so far:
-//   - 03-patient-vitals/06-offshore-wind-farm: one setInterval that ticks at
-//     the SAMPLE rate itself and does both jobs (03 inline; 06 via a
-//     stateful rig object) every single tick -- the timer's own rate IS the
-//     sample rate, and dispatch is a wall-clock elapsed check riding along
-//     on that same tick.
-//   - 10-wildfire-forest-monitoring/15-data-center-environmental-monitoring:
-//     two fully independent timers (setTimeout or setInterval), one per
-//     concern, each running at its own configured rate directly.
-//   - 11-water-treatment-utility: setInterval for sampling paired with a
-//     recursive setImmediate loop for opportunistic, timer-free dispatch.
-//   - 18-elevator-escalator-fleet-monitoring: two independent
-//     process.hrtime()-anchored drift-corrected setTimeout loops.
-//
-// Here there is exactly ONE physical timer (the "pulse"), ticking at a base
-// rate decoupled from both SAMPLE_INTERVAL and DISPATCH_INTERVAL (neither
-// rate has to be a multiple of the other, or of the pulse). Each pulse adds
-// basePulseMs to two independent millisecond accumulators; whenever an
-// accumulator reaches its own interval, that concern fires and the
-// accumulator is decremented (not reset to 0) by that interval, carrying
-// any overshoot forward so the long-run average rate stays accurate instead
-// of drifting low. This is a software-PLL/leaky-bucket style divisor, not a
-// second timer and not a wall-clock Date.now() comparison.
+// A single shared "pulse" timer drives two independent leaky-bucket ms accumulators (decremented by interval, not reset to 0, so overshoot carries forward) for sample and dispatch rates -- the 5th distinct timer/scheduling idiom in this portfolio's Node.js projects.
 function buildPulseState(sampleIntervalMs, dispatchIntervalMs) {
   return { sampleAcc: 0, dispatchAcc: 0, sampleIntervalMs, dispatchIntervalMs };
 }

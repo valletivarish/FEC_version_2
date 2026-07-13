@@ -1,18 +1,4 @@
-"""Building sensor simulator: one process per (sensor_type, site_id) pair.
-
-3rd distinct sensor-loop structure in the portfolio's Python projects. 01
-uses a single `while True: ... time.sleep(sample_interval)` loop where the
-dispatch check is just an elapsed-time comparison inside that same loop.
-05 uses the stdlib `sched` scheduler with two events re-entered on their own
-scheduler queue, but still driven by one thread calling `clock.run()`.
-
-Here sampling and dispatch are two independently self-rearming
-`threading.Timer` chains -- each tick spawns its own OS thread via Timer,
-does its work, then arms the next Timer for the same tick. There is no
-central loop or scheduler object at all; the two cadences are genuinely
-concurrent real threads coordinated only by a lock around the shared
-reading buffer, not by one thread's single-file event queue.
-"""
+"""Building sensor simulator: two independently self-rearming threading.Timer chains for sampling and dispatch, with no central loop/scheduler and coordination only via a shared-buffer lock -- the 3rd distinct sensor-loop structure in this portfolio's Python projects."""
 
 import json
 import os

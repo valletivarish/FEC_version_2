@@ -1,29 +1,6 @@
 "use strict";
 
-// Fixed-size ring buffer backed by a real Float64Array typed array, one per
-// (sensor_type, site_id) key, pre-allocated to RING_CAPACITY slots with a
-// manually tracked write-index that wraps via modulo. This is the only
-// buffering implementation in the whole portfolio backed by a real
-// TypedArray -- every other Node sibling's buffer is built from plain
-// JS objects/arrays/Maps: 03-patient-vitals groups into a push()-growing
-// shared array-per-key object at ingest time; 06-offshore-wind-farm folds
-// each value into a live streaming accumulator and never keeps a raw list
-// at all; 10-wildfire-forest-monitoring buffers into a Map via an
-// EventEmitter "reading" listener; 11-water-treatment-utility defers ALL
-// grouping to flush time over one flat write-ahead-log array; 15-data-
-// center-environmental-monitoring's ring buffer is a plain
-// `new Array(capacity).fill(null)`, not a typed array; 18-elevator-
-// escalator-fleet-monitoring writes straight into a plain Map<key, array>
-// at ingest (its novelty is entirely in flush scheduling, not storage); and
-// 22-smart-waste-management swaps a Map reference wholesale at flush
-// (double buffer).
-//
-// A Float64Array can only hold the numeric value itself -- it has no room
-// for a string -- so a parallel plain array of equal length carries the ISO
-// timestamp for each slot. The two arrays share one write-index and one
-// wraparound scheme; there is no array of {ts, value} objects anywhere in
-// this module, just two fixed-length parallel arrays addressed by the same
-// index.
+// Float64Array-backed ring buffer (parallel plain array for timestamps) -- the only TypedArray-backed buffer in this portfolio; every other Node sibling uses plain objects/arrays/Maps.
 const RING_CAPACITY = 64;
 const KEY_DELIM = "::";
 

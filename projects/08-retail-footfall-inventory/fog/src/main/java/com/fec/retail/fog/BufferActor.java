@@ -9,25 +9,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 
-/**
- * Owns the per-(sensor_type, site_id) reading buffers exclusively on one
- * dedicated worker thread. HTTP handler threads never touch the buffer map
- * directly -- they enqueue an IngestEvent.Ingest and return immediately, so
- * there is no shared-map locking anywhere in this class: mutation only ever
- * happens on the actor thread, one mailbox message at a time.
- *
- * This is the 4th distinct concurrency shape in this CA portfolio: 02 guards
- * one shared HashMap with a single synchronized(lock) block; 04 uses a
- * fenced lock-free ConcurrentHashMap-of-generations scheme; 07 shards a
- * ConcurrentHashMap into per-key ReentrantLock-guarded buckets. Here, no
- * lock or atomic ever touches the buffer at all -- single-writer ownership
- * makes contention structurally impossible instead of merely well-guarded.
- * A flush is itself just another mailbox message (Drain), so it is
- * serialized against ingests by the queue's own FIFO order rather than by
- * any explicit synchronization, and the reply carries both the buffer and
- * units snapshots together so the caller never reads actor-owned state
- * directly from a different thread.
- */
+/** Single-writer actor-thread ownership over a mailbox queue -- no lock or atomic ever touches the buffer -- the 4th distinct concurrency shape in this CA portfolio. */
 public class BufferActor {
 
     private final BlockingQueue<IngestEvent> inbox = new LinkedBlockingQueue<>();

@@ -1,20 +1,4 @@
-"""Solar farm fog node: aiohttp.web (a real async framework, distinct from
-01/05's FastAPI, 12's plain http.server, and other siblings' Flask/wsgiref).
-
-Responsibilities:
-  GET  /health       -> {"status": "ok"}
-  GET  /thresholds   -> descriptive mirror of alerts.RULES (does not drive
-                        evaluation -- alerts.evaluate() is the real rule
-                        engine, see alerts.py)
-  POST /ingest       -> validates the batch (validation.py), then records it
-                        into the per-app buffering.DoubleBuffer
-  (background)       -> every WINDOW_SECONDS, an asyncio task snapshots the
-                        buffer via DoubleBuffer.swap(), aggregates + evaluates
-                        alerts per (sensor_type, site_id) group, and drops one
-                        message per group onto publisher.OUTBOX; a separate
-                        dedicated OS thread (publisher.start_flusher_thread)
-                        drains that queue and ships batches to SQS.
-"""
+"""Solar farm fog node built on aiohttp.web -- a real async framework, distinct from 01/05's FastAPI, 12's plain http.server, and other siblings' Flask/wsgiref."""
 
 import asyncio
 import json

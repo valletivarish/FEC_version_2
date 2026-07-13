@@ -16,27 +16,7 @@ import java.util.TimerTask;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
-/**
- * One process per (sensor_type, site_id) pair. Simulates a slowly-drifting
- * bus telemetry reading and independently samples/dispatches it to the fog
- * node's /ingest endpoint. SAMPLE_INTERVAL and DISPATCH_INTERVAL are
- * deliberately separate knobs -- a bus's GPS speed might be read every couple
- * of seconds but the unit only phones home less often, so the buffer
- * genuinely accumulates several readings per POST.
- *
- * Scheduling uses two independent java.util.Timer instances (one per
- * TimerTask), each with its own dedicated background thread driven by
- * scheduleAtFixedRate -- so a slow dispatch POST can never delay the next
- * sample tick, and vice versa. This is the sixth distinct Java sensor-loop
- * scheduling mechanism in this CA portfolio: 02's Sensor and 07/08/09's
- * *Unit classes all drive sampling and dispatch from a single Thread.sleep
- * loop (02 sleeps once per sample and checks the dispatch deadline inline;
- * 07/08/09 poll two "next fire" deadlines and sleep in small increments),
- * and 04's MetricSensor uses a 2-thread ScheduledExecutorService. Here there
- * is no manual deadline bookkeeping and no thread pool -- java.util.Timer
- * itself owns each schedule, and the shared buffer only ever needs a plain
- * synchronized block since exactly two threads (one per Timer) ever touch it.
- */
+/** Two independent java.util.Timer/TimerTask pairs driven by scheduleAtFixedRate, each on its own thread, so a slow dispatch POST never delays the next sample tick -- the sixth distinct Java sensor-loop scheduling mechanism in this CA portfolio. */
 public class TransitSensorUnit {
 
     record Metric(String unit, RandomWalk walk, double start) {}

@@ -104,19 +104,7 @@ async function flushOnce(station) {
   return messages;
 }
 
-// HTTP routing dispatches on a template-literal key built as
-// `${req.method} ${pathname}`, matched inside a switch(true) block -- one
-// case per exact "METHOD /path" string, with a regex .test(key) case
-// available for anything that needs pattern matching (not needed by this
-// service's three fixed routes, but the mechanism is exercised by
-// backend/dashboard/server.js's per-slope detail route). This is distinct
-// from every sibling Node fog service in this portfolio: 03/06 both dispatch
-// through Express; 10 uses a hand-written if/else chain; 11 uses a
-// declarative [method, regex, handler] tuple table matched by RegExp.exec();
-// 15 uses a simple sequential if-chain of prefix checks; 18 uses a
-// segment-array middleware chain with next() continuations; 22 implements a
-// real prefix trie. None of the seven builds a single composed
-// method+path key and dispatches on it with switch(true).
+// HTTP routing dispatches on a switch(true) over a composed `${method} ${pathname}` key -- the one sibling among this portfolio's Node fog services that avoids Express, if/else chains, tuple tables, or a prefix trie.
 function buildHandler(station) {
   return async function handler(req, res) {
     try {

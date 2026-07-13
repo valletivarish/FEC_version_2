@@ -175,17 +175,7 @@ function renderTrendGrid() {
   }
 }
 
-// Every /api/* call in this project is a real Lambda invocation behind API
-// Gateway (see backend/api/), which is inherently slower and more
-// contention-sensitive than the other projects' direct HTTP handlers. A
-// plain setInterval(tick, 2500) does not wait for the previous tick to
-// finish, so if one round of Lambda invocations runs long (cold start,
-// LocalStack under load), the next tick starts anyway -- the resulting
-// pile of overlapping in-flight requests competes for the same Lambda
-// executor and makes every one of them slower still, a feedback loop that
-// can leave the dashboard blank far longer than a single slow tick would.
-// tickInFlight skips starting a new tick while one is still running,
-// letting the backend catch up instead of digging the hole deeper.
+// tickInFlight is a boolean re-entrancy guard skipping setInterval's next tick while the prior real Lambda round-trip is still in flight, preventing overlapping invocations from compounding into ever-slower cold starts.
 let tickInFlight = false;
 
 async function tick() {

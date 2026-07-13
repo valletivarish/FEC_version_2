@@ -13,22 +13,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Publishes aggregated window payloads to SQS using the ASYNC AWS SDK v2
- * client (SqsAsyncClient), not the synchronous SqsClient every other Java
- * fog sibling in this portfolio uses (02's QueueRelay, 04's RelayClient, 07's
- * RelayPublisher, 08's and 09's QueuePublisher, 16's TransitPublisher all
- * wrap software.amazon.awssdk.services.sqs.SqsClient).
- *
- * Queue-URL resolution is a non-blocking retry chain built from
- * CompletableFuture.exceptionallyComposeAsync() + CompletableFuture's
- * delayedExecutor(), not a blocking for-loop with Thread.sleep -- unlike
- * every sibling's fixed 30-attempt/2-second Thread.sleep retry loop (02,
- * 07, 08, 09, 16) or 04's synchronous exponential-backoff retryWithBackoff()
- * helper, the calling thread here is never parked while LocalStack finishes
- * creating the queue; each retry attempt schedules the next one on a
- * delayed executor and returns immediately.
- */
+/** Resolves the queue URL via a non-blocking exceptionallyComposeAsync()+delayedExecutor() retry chain on the async SqsAsyncClient, never parking the thread, unlike every sibling's blocking Thread.sleep retry loop or synchronous retryWithBackoff() over SqsClient. */
 public class SafetyPublisher {
 
     private static final int MAX_ATTEMPTS = 30;

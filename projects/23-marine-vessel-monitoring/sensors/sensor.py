@@ -1,30 +1,4 @@
-"""Marine vessel sensor simulator: one process per (sensor_type, site_id) pair.
-
-8th distinct sensor-loop structure across the portfolio's Python projects.
-01 uses a single `while True: ... time.sleep(...)` loop where dispatch is an
-elapsed-time comparison inside that same loop. 05 uses the stdlib `sched`
-scheduler with two self-re-entering events on one queue, one thread. 12 uses
-two independently self-rearming `threading.Timer` chains. 13 uses a
-concurrent.futures.ThreadPoolExecutor with self-resubmitting
-Future.add_done_callback jobs. 14 uses real asyncio -- asyncio.gather over
-two coroutines on one event loop. 17 uses two threading.Thread loops driven
-by threading.Event().wait(timeout). 21 uses two genuinely separate OS
-processes via multiprocessing.Process, joined only by a multiprocessing.Queue.
-
-None of those seven schedule recurring work by calling an asyncio event
-loop's own timer wheel directly. Here _sample_tick/_dispatch_tick are plain
-synchronous functions (no `async def`, no coroutine, no thread, no process)
-that each, at the end of their own work, re-arm themselves via
-loop.call_later(interval, self_again) on a single asyncio event loop --
-loop.run_forever() is the only thing keeping the process alive. Because
-both tick callbacks run on that one event-loop thread and neither one ever
-awaits mid-mutation, the shared reading buffer needs no lock, queue, or
-swap structure at all: only the dispatch tick's actual blocking network
-POST is handed to a dedicated one-worker executor (so a slow/unreachable
-fog node never stalls the loop that is also driving the sample cadence),
-and the executor's result is folded back via loop.call_soon_threadsafe,
-the one place cross-thread coordination is needed.
-"""
+"""Marine vessel sensor simulator: self-re-arming loop.call_later ticks on a single asyncio event loop (no thread/process/coroutine per tick) -- the 8th distinct sensor-loop structure in this portfolio's Python projects, and the only one whose shared buffer needs no lock."""
 
 import asyncio
 import json

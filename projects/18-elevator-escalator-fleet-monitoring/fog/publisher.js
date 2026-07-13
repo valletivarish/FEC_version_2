@@ -3,35 +3,7 @@
 const { Transform, Writable } = require("node:stream");
 const { SQSClient, GetQueueUrlCommand, SendMessageCommand } = require("@aws-sdk/client-sqs");
 
-// A real Node stream pipeline, not a class instance (03), a closure factory
-// (06), a stateless function taking the client per-call (10), or a frozen
-// object literal (11). Aggregated window groups are .write()-en into
-// PassThroughGroup, an objectMode stream.Transform whose _transform simply
-// forwards the payload on with this.push() -- a genuine passthrough stage,
-// kept separate from the sink so a future project could insert real
-// transform logic (e.g. redaction, enrichment) between ingestion and send
-// without touching the sink at all. The Transform is piped into an
-// objectMode stream.Writable (buildSqsSink) whose _write performs the
-// actual SendMessageCommand against SQS.
-//
-// Because .pipe() only guarantees the Transform accepted a chunk into its
-// own internal buffer, not that the Writable finished sending it, publish()
-// below correlates each write with its eventual outcome via a small
-// Map<id, {resolve, reject}> keyed by a monotonic id stamped onto the
-// chunk before writing -- the sink looks the id up once its SQS send
-// settles and resolves/rejects the matching publish() promise. The sink
-// itself always calls its stream callback with no argument (never
-// callback(err)), because propagating an error through the stream would
-// destroy the Writable and take every future publish() down with it; a
-// single failed send should only fail that one caller's promise.
-//
-// The surrounding queue-url-resolution/config scaffolding is also written
-// distinctly from 11's version rather than only renamed: resolveQueueUrl()
-// below is a recursive exponential backoff (200ms doubling, capped at 3s)
-// instead of 11's imperative for-loop with a fixed 2000ms delay between
-// every attempt, and configure()/useClient() both funnel through one
-// private _wireClient() helper instead of duplicating the same four
-// assignments in each function body.
+// A real Node stream pipeline (Transform piped into a Writable SQS sink, publish() outcomes correlated via a Map<id,{resolve,reject}>) -- the 5th distinct fog-publisher idiom, after 03's class, 06's closure factory, 10's stateless function, and 11's frozen object literal.
 class PassThroughGroup extends Transform {
   constructor() {
     super({ objectMode: true });

@@ -1,28 +1,4 @@
-"""Threshold rules as a flat list of typing.NamedTuple records, dispatched
-through PEP 634 structural pattern matching -- the 7th distinct alert-rule
-idiom in the portfolio's Python projects.
-
-01's fog/alerts.py keeps THRESHOLDS as a dict-of-lists-of-tuples keyed by
-sensor_type and loops over agg[field] with an if/elif on the operator
-string. 05's fog/alerts.py wires one hand-written _check_<key> function per
-exception through a dict-dispatch table (_EVALUATORS). 12's fog/alerts.py
-defines a frozen, __post_init__-validated Rule dataclass filtered by a
-generator expression at call time. 13's fog/alerts.py keeps a flat list of
-plain dicts consumed by a generic evaluate_rules(rules, sensor_type,
-summary) function. 14's fog/alerts.py keys an enum.Enum-tagged dict of
-sensor_type -> {AlertKey: lambda}. 17's fog/alerts.py builds an abc.ABC
-Strategy hierarchy (ThresholdRule with AboveLimitRule/BelowLimitRule
-subclasses) and calls rule.evaluate(summary) polymorphically.
-
-None of those six use typing.NamedTuple, and none dispatch on the
-comparison operator via Python's match/case statement. Here every rule is
-a plain, immutable Rule NamedTuple -- no class hierarchy, no dataclass
-validation, no dict-dispatch table, no lambda. evaluate() below resolves
-which summary field a rule cares about and how to compare it purely by
-`match rule.op: case "avg_gt": ... case "max_gt": ...`, structural pattern
-matching over the op string rather than a lookup table or a generic
-operator function.
-"""
+"""Rules as immutable typing.NamedTuple records dispatched via match/case on rule.op (PEP 634 structural pattern matching) -- the 7th distinct alert-rule idiom in this portfolio's Python projects."""
 
 import typing
 

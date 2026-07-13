@@ -1,15 +1,4 @@
-"""EV charging-hub sensor simulator: one process per (sensor_type, site_id)
-pair. 4th distinct sensor-loop structure across this portfolio's Python
-projects: 01 uses a single `while True: ... time.sleep(...)` loop; 05 uses
-the stdlib `sched` scheduler with two events re-entering themselves on one
-scheduler queue; 12 uses two independent self-rearming `threading.Timer`
-chains. Here sampling and dispatch are two recurring jobs submitted to a
-concurrent.futures.ThreadPoolExecutor: each job's Future gets a
-done_callback that resubmits the same job back onto the executor, so the
-two cadences are self-perpetuating pool tasks rather than raw Timer threads
-or a single cooperative scheduler queue -- the executor, not any one
-object, owns the recurrence.
-"""
+"""EV charging-hub sensor simulator -- 4th distinct sensor-loop structure in this portfolio's Python projects: recurring sample/dispatch jobs re-arm themselves via Future.add_done_callback on a ThreadPoolExecutor, so the executor itself owns the recurrence instead of a Timer chain or scheduler queue."""
 
 import json
 import os

@@ -1,16 +1,6 @@
 "use strict";
 
-// Hand-rolled middleware-chain router: routes are stored exactly as
-// { method, path, handlers: [fn, fn, ...] } objects in a plain array. This
-// is deliberately not a regex-table-with-one-handler router (that idiom is
-// already used across 03/06/10/11's fog/router.js and
-// backend/dashboard/router.js in this portfolio) -- here a single route can
-// carry more than one handler function, and dispatch() composes/calls them
-// in sequence via a next() continuation, Express-style, entirely on top of
-// plain http.createServer with zero framework dependency. See app.js's
-// POST /ingest route, which registers a [validateIngestBody, handleIngest]
-// pair so validation and the actual handler are genuinely separate
-// middleware functions chained together, not one handler doing both jobs.
+// Hand-rolled middleware-chain router: routes hold multiple handlers composed in sequence via a next() continuation, Express-style -- distinct from the regex-table single-handler idiom used in 03/06/10/11's routers and backend/dashboard/router.js.
 function createRouter() {
   const routes = [];
 

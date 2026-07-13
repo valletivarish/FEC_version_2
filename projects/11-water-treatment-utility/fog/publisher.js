@@ -2,20 +2,7 @@
 
 const { SQSClient, GetQueueUrlCommand, SendMessageCommand } = require("@aws-sdk/client-sqs");
 
-// Exposed as a single frozen object literal -- the module export itself IS
-// the gateway, not a class you instantiate (03-patient-vitals'
-// QueueGateway) and not a closure-factory that hands back a fresh
-// { publish, queueUrl } object on every call (06-offshore-wind-farm's
-// createPublisher). It is also not a stateless function taking the SQS
-// client as a parameter on every call with an external Map cache
-// (10-wildfire-forest-monitoring's publisher.js) -- here the client and the
-// resolved queue URL are private state closed over by this module, and the
-// public surface is a single Object.freeze()'d shape so callers cannot
-// reassign gateway.publish or bolt on new methods at runtime. The one
-// genuinely dynamic piece of that frozen shape, `queueUrl`, is a getter --
-// freezing an object only locks down its own property descriptors, it does
-// not prevent a getter from computing a fresh value from the private cache
-// below on every read.
+// Module export is itself a single Object.freeze()'d gateway object (not a class instance, closure-factory, or param-passed stateless function) with a live `queueUrl` getter over closed-over private state -- the 4th distinct fog-publisher idiom in this portfolio.
 let _client = null;
 let _queueUrlPromise = null;
 let _resolvedQueueUrl = null;

@@ -4,20 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Computes the primary operational-status line for one berth from its
- * latest window per sensor type -- e.g. "Crane: Nominal | Wind: Safe |
- * Reefer: Nominal | Occupancy: 45%". Distinct in KIND from 19's SAFE/
- * CAUTION/DANGER status TILE (ShaftRepository.classify() collapses a whole
- * shaft down to one of three fixed strings, rendered as a single
- * colour-filled div): this returns FOUR independently-labelled segments,
- * each carrying its own active/inactive flag, meant to be rendered as plain
- * inline text -- colour applied only to the flagged word itself, never a
- * tile background. Each segment reads one real, currently-fired alert key
- * (or its absence) off the berth's own latest windows; nothing here
- * recomputes threshold logic -- that already happened in the fog's
- * BerthRules.assess().
- */
+/** Berth status line renders FOUR independently-labelled segments (crane/wind/reefer/occupancy) from already-fired alert keys, unlike 19's ShaftRepository.classify() which collapses everything into one fixed-string SAFE/CAUTION/DANGER tile -- no threshold logic recomputed here, that's BerthRules.assess()'s job. */
 public final class StatusLine {
 
     public record Segment(String label, String value, boolean active) {}

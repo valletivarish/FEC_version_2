@@ -6,29 +6,7 @@ import java.util.Map;
 import java.util.function.BiPredicate;
 import java.util.function.ToDoubleFunction;
 
-/**
- * The real, code-defined safety/operational thresholds for this terminal.
- * Also exposed (descriptively) via GET /thresholds.
- *
- * assess() is a small GENERIC INTERPRETER over two static lookup tables --
- * FIELD_EXTRACTORS (turns a rule's "field" string into the actual aggregate
- * value to test) and COMPARATORS (turns a rule's "op" string into the actual
- * comparison) -- rather than a switch, an if-chain, an enum with per-
- * constant bodies, or a rule object that itself carries a lambda. No other
- * Java fog sibling in this portfolio dispatches this way: 02's Alerts
- * switches on the field name directly inside evaluate() and falls back to a
- * ternary for the operator; 04's assess() hardcodes a separate switch
- * expression per metric and never reads its own rule objects at all; 07's
- * AlertRule is a sealed interface whose record variants each embed a
- * ToDoubleFunction extractor and override firesOn(); 08's AlertRule is an
- * enum where each constant overrides its own test(); 09's Rule is built by a
- * fluent DSL that closes over a BiPredicate; 16's Rule embeds a Predicate
- * built by static factory methods; 19's ThresholdRule/HazardRules pairs a
- * typed 2-value enum selector with a switch expression. Here the rule
- * objects are inert data and BOTH steps of interpreting them -- which field,
- * which comparison -- are table lookups, so adding a new field or operator
- * never touches assess() itself, only the two maps below.
- */
+/** assess() dispatches via two static lookup maps (FIELD_EXTRACTORS, COMPARATORS) rather than a switch/enum/lambda-per-rule idiom, unlike this portfolio's other Java fog siblings (02, 04, 07, 08, 09, 16, 19). */
 public class BerthRules {
 
     static final Map<String, ToDoubleFunction<WindowAggregate>> FIELD_EXTRACTORS = Map.of(

@@ -2,30 +2,7 @@
 
 const { SQSClient, GetQueueUrlCommand, SendMessageCommand } = require("@aws-sdk/client-sqs");
 
-// SQS dispatch as a Node async generator -- the only publisher shape in this
-// portfolio that is a generator. Every sibling fog service publishes
-// through something else: 03-patient-vitals' QueueGateway is a class
-// (constructor + init() + send()); 06-offshore-wind-farm's createPublisher()
-// is a closure factory returning a fresh { publish, queueUrl } object per
-// call; 10-wildfire-forest-monitoring's publish() is a bare exported
-// function taking the SQS client as an explicit parameter every call, with
-// a module-level Map cache for queue-url memoization; 11-water-treatment-
-// utility's module.exports IS a single Object.freeze()'d object literal;
-// 15-data-center-environmental-monitoring decouples flush from send via an
-// EventEmitter "window-closed" listener that calls
-// SendMessageBatchCommand; 18-elevator-escalator-fleet-monitoring wires a
-// real Node stream.Transform/stream.Writable pipeline; and 22-smart-waste-
-// management runs a self-draining async FIFO work queue with an internal
-// "pump" loop.
-//
-// publishBatches(queueName, payloads) below is `async function*` -- callers
-// consume it with `for await (const result of publishBatches(...))`. The
-// generator body awaits each SQS send before it yields that send's result,
-// so the loop gives natural backpressure for free: the next payload in
-// `payloads` is not even looked at until the caller has pulled the previous
-// yielded result out of the generator with its own iteration step. There is
-// no separate queue, no buffer, no pump function -- the generator's own
-// suspended state between yields IS the backpressure mechanism.
+// SQS dispatch as an `async function*` generator -- the only generator-shaped publisher in this portfolio; its suspended state between yields IS the backpressure, with no separate queue/buffer/pump.
 let _client = null;
 let _queueUrlPromise = null;
 let _resolvedQueueUrl = null;

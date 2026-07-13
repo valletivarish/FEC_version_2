@@ -1,28 +1,4 @@
-"""Smart-parking fog node: a hand-written WSGI application on
-wsgiref.simple_server (stdlib) -- no FastAPI/Flask/ASGI, and a genuinely
-different stdlib HTTP model from 12's http.server.BaseHTTPRequestHandler.
-`app(environ, start_response)` is the actual WSGI callable: routing is a
-manual if/elif chain on environ['REQUEST_METHOD']/['PATH_INFO'], and POST
-bodies are read by hand off environ['wsgi.input'] using CONTENT_LENGTH --
-there is no request object, no router decorator, nothing but the raw WSGI
-contract. WSGIServer is mixed with socketserver.ThreadingMixIn so concurrent
-sensor POSTs from both lots don't serialize behind one slow request.
-
-Responsibilities:
-  GET  /health       -> {"status": "ok"}
-  GET  /thresholds   -> descriptive mirror of alerts.RULES (does not drive
-                        evaluation -- alerts.evaluate() is the real rule
-                        engine, see alerts.py)
-  POST /ingest       -> validates the batch (validation.py), then hands it
-                        to buffering.add_readings() (a bounded
-                        collections.deque ring buffer per key, see
-                        buffering.py)
-  (background)       -> every WINDOW_SECONDS, flush_once() snapshots +
-                        clears the buffer, aggregates + evaluates alerts per
-                        (sensor_type, site_id) group, and publishes one
-                        message per group via the publisher closure
-                        returned by publisher.make_publisher().
-"""
+"""Smart-parking fog node: a raw `app(environ, start_response)` WSGI callable served via wsgiref.simple_server + socketserver.ThreadingMixIn (stdlib only, no framework) -- a distinct stdlib HTTP model from project 12's http.server.BaseHTTPRequestHandler."""
 
 import json
 import os

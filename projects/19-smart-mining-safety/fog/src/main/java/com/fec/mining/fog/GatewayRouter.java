@@ -11,25 +11,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
 
-/**
- * Single HttpHandler registered at "/" that looks routes up in a flat
- * Map<String, HttpHandler> keyed by "METHOD path" (e.g. "GET /health",
- * "POST /ingest") -- an O(1) table lookup, distinct from every other Java
- * fog sibling's routing/dispatch style in this portfolio: 02 registers one
- * server.createContext() lambda per path directly in main(); 04's
- * RouteServer and 07's Router are both thin fluent wrappers that still call
- * server.createContext() once per path under the hood; 08's Route is an
- * enum where each constant IS a route, iterated via wireAll(); 09's
- * PathDispatcher does a linear scan over a List<Route> of
- * (Predicate<String> pathMatcher, HttpHandler) pairs; 16 uses a literal
- * if/else-if string-equality chain inside one route() method.
- *
- * Keying by HTTP method as well as path also lets this router tell a real
- * 404 (no route registered for that path at all) apart from a 405 (the path
- * exists, wrong method) -- none of the six siblings distinguish those two
- * cases; 02's FogApp instead hardcodes a manual method check only inside
- * its /ingest handler, and the rest don't check method at all.
- */
+// Flat Map<String, HttpHandler> keyed by "METHOD path" for O(1) route lookup that also distinguishes real 404s (unknown path) from 405s (wrong method) -- distinct from this portfolio's six other Java fog routing/dispatch idioms (per-path lambda registration, fluent wrappers, route-enum, linear predicate scan, if/else string chain).
 public class GatewayRouter implements HttpHandler {
 
     private final Map<String, HttpHandler> routes = new HashMap<>();

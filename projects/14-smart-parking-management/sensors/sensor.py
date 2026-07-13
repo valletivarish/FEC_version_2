@@ -1,21 +1,4 @@
-"""Parking sensor simulator: one process per (sensor_type, site_id) pair.
-
-4th distinct sensor-loop structure in the portfolio's Python projects. 01
-uses a single `while True: ... time.sleep(sample_interval)` loop where the
-dispatch check is an elapsed-time comparison inside that same loop. 05 uses
-the stdlib `sched` scheduler with two events re-entering themselves on one
-scheduler queue, driven by a single thread calling `clock.run()`. 12 uses
-two independently self-rearming `threading.Timer` chains, each tick a
-genuine separate OS thread.
-
-This project uses real `asyncio`: `asyncio.run(main())` drives two
-independent coroutines -- `sample_loop` and `dispatch_loop` -- concurrently
-via `asyncio.gather`, each with its own `while True: await asyncio.sleep(...)`
-cadence on a single event loop thread. There is no OS-thread concurrency and
-no central scheduler object; the two loops interleave cooperatively, and the
-only coordination between them is an `asyncio.Lock` guarding the shared
-reading buffer.
-"""
+"""Parking sensor simulator: `asyncio.gather` runs `sample_loop`/`dispatch_loop` as cooperating coroutines on one event-loop thread, coordinated only by an `asyncio.Lock` -- the 4th distinct sensor-loop structure in this portfolio's Python projects."""
 
 import asyncio
 import json

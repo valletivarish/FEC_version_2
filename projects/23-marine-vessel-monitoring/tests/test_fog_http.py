@@ -1,14 +1,4 @@
-"""Real-socket HTTP tests for the Tornado fog node.
-
-tornado.testing.AsyncHTTPTestCase binds a real tornado.httpserver.HTTPServer
-to an ephemeral port (via tornado.testing.bind_unused_port()) and
-self.fetch() drives it with tornado.httpclient's AsyncHTTPClient over an
-actual TCP socket -- not an in-process ASGI/WSGI transport shim. This is
-Tornado's own idiomatic test tooling, mirroring the real-socket discipline
-this portfolio's other Python fog nodes apply via their own frameworks'
-equivalent (aiohttp's TestServer/TestClient, Flask/Bottle through
-werkzeug/wsgiref make_server, plain http.server's ThreadingHTTPServer).
-"""
+"""Real-socket HTTP tests for the Tornado fog node -- tornado.testing.AsyncHTTPTestCase binds a real HTTPServer to an ephemeral port and self.fetch() drives it via AsyncHTTPClient over an actual TCP socket, not an in-process ASGI/WSGI shim."""
 
 import json
 import time

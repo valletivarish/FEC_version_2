@@ -1,21 +1,4 @@
-"""SQS publishing via an internal queue.SimpleQueue plus one dedicated
-background flusher thread, the 4th distinct publisher shape in the
-portfolio's Python projects: 01 is a class with a bounded sleep-retry loop
-around a single send_message per group; 05 is a contextmanager factory
-yielding an object with its own jittered-backoff retry generator (also one
-send_message per group); 12 is a pair of lru_cache-memoized functions
-wrapping a bare boto3.client (again one send_message per group).
-
-Here window aggregation (fog/app.py) never talks to SQS directly -- it only
-calls enqueue(), which drops a ready message onto OUTBOX, a plain
-queue.SimpleQueue, and returns immediately. A single dedicated thread
-(run_flusher, started once via start_flusher_thread) blocks on that queue,
-greedily drains whatever else is already waiting (up to SQS's 10-message
-send_message_batch cap), and ships every drained message in ONE
-send_message_batch call instead of one send_message call per group. A
-window with 5 sensor types x 2 sites publishing in the same tick therefore
-costs one SQS round trip, not up to 10.
-"""
+"""A dedicated flusher thread drains OUTBOX (a queue.SimpleQueue) and ships every ready message in one send_message_batch call instead of one send_message per group -- the 4th distinct publisher shape in this portfolio's Python projects."""
 
 import json
 import queue

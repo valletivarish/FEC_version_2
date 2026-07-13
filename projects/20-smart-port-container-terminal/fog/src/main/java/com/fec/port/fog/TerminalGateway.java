@@ -19,16 +19,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Fog gateway for the port/container-terminal pipeline: ingests batched
- * readings per (sensor_type, site_id) pair via TerminalLedger, windows/
- * aggregates them every WINDOW_SECONDS, evaluates the real BerthRules
- * thresholds, and publishes one message per non-empty group to SQS -- batched
- * per flush cycle -- via TerminalPublisher. See TerminalLedger, ThresholdRule/
- * BerthRules, TerminalPublisher/BatchPayloadJson and TerminalRouter/
- * RouteFilter javadoc for exactly how each of those differs from the seven
- * other Java fog siblings in this portfolio.
- */
+/** Windowed (sensor_type, site_id) aggregation via TerminalLedger.drainWindow(), evaluated against real BerthRules thresholds and SQS-published once per flush cycle -- the 8th distinct Java fog idiom in this portfolio. */
 public class TerminalGateway {
 
     static final ObjectMapper JSON = new ObjectMapper();

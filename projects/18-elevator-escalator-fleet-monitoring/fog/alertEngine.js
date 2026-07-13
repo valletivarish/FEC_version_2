@@ -1,20 +1,6 @@
 "use strict";
 
-// OOP rule engine: an AlertEngine instance owns a Map<sensorType,
-// [{predicateFn, key}]> built up entirely through registerRule() calls made
-// once at module load (below), not a generic [field, op, limit, key]
-// lookup table looped over per sensor (03-patient-vitals' VITAL_LIMITS),
-// not a per-sensor-type dispatch object of hand-written named functions
-// (06-offshore-wind-farm's INSPECTORS), not a flat array of rule-descriptor
-// objects filtered/mapped (10-wildfire-forest-monitoring's RULES), and not
-// a Map<sensorType, Function> of closures built by a factory
-// (11-water-treatment-utility's makeThreshold). Here a rule is registered
-// as a plain predicate function closing over its own comparison, and
-// evaluate() runs every predicate registered for that sensor type in
-// registration order, collecting the keys of whichever ones return true.
-// Thresholds are always evaluated against the window aggregate (avg or
-// max), never a single raw reading, so one noisy sample cannot trip an
-// alert by itself.
+// OOP rule engine: AlertEngine registers plain predicate closures via registerRule() at module load, evaluated only against window aggregates (avg/max), never raw readings -- the 5th distinct alert-rule idiom in this portfolio's JS fog services.
 class AlertEngine {
   constructor() {
     this._rules = new Map();

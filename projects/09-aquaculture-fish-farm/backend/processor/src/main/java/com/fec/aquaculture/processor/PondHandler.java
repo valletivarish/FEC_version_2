@@ -18,24 +18,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
-/**
- * Lambda entry point, wired to the aff-pond-agg SQS queue via a real event
- * source mapping. Writes each record to DynamoDB concurrently rather than
- * sequentially: every record's write attempt is submitted to a small bounded
- * thread pool as its own CompletableFuture, all futures are joined, and the
- * per-record outcomes are folded into one immutable Tally. This differs from
- * every other processor in the portfolio -- 02 throws on the first record
- * failure inside a plain for-loop (aborting the batch early), 04 collects
- * into an immutable Result record via Collectors.partitioningBy over a
- * sequential stream, 07 accumulates a mutable BatchTally in a for-loop, and
- * 08 folds an immutable Tally via a sequential Stream.reduce. Here the
- * DynamoDB puts for one batch genuinely run in parallel (bounded by a
- * fixed-size executor, shut down once the batch completes), while still
- * keeping attempt-all-then-report-once semantics: every record is attempted
- * regardless of any other record's outcome, and the Lambda only throws
- * (triggering an SQS retry of the whole batch) after every future has been
- * joined.
- */
+/** Writes each record's DynamoDB put as its own CompletableFuture on a bounded fixed-size executor, then joins and folds all outcomes into one immutable Tally -- the portfolio's only genuinely parallel (vs. sequential for-loop or stream) attempt-all-then-report-once record processor. */
 public class PondHandler implements RequestHandler<SQSEvent, Map<String, Object>> {
 
     static final String TABLE_NAME = System.getenv().getOrDefault("TABLE_NAME", "aff-readings");

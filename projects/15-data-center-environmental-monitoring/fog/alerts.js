@@ -1,18 +1,6 @@
 "use strict";
 
-// Alert rules as a plain object literal keyed by sensor_type, mapping to an
-// array of plain rule-descriptor objects -- not a Map (11-water-treatment-
-// utility), not a class, not a per-sensor-type dispatch object of named
-// functions (06-offshore-wind-farm's INSPECTORS), and not a flat array
-// filtered across every rule regardless of sensor type (10-wildfire-
-// forest-monitoring's RULES). Evaluation walks Object.entries(RULES) with
-// .filter() to find the entry for the requested sensor_type, and each
-// rule's own {field, op, limit, key} is checked with a plain comparison --
-// no closures are manufactured per rule (contrast 11's makeThreshold
-// factory), just data sitting under a plain object key.
-//
-// Thresholds are evaluated on the window aggregate (avg), never a single
-// raw reading, so one noisy sample cannot fire a false alert on its own.
+// Alert rules as a plain object literal keyed by sensor_type (not a Map, class, or dispatch object), evaluated via Object.entries(RULES).filter() against the window aggregate (avg).
 const RULES = {
   temperature_c: [
     { field: "avg", op: ">", limit: 27, key: "overheat_risk" },

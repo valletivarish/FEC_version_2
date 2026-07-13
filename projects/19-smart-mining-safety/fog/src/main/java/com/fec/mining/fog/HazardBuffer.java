@@ -6,33 +6,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-/**
- * Pending-reading buffer for one flush window.
- *
- * Every other Java fog sibling in this portfolio guards its buffer with
- * either a single lock (02's FogApp.lock + synchronized blocks), a custom
- * generation/AtomicReference fencing scheme with per-generation
- * AtomicInteger/AtomicBoolean bookkeeping (04's CityFogNode.Generation), a
- * ConcurrentHashMap of buckets each guarded by its OWN ReentrantLock (07's
- * FleetGateway/BufferBucket), a single dedicated worker Thread draining a
- * BlockingQueue mailbox with no locks at all (08's BufferActor), an
- * immutable-value ConcurrentHashMap.merge() with a whole-map reference swap
- * at flush (09's PondGateway/ReadingAccumulator), or a flat
- * ConcurrentLinkedQueue of individual events grouped only at flush time
- * (16's IntakeQueue).
- *
- * This buffer uses none of those. Readings for a given (sensor_type,
- * site_id) key land in their own lock-free ConcurrentLinkedQueue, created
- * on first use via ConcurrentHashMap.computeIfAbsent(). A flush atomically
- * detaches one key's queue at a time via computeIfPresent(), whose
- * remapping function ConcurrentHashMap guarantees runs atomically per key
- * (concurrent compute-family calls for the SAME key from other threads
- * block until it completes; calls for a DIFFERENT key are unaffected).
- * There is no explicit lock, no AtomicReference swap, and no dedicated
- * worker thread anywhere in this class -- correctness rests entirely on
- * ConcurrentHashMap's documented per-key atomicity plus
- * ConcurrentLinkedQueue being safe for concurrent offer()/poll().
- */
+/** Lock-free per-key ConcurrentLinkedQueue buffer with atomic per-key detach via ConcurrentHashMap.computeIfPresent -- the 7th distinct Java fog buffering mechanism in this portfolio, relying on no lock, no AtomicReference, and no dedicated worker thread. */
 public class HazardBuffer {
 
     private final ConcurrentHashMap<ShaftKey, ConcurrentLinkedQueue<Reading>> buffers = new ConcurrentHashMap<>();

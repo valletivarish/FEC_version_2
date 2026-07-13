@@ -1,17 +1,6 @@
 "use strict";
 
-// The buffer is a plain Map<string, Array<{ts, value}>>, written to
-// directly by /ingest's handleIngest (in app.js) the instant a reading
-// arrives -- there is no separate write-ahead-log stage (contrast
-// 11-water-treatment-utility's flat ledger.js, which defers all grouping
-// to flush time) and no streaming fold (06's accumulator.js) and no
-// EventEmitter indirection (10's buffer.js). Grouping-by-key already
-// happens here, at ingest, simply by using "sensor_type::site_id" as the
-// Map key -- what makes this project's buffering genuinely different from
-// 03-patient-vitals (which also groups at ingest into a per-key array) is
-// entirely in *how the flush cycle is scheduled*: see scheduler.js's
-// recursive async Promise-chain tick loop, used instead of any of the four
-// siblings' setInterval/setTimeout-based flush timers.
+// Groups readings at ingest via a Map keyed on "sensor_type::site_id"; distinct among sibling fog buffers because flushing is driven by scheduler.js's recursive async Promise-chain tick loop rather than setInterval/setTimeout.
 function createBuffer() {
   return new Map();
 }

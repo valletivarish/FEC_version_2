@@ -2,29 +2,7 @@
 
 const { SENSOR_PROFILES, nextReading } = require("./profiles");
 
-// Two-phase macrotask-then-microtask scheduling, a genuinely different
-// idiom from every Node sensor loop already built in this portfolio:
-// 03-patient-vitals and 06-offshore-wind-farm each drive both sampling and
-// dispatch off one flat setInterval; 10-wildfire-forest-monitoring runs two
-// independent self-rescheduling setTimeout loops; 15-data-center-
-// environmental-monitoring runs two independent setInterval calls, one per
-// concern; 18-elevator-escalator-fleet-monitoring anchors two
-// process.hrtime()-drift-corrected setTimeout loops; 22-smart-waste-
-// management drives both concerns off one shared setInterval "pulse" with
-// leaky-bucket accumulators; 11-water-treatment-utility pairs a setInterval
-// sampler with a recursive setImmediate opportunistic drain loop. None of
-// those touches queueMicrotask.
-//
-// Here every tick has two distinct phases: armNext() schedules the real
-// SAMPLE_INTERVAL delay with a plain setTimeout (a macrotask). That
-// setTimeout's callback does nothing itself except hand the actual work --
-// stepping the random walk and the opportunistic dispatch check -- to
-// queueMicrotask, which Node drains completely before the event loop is
-// allowed to move on to the next timers phase. Only once that microtask has
-// run does the callback arm the next setTimeout. So the real interval delay
-// always happens in the macrotask (timer) phase, while the mutation/dispatch
-// work always happens in the microtask phase that follows it -- a genuine
-// two-phase split, not just "queueMicrotask wrapping everything".
+// Two-phase tick loop -- setTimeout arms the real SAMPLE_INTERVAL macrotask delay, whose callback then hands the actual sampling/dispatch work to queueMicrotask so it always drains before the next timer fires; distinct from the flat-setInterval, dual-setInterval, drift-corrected-setTimeout, and setInterval+setImmediate loops used by sibling Node sensor projects in this portfolio.
 function buildState(sensorType, siteId, profile, dispatchIntervalMs) {
   return {
     sensorType,

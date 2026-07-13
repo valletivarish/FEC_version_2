@@ -1,16 +1,4 @@
-"""Bridge & structural health fog node.
-
-HTTP layer is Bottle (`pip install bottle`) -- the portfolio's 7th distinct
-Python HTTP framework: 01/05 use FastAPI, 12 uses stdlib http.server, 13
-uses Flask, 14 uses stdlib wsgiref directly, 17 uses aiohttp. Bottle routes
-are wired with @app.route decorators below and JSON bodies are read via
-bottle.request.json; validation failures return a real 400 through
-bottle.HTTPResponse (see validation.py for the checks themselves).
-
-Buffering, alert rules, and SQS publishing are intentionally *not*
-implemented in this file -- see buffering.py, alerts.py and publisher.py
-for the three axes documented in readme.txt's REUSE section.
-"""
+"""Bottle (@app.route decorators, bottle.HTTPResponse for 400s) is the portfolio's 7th distinct Python HTTP framework, after FastAPI, stdlib http.server, Flask, wsgiref, and aiohttp."""
 
 import json
 import os

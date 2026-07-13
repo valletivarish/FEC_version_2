@@ -1,29 +1,4 @@
-"""Ingest buffering as a single flat, unstructured list of raw tuples --
-the 7th distinct buffering shape in the portfolio's Python projects.
-
-01's fog/app.py writes straight into a shared defaultdict(list) keyed by
-(sensor_type, site_id), guarded by one asyncio.Lock (grouped at ingest
-time). 05's fog/app.py pushes onto an asyncio.Queue and folds each batch
-into a WindowAccumulator of per-key RollingStat objects (streaming fold,
-grouped at ingest time). 12's fog/ingest_pipeline.py decouples ingest from
-buffering with a stdlib queue.Queue INBOX feeding one dedicated consumer
-thread that writes into a dict-of-lists (still grouped as it lands, just on
-a different thread). 13's fog/app.py keeps a plain dict guarded directly by
-a threading.Lock, grouped at ingest time inline in the route handler. 14's
-fog/buffering.py bounds each key's history with a
-collections.deque(maxlen=N) ring buffer, still keyed by (sensor_type,
-site_id) at write time. 17's fog/buffering.py double-buffers two dicts
-(active/flushing) and swaps which one is "active" at flush time, but every
-ingest write still lands in a dict keyed by (sensor_type, site_id).
-
-Every one of those six is a mapping the readings are sorted into as they
-arrive. Here there is no mapping at all until flush time: RAW is a plain
-Python list, and every reading appended to it is a flat
-(sensor_type, site_id, value, ts) tuple -- no key, no bucket, no grouping
-of any kind at ingest time. group_by_key() below is a pure function called
-exactly once per window, by the flush path in fog/app.py, and it is the
-only place the readings are ever organised by (sensor_type, site_id).
-"""
+"""Ingest buffering as a single flat, unstructured list of raw (sensor_type, site_id, value, ts) tuples with no grouping until flush time -- the 7th distinct buffering shape in this portfolio's Python projects."""
 
 import threading
 

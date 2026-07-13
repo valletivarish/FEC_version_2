@@ -1,24 +1,6 @@
 "use strict";
 
-// Two-phase buffering. /ingest (in app.js) does nothing but validate a
-// request and append one raw entry per reading onto a single flat array --
-// there is no per-(sensor_type, site_id) Map and no folding/streaming math
-// at ingest time at all, just a synchronous array push. Grouping by key and
-// computing window aggregates both happen later, in one pass, only when the
-// window-flush timer calls drainEntries() + groupByKey(). This is a genuine
-// two-phase design (fast synchronous append now, aggregation entirely
-// deferred to flush), distinct from:
-//   - 03-patient-vitals: readings are pushed straight into a shared
-//     per-key array-in-an-object, already grouped by key at ingest time.
-//   - 06-offshore-wind-farm: each reading is folded into a live streaming
-//     accumulator (openAccumulator/fold) the instant it arrives, so no raw
-//     reading list is ever kept.
-//   - 10-wildfire-forest-monitoring: an EventEmitter-dispatched listener
-//     buffers into a Map keyed by sensor_type+site_id the moment the
-//     "reading" event fires -- still grouped-by-key at ingest time, just
-//     via pub/sub instead of a direct call.
-// Here, nothing is grouped by key until flush. The ledger itself has no
-// concept of sensor_type or site_id at all; it is just an ordered log.
+// Two-phase buffering: raw entries append to a flat array at ingest with grouping/aggregation deferred entirely to flush -- the fourth distinct fog-buffering idiom in this portfolio, vs. 03/06/10's group-at-ingest, live-fold, and event-dispatched approaches.
 function createLedger() {
   return { entries: [] };
 }

@@ -2,28 +2,7 @@
 
 const { SQSClient, GetQueueUrlCommand, SendMessageCommand } = require("@aws-sdk/client-sqs");
 
-// A self-draining async FIFO work queue, not any of the six publisher
-// shapes already used in this portfolio: 03-patient-vitals' QueueGateway is
-// a class (constructor + init() + send()); 06-offshore-wind-farm's
-// createPublisher() is a closure factory returning a fresh
-// { publish, queueUrl } object per call; 10-wildfire-forest-monitoring's
-// publish() is a bare exported function taking the SQS client as an
-// explicit parameter on every call, with a module-level Map cache for
-// queue-url memoization; 11-water-treatment-utility's module.exports IS a
-// single Object.freeze()'d object literal; 15-data-center-environmental-
-// monitoring decouples flush from send via an EventEmitter "window-closed"
-// listener that calls SendMessageBatchCommand; and
-// 18-elevator-escalator-fleet-monitoring wires a real Node
-// stream.Transform/stream.Writable pipeline.
-//
-// Here, publish() never calls SendMessageCommand itself -- it only pushes a
-// job onto a private in-memory queue and returns a Promise that settles
-// once THAT job is actually sent. A single "pump" (_pump) drains the queue
-// strictly one job at a time, in FIFO arrival order, and is only ever
-// running once at a time: if a pump is already active, publish() just
-// appends and trusts the running pump to reach the new job. This guarantees
-// SQS sends for this fog node are never issued concurrently, without the
-// caller (app.js's flush loop) having to serialize its own await calls.
+// Self-draining async FIFO queue: publish() only enqueues a job while a single _pumping-guarded _pump() drains one job at a time so SQS sends are never concurrent -- the 7th distinct publisher idiom in this portfolio.
 let _client = null;
 let _queueUrlPromise = null;
 let _resolvedQueueUrl = null;

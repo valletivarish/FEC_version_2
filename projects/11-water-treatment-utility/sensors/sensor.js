@@ -2,19 +2,7 @@
 
 const { SENSOR_PROFILES, nextReading } = require("./profiles");
 
-// Sampling is a single plain setInterval -- simple, fixed-rate, same idiom
-// 03-patient-vitals uses for its one-and-only timer. Dispatch, however, is
-// deliberately NOT driven by any timer at all. drainTick() is invoked over
-// and over by a recursive setImmediate loop (startDrainLoop below) and only
-// performs a real send when BOTH the outbox has items AND dispatchIntervalMs
-// has elapsed since the last successful send (a plain Date.now() timestamp
-// comparison, not a countdown). When neither condition holds the loop just
-// reschedules itself for the next turn of the event loop and does nothing.
-// This makes dispatch opportunistic/event-loop-driven rather than
-// timer-driven -- a fourth scheduling idiom distinct from 03's single
-// setInterval doing both jobs inline, 06's stateful "rig" object polled by
-// one setInterval, and 10's two independent self-rescheduling setTimeout
-// loops (one per concern, but still each a real timer).
+// Dispatch is opportunistic/event-loop-driven rather than timer-driven -- a recursive setImmediate loop only sends when the outbox is non-empty and Date.now() - lastDispatch >= dispatchIntervalMs, the 4th distinct scheduling idiom in this portfolio (vs 03's single setInterval, 06's polled "rig" object, 10's two setTimeout loops).
 function buildState(sensorType, siteId, profile, dispatchIntervalMs) {
   return {
     sensorType,

@@ -2,22 +2,7 @@
 
 const { SENSOR_PROFILES, nextReading } = require("./profiles");
 
-// Sampling and dispatch are two independent recursive setTimeout loops,
-// coordinated for shutdown by a single Node AbortController rather than by
-// direct clearTimeout bookkeeping. Every sibling Node sensor loop in this
-// portfolio schedules recurring work some other way: 03-patient-vitals and
-// 06-offshore-wind-farm each use one flat/stateful setInterval;
-// 10-wildfire-forest-monitoring runs two independent recursive setTimeout
-// loops but tracks them with plain sampleTimer/dispatchTimer references and
-// no AbortController at all; 11-water-treatment-utility pairs a setInterval
-// sampler with a setImmediate opportunistic drain loop;
-// 15-data-center-environmental-monitoring uses two plain setIntervals;
-// 18-elevator-escalator-fleet-monitoring anchors two process.hrtime()
-// drift-corrected setTimeout loops. Here, both loops below re-check
-// signal.aborted immediately before doing any work AND immediately before
-// scheduling their next setTimeout -- so once controller.abort() fires
-// (wired to SIGTERM in start() below), neither loop reschedules itself and
-// no dangling timer keeps the process alive.
+// Two independent recursive setTimeout loops coordinated for shutdown via a single Node AbortController checked before each unit of work and before each reschedule, rather than via clearTimeout bookkeeping -- this portfolio's distinct sensor-loop shutdown idiom.
 function buildState(sensorType, siteId, profile) {
   return { sensorType, siteId, profile, value: profile.start, outbox: [] };
 }

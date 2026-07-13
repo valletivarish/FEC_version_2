@@ -1,14 +1,4 @@
-"""Threshold rules as a flat list of validated Rule objects.
-
-This is the 3rd distinct alert-rule idiom in the portfolio's Python
-projects: 01 keeps THRESHOLDS as a dict-of-lists-of-tuples keyed by
-sensor_type and loops over agg[field]; 05 keeps one hand-written
-_check_<key> function per exception, wired through a dict-dispatch table
-(_EVALUATORS). Here every rule is a frozen, self-validating dataclass
-instance living in one flat RULES list (not keyed by sensor_type at all),
-and evaluate() filters that list with a single generator expression at
-call time instead of a dict lookup followed by a loop.
-"""
+"""Frozen, self-validating Rule dataclasses in one flat RULES list, filtered by a single generator expression in evaluate() -- the 3rd distinct alert-rule idiom in this portfolio's Python projects."""
 
 from dataclasses import dataclass
 
