@@ -6,6 +6,7 @@
   <title>Smart Waste Management Monitor</title>
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/vendor/chart.umd.min.js"></script>
+  <script>window.API_BASE = "https://f721o30kd5.execute-api.us-east-1.amazonaws.com";</script>
 </head>
 <body>
   <header class="topbar">
@@ -13,7 +14,7 @@
       <span class="brand-mark" aria-hidden="true"></span>
       <div>
         <h1>Smart Waste Management Monitor</h1>
-        <p class="brand-sub">Two collection districts &mdash; fill level, thermal, gas, weight &amp; lid activity, live</p>
+        <p class="brand-sub">Two collection districts, fill level, thermal, gas, weight &amp; lid activity, live</p>
       </div>
     </div>
     <div id="health-strip" class="health-strip"></div>
@@ -24,7 +25,7 @@
   <main class="content">
     <section aria-label="Collection priority list">
       <h2 class="section-title">Collection Priority List</h2>
-      <p class="section-note">Every bin across both districts, ranked by fill level &mdash; the bin needing collection soonest sits at the top of the queue.</p>
+      <p class="section-note">Every bin across both districts, ranked by fill level: the bin needing collection soonest sits at the top of the queue.</p>
       <div class="priority-wrap">
         <table id="priority-table" class="priority-table">
           <thead>
@@ -48,7 +49,7 @@
       <h2 class="section-title">Fill Level Trend</h2>
       <div class="trend-grid">
         <div class="trend-card">
-          <h4>Fill Level &mdash; both districts</h4>
+          <h4>Fill Level, both districts</h4>
           <canvas id="trend-fill_level_pct" width="560" height="180"></canvas>
         </div>
       </div>

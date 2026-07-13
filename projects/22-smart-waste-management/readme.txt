@@ -430,65 +430,140 @@ us-east-1, under Gundeti Sachin Reddy's (X23432721) own AWS Academy
 credentials.
 
 Real resources created:
-  DynamoDB table  swm-readings     (same sensor_type/sort_key schema)
+  DynamoDB table  swm-readings       (same sensor_type/sort_key schema)
   SQS queue       swm-district-agg
-  Lambda function swm-processor    (nodejs20.x, LabRole execution role,
-                                     event-source-mapping to the queue)
-  EC2 instance    i-022c30cf73b0c10db (t3.small, tag Name=swm-dashboard-host,
-                                     LabInstanceProfile, no SSH/key-pair --
-                                     managed entirely via SSM Session
-                                     Manager, security group open only on
-                                     tcp/8101)
+  Lambda function swm-processor      (nodejs20.x, LabRole execution role,
+                                       event-source-mapping to the queue --
+                                       this is the fog-dispatch consumer)
+  Lambda function swm-dashboard-api  (nodejs20.x, LabRole execution role,
+                                       reuses server.js's existing router/
+                                       handlers via lambdaHandler.js's fake-
+                                       ServerResponse shim, so the dashboard
+                                       API's business logic is not
+                                       duplicated between the container and
+                                       Lambda deployment targets)
+  API Gateway     f721o30kd5         (HTTP API, AWS_PROXY integration to
+                                       swm-dashboard-api, public, HTTPS/443)
+  S3 bucket       swm-frontend-548539235319 (static frontend: index.html,
+                                       static/style.css, static/dashboard.js,
+                                       static/vendor/chart.umd.min.js --
+                                       public s3:GetObject only, served over
+                                       the bucket's own HTTPS REST endpoint)
   S3 bucket       swm-deploy-548539235319 (deployment staging only)
+  EC2 instance    i-022c30cf73b0c10db (t3.small, tag Name=swm-dashboard-host,
+                                       LabInstanceProfile, no SSH/key-pair --
+                                       managed entirely via SSM Session
+                                       Manager; now runs ONLY fog + the 10
+                                       sensor containers via
+                                       infra/docker-compose.aws.yml, since
+                                       the dashboard moved to S3/Lambda/API
+                                       Gateway; security group open on
+                                       tcp/8100, fog's health/thresholds
+                                       endpoint, so the dashboard Lambda can
+                                       reach it -- this traffic is Lambda-to
+                                       -EC2, never the student's browser, so
+                                       it is unaffected by campus network
+                                       policy)
 
-The EC2 instance runs fog + dashboard + all 10 sensor containers via
-infra/docker-compose.aws.yml (a variant of infra/docker-compose.yml with
-the localstack service and the one-shot Lambda-deploy service removed,
-since the Lambda above was deployed for real directly via the AWS CLI
-instead of docker-compose's processor service).
+Live URLs:
+  Dashboard (open this):  https://swm-frontend-548539235319.s3.us-east-1.amazonaws.com/index.html
+  Dashboard API:          https://f721o30kd5.execute-api.us-east-1.amazonaws.com
 
-Why EC2 and not a fully serverless dashboard: the brief's cloud-deployment
-requirement is scoped to the "backend layer" (queues/FaaS/DB), which here
-is genuinely serverless (SQS + Lambda + DynamoDB, no EC2 involved). The
-fog node and sensors are described in the brief as "virtual (coded)" with
-no explicit cloud-deployment requirement of their own. EC2 was used only
-to host fog + the dashboard's own small HTTP server + the sensor
-containers as long-running processes (something Lambda is not suited to
-for a continuous sensor loop or a persistent dashboard server) once the
-scope was widened to run the entire stack in the cloud rather than only
-the backend. Running just the backend on AWS while keeping fog/sensors
-local (pointed at the real AWS endpoints instead of LocalStack) would have
-satisfied the brief without EC2 at all; EC2 was an explicit scope choice,
-not a requirement.
+MIGRATION HISTORY: EC2-hosted dashboard -> S3 + Lambda + API Gateway
+---------------------------------------------------------------------
+The dashboard was originally deployed as a 4th container on the EC2
+instance (port 8101). Two problems with that: (1) it is not itself FaaS-
+based, the one piece of the "scalable backend" criterion still resting on
+a plain long-running server rather than queues/FaaS; (2) a raw EC2 public
+IP on a non-standard port over plain HTTP is exactly the traffic shape
+college/campus WiFi networks commonly block by policy (arbitrary IPs,
+non-standard ports, no TLS) -- confirmed as a real, reported access
+problem, not a hypothetical one.
 
-Two Node.js AWS-client-construction bugs were found and fixed during this
-deployment (handler.js, awsClients.js, publishQueue.js all hardcoded
-LocalStack-style static test credentials on a check that is also true for
-real Lambda/EC2 execution-role credentials, which additionally require a
-session token the hardcoded override omitted) -- see commits 59f1f6a and
-ea6c9eb for the fix. This is a real, worth-citing finding for the report:
-tests passing against LocalStack did not catch a real-AWS-only failure
-mode, only the actual deployment did.
+Migrated to: static frontend (index.html/dashboard.js/style.css/vendored
+Chart.js) on S3, dashboard API (lambdaHandler.js, a thin adapter reusing
+server.js's existing router and handlers unchanged) on its own Lambda
+function. Fog and the 10 sensor containers stay on EC2, since they are
+continuous generators/aggregators, not naturally invoke-on-demand, and
+they never need to be reached from a student's browser (only from the
+dashboard Lambda, which is AWS-to-AWS traffic, not subject to campus
+network policy at all).
+
+Two platform-level constraints discovered empirically, both AWS Academy
+Learner Lab guardrails (SCPs), not configuration mistakes on this
+project's part:
+  - CloudFront is entirely blocked in this account (even read-only
+    cloudfront:ListDistributions is denied) -- originally planned as the
+    HTTPS front door for the S3 static site. Fell back to S3's own
+    virtual-hosted-style HTTPS REST endpoint instead
+    (https://<bucket>.s3.us-east-1.amazonaws.com/<key>), which is HTTPS on
+    port 443 out of the box and needs no CloudFront distribution at all --
+    the only difference is no automatic "/" -> "/index.html" resolution,
+    so the URL above must include the /index.html suffix.
+  - Lambda Function URLs with public (AuthType=NONE) access are also
+    blocked -- confirmed via a direct authenticated `aws lambda invoke`
+    succeeding (the Lambda code itself was fine) while the same request
+    through its Function URL returned "Forbidden" regardless of the
+    resource-based policy granted. API Gateway (HTTP API, AWS_PROXY
+    integration) is NOT blocked and was used instead -- a different
+    invocation/permission surface than Function URLs, evidently outside
+    this particular guardrail's scope.
+
+Two real bugs found and fixed while building the Lambda adapter:
+  - API Gateway's quick-create (`aws apigatewayv2 create-api --target
+    <lambda-arn>`) did not actually attach the invoke permission it is
+    documented to add automatically -- confirmed via `aws lambda
+    get-policy` showing only the Function-URL statement. Fixed with an
+    explicit `aws lambda add-permission --principal apigateway.amazonaws.com
+    --source-arn arn:aws:execute-api:us-east-1:548539235319:f721o30kd5/*`.
+  - lambdaHandler.js's fake-ServerResponse shim initially passed through
+    server.js's real handler headers unchanged, including a numeric
+    Content-Length (from Buffer.byteLength()) -- Lambda's HTTP-API/
+    Function-URL response format requires every header value to be a
+    string, so this silently produced "Internal Server Error" with no
+    corresponding error in the Lambda's own CloudWatch logs (the function
+    itself completed successfully; only the response shape was rejected
+    downstream). Fixed by coercing every header value to a string before
+    returning.
+
+Two Node.js AWS-client-construction bugs were found and fixed earlier in
+this deployment (handler.js, awsClients.js, fog/publishQueue.js all
+hardcoded LocalStack-style static test credentials on a check that is
+also true for real Lambda/EC2 execution-role credentials, which
+additionally require a session token the hardcoded override omitted) --
+see commits 59f1f6a and ea6c9eb. This is a real, worth-citing finding for
+the report: tests passing against LocalStack did not catch a real-AWS-
+only failure mode, only the actual deployment did -- and neither did the
+first real deployment attempt, until the migration to Lambda surfaced the
+header-type bug above too.
 
 Because the deployment was left running rather than torn down after
 verification, session/lab expiry (this is a time-limited AWS Academy
 Learner Lab session) may eventually reclaim the EC2 instance and/or its
-public IP; the DynamoDB table, SQS queue, and Lambda function are more
-likely to persist across a lab reset than the EC2 instance is. To tear
-everything down: terminate the EC2 instance, delete the SQS queue, delete
-the Lambda function (and its event-source-mapping), delete the DynamoDB
-table, empty and delete the S3 bucket, and delete the security group
-(swm-dashboard-sg) -- all resources are uniquely named with the swm-
-prefix or tagged Project=FEC-22-smart-waste-management, safe to filter on.
+public IP; DynamoDB/SQS/both Lambda functions/API Gateway/both S3 buckets
+are more likely to persist across a lab reset than the EC2 instance is,
+and none of them depend on the EC2 instance being up (the dashboard and
+its API stay live even while fog/sensors are paused between lab
+sessions -- only "gateway: false" in /api/health and stale sensor data
+would result, not a dead dashboard). To tear everything down: terminate
+the EC2 instance, delete the SQS queue, delete both Lambda functions (and
+the processor's event-source-mapping), delete the API Gateway API, delete
+the DynamoDB table, empty and delete both S3 buckets, and delete the
+security groups (swm-dashboard-sg) -- all resources are uniquely named
+with the swm- prefix or tagged Project=FEC-22-smart-waste-management,
+safe to filter on.
 
-WAKING THE DEPLOYMENT BACK UP AFTER A LAB SESSION ENDS
--------------------------------------------------------
+WAKING FOG/SENSORS BACK UP AFTER A LAB SESSION ENDS
+-----------------------------------------------------
 .github/workflows/wake-22-smart-waste-management.yml is a manually
 triggered (workflow_dispatch, no schedule -- it only ever runs when a
 student explicitly clicks Run workflow) GitHub Actions workflow for
 exactly this situation: an AWS Academy Learner Lab session ended, its EC2
 instance got stopped by the platform, and a fresh session (with new
-temporary credentials) has since been started.
+temporary credentials) has since been started. Since the dashboard and
+its API are fully serverless now, this workflow only needs to bring
+fog/sensors back -- the dashboard itself does not go down between lab
+sessions.
 
 Before triggering a run, update three repository secrets with the fresh
 session's values (repo Settings -> Secrets and variables -> Actions ->
@@ -498,14 +573,11 @@ shown in workflow logs or run metadata, unlike workflow_dispatch inputs.
 Then trigger the workflow from the Actions tab (no inputs to fill in).
 
 It verifies the credentials resolve to the expected account
-(548539235319), confirms the DynamoDB table/SQS queue/Lambda function
+(548539235319), confirms the DynamoDB table/SQS queue/processor Lambda
 still exist (if the lab did a full account reset rather than just
 stopping the instance, it fails fast here with a message saying a full
 redeploy is needed instead), starts the EC2 instance if stopped, waits
 for SSM, runs docker-compose up (idempotent -- a no-op if containers are
-already running), and smoke-tests the live dashboard.
-
-The EC2 instance's public IP can change whenever it stops and starts
-again (no Elastic IP is attached) -- the workflow's final step prints
-whatever the current IP is; do not assume the dashboard is still at
-54.90.126.221 after a wake-up.
+already running), and smoke-tests the dashboard API (which does not
+itself depend on the EC2 instance, so this step verifies fog reachability
+specifically, not just "is anything up").

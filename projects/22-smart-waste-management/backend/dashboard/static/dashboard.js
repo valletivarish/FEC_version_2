@@ -1,3 +1,5 @@
+const API_BASE = window.API_BASE || "";
+
 const SENSOR_TYPES = ["fill_level_pct", "internal_temp_c", "gas_level_ppm", "bin_weight_kg", "lid_open_count"];
 
 const METRIC_LABELS = {
@@ -72,7 +74,7 @@ function readingRow(sensorType, metric) {
   const flagged = metric.alerts && metric.alerts.length > 0;
   const { lo, hi } = AXIS_RANGE[sensorType];
   return `<div class="reading-row">
-    <span class="reading-label">${label}${flagged ? ` &mdash; ${alertText(metric.alerts.map((k) => ({ key: k })))}` : ""}</span>
+    <span class="reading-label">${label}${flagged ? ` (${alertText(metric.alerts.map((k) => ({ key: k })))})` : ""}</span>
     <span class="reading-body">
       <span class="reading-value">${metric.latest}<span class="unit">${metric.unit}</span></span>
       <meter class="${flagged ? "danger" : ""}" min="${lo}" max="${hi}" value="${metric.latest}"></meter>
@@ -179,11 +181,11 @@ function renderTrendChart(items) {
 async function tick() {
   try {
     const [priority, districtsResp, health, backendStats, trend] = await Promise.all([
-      fetch("/api/priority").then((r) => r.json()),
-      fetch("/api/districts").then((r) => r.json()),
-      fetch("/api/health").then((r) => r.json()),
-      fetch("/api/backend-stats").then((r) => r.json()),
-      fetch("/api/readings?sensor_type=fill_level_pct&limit=20").then((r) => r.json()),
+      fetch(`${API_BASE}/api/priority`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/districts`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/health`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/backend-stats`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/readings?sensor_type=fill_level_pct&limit=20`).then((r) => r.json()),
     ]);
 
     const districts = districtsResp.districts || [];
