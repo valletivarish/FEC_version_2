@@ -95,17 +95,22 @@ jobs:
           done
           aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" --region "$AWS_REGION" --query "StandardOutputContent" --output text
 
-      - name: Smoke test the live dashboard
+      - name: Smoke test fog reachability and the dashboard API
         run: |
           IP=$(aws ec2 describe-instances --instance-ids "$INSTANCE_ID" --region "$AWS_REGION" --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
-          echo "dashboard should be reachable at http://$IP:8101 (note: this IP may differ from any previously recorded one -- EC2 assigns a new public IP each time an instance starts, unless an Elastic IP is attached)"
+          echo "fog's health endpoint should be reachable at http://$IP:8100/health (note: this IP may differ from any previously recorded one -- EC2 assigns a new public IP each time an instance starts, unless an Elastic IP is attached). The dashboard itself (S3 + API Gateway) does not depend on the EC2 instance and is not what this step is checking -- this verifies fog specifically came back up."
           for i in $(seq 1 12); do
-            if curl -sf -m 8 "http://$IP:8101/api/health"; then
+            if curl -sf -m 8 "http://$IP:8100/health"; then
               echo ""
-              echo "dashboard is up at http://$IP:8101"
-              exit 0
+              echo "fog is up at http://$IP:8100"
+              break
             fi
             sleep 10
           done
-          echo "::error::dashboard did not respond after wake-up"
+          echo "confirming the dashboard API now reports gateway:true (proves fog is reachable end-to-end through the dashboard's own Lambda, not just directly)"
+          for i in $(seq 1 6); do
+            HEALTH=$(curl -sf -m 8 "https://f721o30kd5.execute-api.us-east-1.amazonaws.com/api/health") && echo "$HEALTH" | grep -q '"gateway":true' && { echo "$HEALTH"; exit 0; }
+            sleep 10
+          done
+          echo "::error::fog did not become reachable after wake-up (either directly on port 8100, or through the dashboard API's gateway field)"
           exit 1

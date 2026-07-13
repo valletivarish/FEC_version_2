@@ -27,11 +27,16 @@ sorted worklist of every bin ordered by fill level, the way a dispatcher
 would triage which bin to send a truck to next -- plus per-district raw
 reading cards and a fill-level trend chart.
 
-Phase 1 (this project) runs entirely on Docker with LocalStack emulating
-AWS SQS, DynamoDB, and Lambda. The AWS SDK for JavaScript v3 is used
-throughout, so a later move to real AWS is an endpoint/IAM configuration
-change rather than a rewrite. Real AWS/Azure deployment is a deliberately
-deferred Phase 2 item for the whole portfolio and is NOT attempted here.
+Local development and this project's own CI both run entirely on Docker
+with LocalStack emulating AWS SQS, DynamoDB, and Lambda. The AWS SDK for
+JavaScript v3 is used throughout, so the move to real AWS was an
+endpoint/credential-resolution change rather than a rewrite (see the two
+credential-gating bugs that move surfaced, described in the DEPLOYMENT
+(AWS) section below). Unlike the rest of the portfolio, where real cloud
+deployment remains a deliberately deferred Phase 2 item, this project HAS
+been deployed and tested on a real AWS account -- see DEPLOYMENT (AWS)
+and MIGRATION HISTORY below for the live architecture, resources, and
+URLs.
 
 TECH STACK
 ----------
