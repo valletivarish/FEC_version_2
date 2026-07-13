@@ -42,8 +42,22 @@ async function readQueueCounters(sqs, queueName) {
 }
 
 async function countTableItems(doc, tableName) {
-  const resp = await doc.send(new ScanCommand({ TableName: tableName, Select: "COUNT" }));
-  return resp.Count;
+  try {
+    let total = 0;
+    let lastEvaluatedKey;
+    do {
+      const resp = await doc.send(new ScanCommand({
+        TableName: tableName,
+        Select: "COUNT",
+        ExclusiveStartKey: lastEvaluatedKey,
+      }));
+      total += resp.Count;
+      lastEvaluatedKey = resp.LastEvaluatedKey;
+    } while (lastEvaluatedKey);
+    return total;
+  } catch {
+    return null;
+  }
 }
 
 async function checkGateway(healthUrl) {

@@ -3,6 +3,7 @@ import sys
 import time
 
 import boto3
+from botocore.exceptions import ClientError
 from boto3.dynamodb.conditions import Key
 
 ENDPOINT = os.getenv("AWS_ENDPOINT_URL", "http://localhost:4587")
@@ -21,10 +22,21 @@ def main():
         for sensor_type in SENSOR_TYPES:
             if sensor_type in seen:
                 continue
-            resp = table.query(
-                KeyConditionExpression=Key("sensor_type").eq(sensor_type),
-                Limit=1,
-            )
+            try:
+                resp = table.query(
+                    KeyConditionExpression=Key("sensor_type").eq(sensor_type),
+                    Limit=1,
+                )
+            except ClientError as err:
+                # The table may not have finished creating yet (a real race
+                # between this script and init.sh/deploy_lambda's own table
+                # creation) -- treat as "not ready", let the retry loop above
+                # try again, rather than crashing the whole verification run.
+                code = err.response.get("Error", {}).get("Code", "")
+                if code in ("ResourceNotFoundException", "ResourceInUseException"):
+                    print(f"  table not ready yet ({code}), retrying...")
+                    continue
+                raise
             if resp.get("Items"):
                 seen.add(sensor_type)
                 print(f"  ok: {sensor_type}")

@@ -49,6 +49,32 @@ test("countTableItems returns the Scan COUNT result", async () => {
   assert.equal(await countTableItems(doc, "swm-readings"), 42);
 });
 
+test("countTableItems paginates across multiple Scan pages and sums their counts", async () => {
+  let call = 0;
+  const doc = {
+    send: async (command) => {
+      call += 1;
+      if (call === 1) {
+        assert.equal(command.input.ExclusiveStartKey, undefined);
+        return { Count: 1000, LastEvaluatedKey: { sensor_type: "fill_level_pct", sort_key: "a" } };
+      }
+      if (call === 2) {
+        assert.deepEqual(command.input.ExclusiveStartKey, { sensor_type: "fill_level_pct", sort_key: "a" });
+        return { Count: 1000, LastEvaluatedKey: { sensor_type: "gas_level_ppm", sort_key: "b" } };
+      }
+      assert.deepEqual(command.input.ExclusiveStartKey, { sensor_type: "gas_level_ppm", sort_key: "b" });
+      return { Count: 234 };
+    },
+  };
+  assert.equal(await countTableItems(doc, "swm-readings"), 2234);
+  assert.equal(call, 3);
+});
+
+test("countTableItems returns null instead of throwing when a Scan page fails", async () => {
+  const doc = { send: async () => { throw new Error("boom"); } };
+  assert.equal(await countTableItems(doc, "swm-readings"), null);
+});
+
 test("isPipelineFlowing is true only when freshestAge is non-null and within the fresh window", () => {
   assert.equal(isPipelineFlowing(null), false);
   assert.equal(isPipelineFlowing(PIPELINE_FRESH_SECONDS), true);
