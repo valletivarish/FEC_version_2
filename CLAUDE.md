@@ -31,4 +31,4 @@ Each such project's own `readme.txt` carries an ATTRIBUTION section with the sam
 
 ## Project status
 
-Project 22 (smart-waste-management) is functionally complete: sensor/fog/backend/dashboard implementation, unit and integration tests, and the real AWS deployment described above are all done and live. The report (`documents/Gundeti_Sachin_Reddy_X23432721/report.docx`) is in final polish — sentence-length, self-referential-language, and footer/page-number fixes are in; the reference list is being expanded to ~15-20 verified peer-reviewed sources as the last remaining item before a final rubric re-verification.
+Project 22 (smart-waste-management) is functionally complete: sensor/fog/backend/dashboard implementation, unit and integration tests, and the real AWS deployment described above are all done and live. The report (`documents/Gundeti_Sachin_Reddy_X23432721/report.docx`) is in final polish — sentence-length, self-referential-language, footer/page-number, and reference-list (10 → 21, independently verified peer-reviewed sources) fixes are all in; a final rubric re-verification against the brief's Assessment Criteria is the last remaining item.
