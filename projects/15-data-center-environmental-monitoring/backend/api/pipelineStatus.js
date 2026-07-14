@@ -41,9 +41,27 @@ async function readQueueCounters(sqs, queueName) {
   }
 }
 
+// A COUNT-select scan only counts the single ~1MB page it read; a table
+// larger than that returns a LastEvaluatedKey that must be followed with a
+// further scan, or the reported count silently undercounts the table.
 async function countTableItems(doc, tableName) {
-  const resp = await doc.send(new ScanCommand({ TableName: tableName, Select: "COUNT" }));
-  return resp.Count;
+  try {
+    const pageCounts = [];
+    let cursor;
+    while (true) {
+      const page = await doc.send(new ScanCommand({
+        TableName: tableName,
+        Select: "COUNT",
+        ExclusiveStartKey: cursor,
+      }));
+      pageCounts.push(page.Count);
+      if (!page.LastEvaluatedKey) break;
+      cursor = page.LastEvaluatedKey;
+    }
+    return pageCounts.reduce((sum, n) => sum + n, 0);
+  } catch {
+    return null;
+  }
 }
 
 // gateway = fog's /health. This Lambda calls it over the docker-compose

@@ -63,6 +63,28 @@ test("countTableItems returns the Count from a COUNT-select scan", async () => {
   assert.equal(await countTableItems(fakeDocScan(42), "dce-readings"), 42);
 });
 
+test("countTableItems follows LastEvaluatedKey and sums every page's Count", async () => {
+  const pages = [
+    { Count: 500, LastEvaluatedKey: { sensor_type: "temperature_c", sort_key: "a" } },
+    { Count: 500, LastEvaluatedKey: { sensor_type: "temperature_c", sort_key: "b" } },
+    { Count: 214 },
+  ];
+  let callIndex = 0;
+  const doc = {
+    send: async (command) => {
+      assert.equal(callIndex === 0 ? undefined : pages[callIndex - 1].LastEvaluatedKey, command.input.ExclusiveStartKey);
+      return pages[callIndex++];
+    },
+  };
+  assert.equal(await countTableItems(doc, "dce-readings"), 1214);
+  assert.equal(callIndex, 3);
+});
+
+test("countTableItems degrades to null rather than throwing when the scan fails", async () => {
+  const doc = { send: async () => { throw new Error("scan failed"); } };
+  assert.equal(await countTableItems(doc, "dce-readings"), null);
+});
+
 test("checkGateway returns true only for a real HTTP 200 response", async () => {
   const http = require("node:http");
   const server = http.createServer((req, res) => res.writeHead(200).end("ok"));

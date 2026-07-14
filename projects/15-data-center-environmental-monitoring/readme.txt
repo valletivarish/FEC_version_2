@@ -29,12 +29,14 @@ API; a plain static/reverse-proxy web server renders a compact per-hall
 card dashboard with a native <meter> per reading, an alert banner, and
 cross-hall window-average trend charts.
 
-Phase 1 (this project) runs entirely on Docker with LocalStack emulating
-AWS SQS, DynamoDB, Lambda, and API Gateway. The AWS SDK for JavaScript v3
-is used throughout, so a later move to real AWS is an endpoint/IAM
-configuration change rather than a rewrite. Real AWS/Azure deployment is a
-deliberately deferred Phase 2 item for the whole portfolio and is NOT
-attempted here.
+Local development and CI still run entirely on Docker with LocalStack
+emulating AWS SQS, DynamoDB, Lambda, and API Gateway (see RUN THE STACK
+below). The AWS SDK for JavaScript v3 is used throughout, which is what
+made the move to a real deployment an endpoint/IAM configuration change
+rather than a rewrite: the same fog, processor, and dce-api code now also
+runs against a real AWS account with no code fork between the two targets
+(see DEPLOYMENT (AWS) below for the live resources and how the two
+environments differ in configuration only).
 
 TECH STACK
 ----------
@@ -276,10 +278,12 @@ dashboard to API Gateway -> dce-api):
 
 RUN THE TESTS
 -------------
-Each module has its own package.json and test script. All 112 tests below
+Each module has its own package.json and test script. All 114 tests below
 were run and confirmed passing (node --test, exit 0) at the time this
 readme was written: 12 in sensors/, 46 in fog/, 9 in backend/processor/,
-35 in backend/api/, 10 in backend/dashboard/.
+37 in backend/api/ (including two added to cover countTableItems()'s
+DynamoDB Scan pagination, a real bug found and fixed during the AWS
+deployment described below), 10 in backend/dashboard/.
   cd sensors && npm install && npm test
   cd fog && npm install && npm test
   cd backend/processor && npm install && npm test
@@ -322,6 +326,69 @@ single-container Lambda emulation hasn't finished draining 2000 messages in
 time -- that the remaining count strictly decreased from the immediate
 post-burst count, proving the Lambda consumer is making real progress
 rather than being stalled or broken.
+
+DEPLOYMENT (AWS)
+-----------------
+Beyond the LocalStack-backed Phase 1 stack above, this project is also
+deployed to a real AWS account (AWS Academy Learner Lab, account
+373241496019, region us-east-1, Nithin's own login -- see CLAUDE.md at the
+repository root for the account-ID guardrail and full live-resource list).
+
+Live resources: DynamoDB table dce-readings; SQS queue dce-hall-agg;
+Lambda dce-processor (SQS event-source-triggered ingestion); Lambda
+dce-api (Nithin's individually-required separate backend Lambda) behind a
+real API Gateway REST API; EC2 instance i-038b378b1b66821b1 (tagged
+dce-fog-host) running the fog node and all ten sensor containers via
+infra/docker-compose.aws.yml, fronted by Elastic IP 3.228.239.253 so its
+public address stays fixed across stop/start; S3 bucket
+dce-frontend-373241496019 serving the dashboard's static assets directly
+(public read, static website hosting enabled).
+
+Live URLs:
+  Dashboard: https://dce-frontend-373241496019.s3.us-east-1.amazonaws.com/index.html
+  API:       https://nke958yhid.execute-api.us-east-1.amazonaws.com/prod
+
+Two configuration-only differences from the LocalStack stack, no code
+fork: (1) the EC2 instance runs infra/docker-compose.aws.yml (fog and the
+ten sensors only -- no LocalStack, no dashboard container, no one-shot
+processor/api-deploy jobs, since those two Lambdas and the DynamoDB table
+are provisioned straight against the real account instead) with no
+AWS_ACCESS_KEY_ID or AWS_ENDPOINT_URL set at all, so fog/publisher.js's
+buildClient() falls through to the SDK's default credential chain and
+picks up the EC2 instance profile (LabInstanceProfile) automatically; (2)
+the dashboard's static assets are served directly from S3 rather than
+through the local reverse-proxy server, so index.html's <meta
+name="api-base"> is set to the real API Gateway invoke URL above and
+dashboard.js's fetch calls read it from there instead of using relative
+/api/* paths, with the dce-api Lambda's jsonResponse() adding an
+Access-Control-Allow-Origin header for that cross-origin case.
+
+Two credential-handling bugs were found and fixed before this deployment
+was attempted (not discovered by it failing): backend/api/awsClients.js,
+backend/processor/handler.js, and fog/publisher.js all built their AWS SDK
+client credentials from a check that happened to be true in both the
+local and the real-AWS case (checking whether AWS_ACCESS_KEY_ID was
+merely present, or in fog/publisher.js's case, hardcoding a dummy
+key pair unconditionally). Real Lambda and EC2 execution environments
+always populate genuine, temporary, session-token-bearing credentials
+through that same channel, so this logic would have silently discarded
+them in favour of a dummy or incomplete static pair on every real
+deployment, exactly the class of bug that broke project 22's first real
+deployment. The fix in each file gates the local-only override on
+AWS_ENDPOINT_URL instead, the one variable actually unique to the local
+emulator. A related bug was also found and fixed in
+backend/api/pipelineStatus.js: countTableItems() only read the first page
+of a COUNT-select DynamoDB Scan, silently undercounting any table larger
+than roughly 1MB; it now follows LastEvaluatedKey across pages and sums
+every page's Count, with two new tests (pipelineStatus.test.js) covering
+the multi-page and scan-failure cases.
+
+The full pipeline was independently verified live after deployment:
+/api/health reports gateway, queue, lambda, and pipeline all true with a
+sub-second freshest_age_seconds; /api/halls and /api/backend-stats return
+real, continuously updating sensor data for both halls; the S3-hosted
+dashboard renders all five per-hall readings and all five trend charts
+with zero browser console errors.
 
 REUSE / THIRD-PARTY COMPONENTS
 -------------------------------
