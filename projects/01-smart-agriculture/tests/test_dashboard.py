@@ -146,3 +146,47 @@ def test_backend_stats_reports_queue_depth_and_item_count(monkeypatch):
     client = TestClient(dash.app)
     body = client.get("/api/backend-stats").json()
     assert body == {"queue": {"waiting": 3, "in_flight": 1}, "items_in_table": 42}
+
+
+class FakeTableCountPaged:
+    """A COUNT-select Scan that only returns one page at a time, exactly
+    like real DynamoDB does once a table exceeds ~1MB, requiring the
+    caller to follow LastEvaluatedKey to see the true total."""
+    def __init__(self):
+        self.pages = [
+            {"Count": 500, "LastEvaluatedKey": {"sensor_type": "temperature", "sort_key": "a"}},
+            {"Count": 500, "LastEvaluatedKey": {"sensor_type": "temperature", "sort_key": "b"}},
+            {"Count": 214},
+        ]
+        self.calls = []
+
+    def scan(self, **kwargs):
+        self.calls.append(kwargs.get("ExclusiveStartKey"))
+        return self.pages[len(self.calls) - 1]
+
+
+def test_backend_stats_follows_last_evaluated_key_and_sums_every_page(monkeypatch):
+    fake_table = FakeTableCountPaged()
+    monkeypatch.setattr(dash, "sqs", lambda: FakeSqsHealthy())
+    monkeypatch.setattr(dash, "table", lambda: fake_table)
+    client = TestClient(dash.app)
+    body = client.get("/api/backend-stats").json()
+    assert body["items_in_table"] == 1214
+    assert fake_table.calls == [
+        None,
+        {"sensor_type": "temperature", "sort_key": "a"},
+        {"sensor_type": "temperature", "sort_key": "b"},
+    ]
+
+
+class FakeTableCountBroken:
+    def scan(self, **kwargs):
+        raise RuntimeError("scan failed")
+
+
+def test_backend_stats_reports_items_in_table_none_when_scan_fails(monkeypatch):
+    monkeypatch.setattr(dash, "sqs", lambda: FakeSqsHealthy())
+    monkeypatch.setattr(dash, "table", lambda: FakeTableCountBroken())
+    client = TestClient(dash.app)
+    body = client.get("/api/backend-stats").json()
+    assert body["items_in_table"] is None

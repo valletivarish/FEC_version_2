@@ -1,3 +1,11 @@
+"""One-shot LocalStack deployer: zips handler.py + process.py, registers the
+result as a Lambda function, and wires it to the SQS queue's event source.
+Run as its own docker-compose job against the local stack only (see
+infra/docker-compose.yml's `processor` service) -- the real AWS deployment
+described in readme.txt's DEPLOYMENT (AWS) section provisions
+fec-agri-processor directly against the account instead of via this script.
+"""
+
 import io
 import os
 import time
@@ -21,6 +29,10 @@ def build_zip():
 
 
 def wait_for(fn, attempts=60, delay=3):
+    # LocalStack's SQS/Lambda services can still be initialising when this
+    # script runs (it's started as a one-shot docker-compose job racing the
+    # localstack container's own readiness), so queue lookups and function
+    # creation are retried rather than failing on the first attempt.
     last_exc = None
     for _ in range(attempts):
         try:

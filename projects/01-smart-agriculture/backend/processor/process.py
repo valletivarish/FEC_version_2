@@ -2,6 +2,13 @@ import json
 
 
 def process(message_body):
+    """Turn one fog-published SQS message into a DynamoDB item.
+
+    sort_key is window_end#site_id rather than window_end alone: two sites
+    can each produce an aggregate for the same sensor_type in the same
+    flush cycle, and a bare window_end key would let the second write
+    silently overwrite the first.
+    """
     data = json.loads(message_body) if isinstance(message_body, str) else message_body
     site_id = data.get("site_id", "field-1")
     return {

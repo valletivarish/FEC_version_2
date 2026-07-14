@@ -20,6 +20,10 @@ def clamp(value, lo, hi):
 
 
 def next_value(current, profile):
+    """Bounded random walk: each tick drifts by up to profile["step"] in
+    either direction, clamped to the profile's physically plausible range.
+    This keeps consecutive readings correlated (unlike drawing a fresh
+    uniform value each tick) while still eventually exploring the full range."""
     drift = random.uniform(-profile["step"], profile["step"])
     return round(clamp(current + drift, profile["lo"], profile["hi"]), 2)
 

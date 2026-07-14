@@ -8,6 +8,7 @@ from pathlib import Path
 import boto3
 from boto3.dynamodb.conditions import Key
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -22,6 +23,12 @@ SENSOR_TYPES = ["soil_moisture", "temperature", "humidity", "light_intensity", "
 STATIC_DIR = Path(__file__).parent / "static"
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
 _table = None
 _sqs = None
 _lambda = None
@@ -146,6 +153,21 @@ def health():
     }
 
 
+def _count_scan_pages():
+    """Yield each page's Count from a COUNT-select Scan, following
+    LastEvaluatedKey. A single Scan only reads the ~1MB page DynamoDB
+    returns per call; a table larger than that silently undercounts
+    unless every subsequent page is scanned too."""
+    kwargs = {"Select": "COUNT"}
+    while True:
+        page = table().scan(**kwargs)
+        yield page["Count"]
+        cursor = page.get("LastEvaluatedKey")
+        if not cursor:
+            return
+        kwargs["ExclusiveStartKey"] = cursor
+
+
 @app.get("/api/backend-stats")
 def backend_stats():
     queue_depth = None
@@ -162,7 +184,10 @@ def backend_stats():
     except Exception:
         queue_depth = None
 
-    items_in_table = table().scan(Select="COUNT")["Count"]
+    try:
+        items_in_table = sum(_count_scan_pages())
+    except Exception:
+        items_in_table = None
     return {"queue": queue_depth, "items_in_table": items_in_table}
 
 
@@ -171,7 +196,8 @@ def index():
     return FileResponse(STATIC_DIR / "index.html")
 
 
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 @app.middleware("http")

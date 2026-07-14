@@ -34,6 +34,9 @@ def utcnow():
 
 
 def build_messages(snapshot, units, window_start, window_end):
+    """One aggregate-plus-alerts message per (sensor_type, site_id) key
+    present in this window's snapshot -- a key with no readings this window
+    is simply absent from snapshot (see flush_once), not zero-filled."""
     messages = []
     for (sensor_type, site_id), readings in snapshot.items():
         agg = aggregate(sensor_type, site_id, units.get(sensor_type, ""),
@@ -78,11 +81,14 @@ async def flush_once(app):
     end = utcnow()
     start = end - timedelta(seconds=WINDOW_SECONDS)
     async with app.state.lock:
+        # Snapshot-then-clear under the same lock ingest() writes under, so a
+        # reading arriving mid-flush either lands in this window's snapshot
+        # or the next one, never both and never dropped.
         snapshot = {k: v for k, v in app.state.buffers.items() if v}
         app.state.buffers.clear()
         units = dict(app.state.units)
-    for message in build_messages(snapshot, units, start.isoformat(), end.isoformat()):
-        await asyncio.to_thread(app.state.publisher.publish, message)
+    messages = build_messages(snapshot, units, start.isoformat(), end.isoformat())
+    await asyncio.to_thread(app.state.publisher.publish_batch, messages)
 
 
 async def flush_loop(app):

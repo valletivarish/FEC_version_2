@@ -1,5 +1,10 @@
 const SENSORS = ["soil_moisture", "temperature", "humidity", "light_intensity", "rainfall"];
 
+// runtime-config.js sets window.RUNTIME_CONFIG before this file loads; it is
+// empty for local dev (same-origin FastAPI) and holds the deployed API
+// Gateway URL once the static assets are copied onto S3 at deploy time.
+const API_BASE = (window.RUNTIME_CONFIG && window.RUNTIME_CONFIG.apiBase) || "";
+
 function swatch(sensor) {
   return `<span class="swatch ${sensor}"></span>`;
 }
@@ -147,7 +152,7 @@ function renderDetailTable(sensor, bySite) {
 }
 
 async function refreshChart(sensor) {
-  const res = await fetch(`/api/readings?sensor_type=${sensor}&limit=60`);
+  const res = await fetch(`${API_BASE}/api/readings?sensor_type=${sensor}&limit=60`);
   const data = await res.json();
   const bySite = groupBySite(data.items);
   if (bySite.size === 0) return;
@@ -258,9 +263,9 @@ function renderPipeline(summary, health, backend) {
 async function tick() {
   try {
     const [summary, health, backend] = await Promise.all([
-      fetch("/api/summary").then((r) => r.json()),
-      fetch("/api/health").then((r) => r.json()),
-      fetch("/api/backend-stats").then((r) => r.json()),
+      fetch(`${API_BASE}/api/summary`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/health`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/backend-stats`).then((r) => r.json()),
     ]);
     renderFleetOverview(summary);
     renderHealth(health);
