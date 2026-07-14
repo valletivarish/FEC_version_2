@@ -14,3 +14,11 @@ target/
 .claude/
 .remember/
 details/
+
+# test-run output/coverage artifacts -- never the *.test.js suites themselves
+coverage/
+.nyc_output/
+test-results/
+test-results.xml
+junit.xml
+npm-debug.log*
