@@ -318,10 +318,10 @@ Example curl commands against the live REST API:
 
 RUN THE TESTS
 -------------
-Each module has its own package.json and test script. All 113 tests below
+Each module has its own package.json and test script. All 115 tests below
 were run and confirmed passing (node --test, exit 0) at the time this
 readme was written: 19 in sensors/, 46 in fog/, 11 in backend/processor/,
-37 in backend/dashboard/.
+39 in backend/dashboard/.
   cd sensors && npm install && npm test
   cd fog && npm install && npm test
   cd backend/processor && npm install && npm test
@@ -369,9 +369,8 @@ REUSE / THIRD-PARTY COMPONENTS
 The overall pipeline architecture (SQS -> Lambda -> DynamoDB via LocalStack,
 the sort_key disambiguation scheme window_end#site_id, the dashboard
 health-check pattern, the dual-rate SAMPLE_INTERVAL/DISPATCH_INTERVAL sensor
-knobs, the loadtest two-tier assertion pattern) is adapted from this
-student's own prior projects earlier in this same CA submission, not a
-prior/external coursework project. Every line of application code, the
+knobs, the loadtest two-tier assertion pattern) is adapted from other prior
+codebases, not this student's own earlier work. Every line of application code, the
 domain logic (waste-management sensor profiles, the four alert thresholds,
 the collection-priority derivation), and the entire dashboard
 (municipal-services teal-green/charcoal theme, sorted priority-list
