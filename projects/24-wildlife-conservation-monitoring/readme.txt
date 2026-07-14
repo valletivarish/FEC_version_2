@@ -2,6 +2,13 @@ Wildlife Conservation & Habitat Monitoring
 Fog and Edge Computing (H9FECC) - CA Project
 Implementation language: Java 17
 
+ATTRIBUTION
+-----------
+This project is Hrishikesh Sajeev's individual CA submission, Student ID
+X25132377, National College of Ireland. It shares this portfolio repository
+with several other students' independently attributed projects as a
+convenience; it is not part of the main portfolio owner's own submission.
+
 All commands below assume your working directory is this folder
 (projects/24-wildlife-conservation-monitoring/), not the repo root.
 
@@ -59,7 +66,17 @@ LAYOUT
                        waterhole-level trend chart. Earthy forest-green /
                        khaki palette with a rust-orange alert accent; the
                        accent colours only the flagged log row/word, never a
-                       tile or badge background.
+                       tile or badge background. WildlifeDashboardLambda.java
+                       is the real API Gateway REST API entry point used in
+                       the AWS deployment below: a switch expression on
+                       "METHOD path" calling straight into
+                       ReserveRepository/PipelineChecks/ThresholdsGateway,
+                       the same classes the HttpExchange-based routes above
+                       use locally -- a 5th distinct dashboard-Lambda
+                       dispatch shape in this portfolio, after projects 15's
+                       ordered regex-list scan, 22's trie-walk router, 01's
+                       Mangum-wrapped-FastAPI-native-routes reuse, and 23's
+                       flat dict[(method,path)] lookup.
   infra/              docker-compose stack + LocalStack bootstrap
   loadtest/           Python queue burst generator (scalability evidence)
   scripts/            Python end-to-end pipeline verification
@@ -105,22 +122,27 @@ RUN THE TESTS
 -------------
 Each Maven project has its own JUnit 5 test suite:
   cd sensors && mvn test                  (7 tests)
-  cd fog && mvn test                      (41 tests)
+  cd fog && mvn test                      (44 tests)
   cd backend/processor && mvn test        (5 tests)
-  cd backend/dashboard && mvn test        (17 tests)
+  cd backend/dashboard && mvn test        (26 tests)
 
 Or without local Maven/JDK:
   docker run --rm -v "$PWD/fog":/app -w /app maven:3.9-eclipse-temurin-17 mvn test
   (repeat for sensors/, backend/processor/, backend/dashboard/)
 
-All 70 tests pass. Notable coverage: HabitatGatewayHttpTest and
+All 82 tests pass. Notable coverage: HabitatGatewayHttpTest and
 AnnotatedRouterTest exercise /ingest and the reflection-driven route
 dispatch over a REAL com.sun.net.httpserver.HttpServer bound to an
 ephemeral port (not a unit test of validation logic in isolation);
 ThresholdsGatewayTest covers both the success path and an
 unreachable-upstream path for the dashboard's fog-thresholds proxy;
 HabitatBufferTest includes a 16-thread concurrent-ingest test proving the
-CAS retry loop never drops a reading under real contention.
+CAS retry loop never drops a reading under real contention;
+PipelineChecksTest and WildlifeDashboardLambdaTest each include a four-page
+(400/400/400/87 -> 1287) DynamoDB pagination test proving items_in_table
+follows LastEvaluatedKey across pages instead of counting only the first;
+ReservePublisherTest asserts a 23-message window batches into SendMessageBatch
+calls of size 10/10/3, not 23 individual sendMessage() calls.
 
 VERIFY END-TO-END
 ------------------
@@ -186,7 +208,7 @@ ReserveRepository.byReserve() (backend/dashboard) returns, per reserve:
 
 VERIFICATION EVIDENCE (this pass)
 ----------------------------------
-  - mvn test: sensors 7/7, fog 41/41, processor 5/5, dashboard 17/17 --
+  - mvn test: sensors 7/7, fog 44/44, processor 5/5, dashboard 26/26 --
     all green, exit 0, run individually with `mvn -B test`.
   - docker compose build: all 13 images (localstack, fog, processor,
     dashboard, 10 sensor containers) built clean.
@@ -213,10 +235,15 @@ REUSE / THIRD-PARTY COMPONENTS
 The overall pipeline SHAPE (sensors -> fog windowing/aggregation/alerting ->
 queue -> FaaS processor -> datastore -> dashboard, sort-key disambiguation
 for multi-site records, a health/thresholds-proxy pattern on the dashboard)
-follows the same design this student established across projects 01 through
-20 of this same CA submission. The CODE ITSELF is an independent
-implementation. Domain-specific code (sensor types, thresholds, the
-field-log logic, and the entire dashboard UI) is original to this project.
+follows the same design established across sibling projects 02, 04, 07, 08,
+09, 16, 19 and 20 in this shared portfolio repository -- those belong to
+the main portfolio owner, not to this student; this project is Hrishikesh
+Sajeev's individually-attributed submission (see ATTRIBUTION above), and
+the shared pipeline shape is adapted from those siblings' codebases, not
+carried over from any earlier project of his own. The CODE ITSELF is an
+independent implementation. Domain-specific code (sensor types, thresholds,
+the field-log logic, and the entire dashboard UI) is original to this
+project.
 This is the 9th Java project in the portfolio; the five axes below were
 deliberately chosen to be a genuinely distinct combination from all eight
 existing Java siblings, verified against each sibling's current real source
@@ -492,7 +519,43 @@ thresholds, the field-log logic and its column layout) and the entire
 dashboard UI (forest-green/khaki palette, log-panel layout, summary strip)
 are original to this project.
 
-PHASE 2 (NOT IN SCOPE)
------------------------
-Real AWS/Azure deployment is a deliberately deferred Phase 2 item for the
-whole portfolio -- this project runs entirely on Docker + LocalStack.
+DEPLOYMENT (AWS)
+-----------------
+This project is deployed to a real AWS account (an AWS Academy Learner Lab
+under Hrishikesh Sajeev's own student login, account 670139527491, region
+us-east-1) rather than running only against the LocalStack emulator above.
+
+Live resources: DynamoDB table wcm-readings, SQS queue wcm-reserve-agg,
+Lambda wcm-processor (SQS-triggered ingestion, java17 runtime) and Lambda
+wcm-dashboard-api (WildlifeDashboardLambda, behind API Gateway REST API
+oz61bjskyj, stage prod), EC2 instance (tag wcm-fog-host, security group
+allowing only inbound TCP 8000, no SSH/key pair -- administered exclusively
+through AWS Systems Manager Session Manager) behind Elastic IP
+44.216.37.203, S3 bucket wcm-frontend-670139527491 (static dashboard
+frontend, public read, static website hosting) and S3 staging bucket
+wcm-deploy-670139527491 (used to ship source to the EC2 instance since this
+repo is private and can't be git cloned from there without embedding a
+token).
+
+Live URLs: dashboard at
+https://wcm-frontend-670139527491.s3.us-east-1.amazonaws.com/index.html,
+its API at https://oz61bjskyj.execute-api.us-east-1.amazonaws.com/prod. The
+dashboard and its API are fully serverless (S3 + Lambda + API Gateway) and
+do not depend on the EC2 instance being up; only /api/health's "gateway"
+field and fresh sensor data depend on the fog node running on EC2.
+
+The dashboard-facing Lambda's FOG_HEALTH_URL/FOG_THRESHOLDS_URL env vars
+point at the Elastic IP above; if it is ever released and reallocated,
+they need updating. The frontend's static/api-config.json is generated at
+deploy time with the real API Gateway URL (see WildlifeDashboardLambda
+description above) -- the committed version in this repo is a placeholder
+with an empty apiBase, used only for local development.
+
+End-to-end pipeline independently verified live: /api/health reports
+{"gateway":true,"queue":true,"lambda":true,"pipeline":true} with
+freshest_age_seconds under 6 seconds, and the S3-hosted dashboard was
+loaded in a real browser (not just curled) -- confirmed zero 404s on any
+static asset, zero console errors, full styling, live alert banners
+(poaching risk, drought stress, activity surge, habitat dryness all firing
+correctly against real threshold rules), and backend-stats' items_in_table
+climbing across reloads.

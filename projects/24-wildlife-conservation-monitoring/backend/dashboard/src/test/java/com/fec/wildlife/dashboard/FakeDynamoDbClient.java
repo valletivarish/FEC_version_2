@@ -13,11 +13,21 @@ import java.util.Map;
 class FakeDynamoDbClient implements DynamoDbClient {
 
     private final Map<String, List<Map<String, AttributeValue>>> itemsBySensorType;
-    private final int scanCount;
+    private final List<Integer> scanPageCounts;
+    private int scanCallsMade = 0;
 
     FakeDynamoDbClient(Map<String, List<Map<String, AttributeValue>>> itemsBySensorType, int scanCount) {
+        this(itemsBySensorType, List.of(scanCount));
+    }
+
+    // Simulates a multi-page scan: each call to scan() returns the next
+    // count in scanPageCounts, with a LastEvaluatedKey set on every page
+    // except the last -- enough for DynamoDbClient's own scanPaginator()
+    // default method to keep following pages, without this fake needing to
+    // inspect the request's exclusiveStartKey() at all.
+    FakeDynamoDbClient(Map<String, List<Map<String, AttributeValue>>> itemsBySensorType, List<Integer> scanPageCounts) {
         this.itemsBySensorType = itemsBySensorType;
-        this.scanCount = scanCount;
+        this.scanPageCounts = scanPageCounts;
     }
 
     @Override
@@ -29,7 +39,12 @@ class FakeDynamoDbClient implements DynamoDbClient {
 
     @Override
     public ScanResponse scan(ScanRequest request) {
-        return ScanResponse.builder().count(scanCount).build();
+        int pageIndex = scanCallsMade++;
+        ScanResponse.Builder response = ScanResponse.builder().count(scanPageCounts.get(pageIndex));
+        if (pageIndex < scanPageCounts.size() - 1) {
+            response.lastEvaluatedKey(Map.of("sensor_type", AttributeValue.fromS("page-" + pageIndex)));
+        }
+        return response.build();
     }
 
     @Override

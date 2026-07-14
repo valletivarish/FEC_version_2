@@ -6,9 +6,12 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.sqs.model.GetQueueUrlRequest;
+import software.amazon.awssdk.services.sqs.model.SendMessageBatchRequest;
+import software.amazon.awssdk.services.sqs.model.SendMessageBatchRequestEntry;
 import software.amazon.awssdk.services.sqs.model.SendMessageRequest;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -35,6 +38,12 @@ public class ReservePublisher {
             builder.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
         }
         this.client = builder.build();
+        this.queueName = queueName;
+    }
+
+    /** Test-only entry point: injects a pre-built client directly instead of going through the SqsClient.builder() endpoint/credentials wiring above. */
+    ReservePublisher(SqsClient client, String queueName) {
+        this.client = client;
         this.queueName = queueName;
     }
 
@@ -82,5 +91,28 @@ public class ReservePublisher {
             throw new IllegalStateException("failed to serialize aggregate payload", e);
         }
         client.sendMessage(SendMessageRequest.builder().queueUrl(resolveQueueUrl()).messageBody(body).build());
+    }
+
+    // A single flush cycle can close several (sensor_type, site_id) groups
+    // at once; sending each as its own sendMessage() call is one SQS API
+    // call per group. This chunks the whole batch at SendMessageBatch's
+    // 10-entry limit instead, issuing at most ceil(n/10) calls per flush.
+    public void publishBatch(List<AggregatePayload> payloads) {
+        if (payloads.isEmpty()) return;
+        String queueUrl = resolveQueueUrl();
+        for (int start = 0; start < payloads.size(); start += 10) {
+            List<AggregatePayload> chunk = payloads.subList(start, Math.min(start + 10, payloads.size()));
+            List<SendMessageBatchRequestEntry> entries = new ArrayList<>(chunk.size());
+            for (int i = 0; i < chunk.size(); i++) {
+                String body;
+                try {
+                    body = mapper.writeValueAsString(chunk.get(i));
+                } catch (Exception e) {
+                    throw new IllegalStateException("failed to serialize aggregate payload", e);
+                }
+                entries.add(SendMessageBatchRequestEntry.builder().id(Integer.toString(i)).messageBody(body).build());
+            }
+            client.sendMessageBatch(SendMessageBatchRequest.builder().queueUrl(queueUrl).entries(entries).build());
+        }
     }
 }

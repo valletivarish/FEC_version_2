@@ -1,3 +1,25 @@
+// API base resolution: fetched once at startup from a small JSON resource
+// deployed alongside this file, not baked in via a build-time token
+// substitution, a <meta> tag, or a separate config-global script (the three
+// mechanisms this portfolio's other Java/Python siblings already use). The
+// deploy step overwrites static/api-config.json in S3 with the real API
+// Gateway URL; locally (served by Tornado -- er, by WildlifeDashboardApp
+// on :8000) the committed placeholder resolves to "", so fetch() calls fall
+// back to same-origin relative paths exactly as before.
+let API_BASE = "";
+
+async function loadApiBase() {
+  try {
+    const res = await fetch("/static/api-config.json");
+    if (res.ok) {
+      const config = await res.json();
+      API_BASE = config.apiBase || "";
+    }
+  } catch (e) {
+    // api-config.json missing or unreachable; API_BASE stays "" (same-origin)
+  }
+}
+
 const SENSOR_TYPES = ["motion_detection_count", "acoustic_poaching_risk_db", "waterhole_level_cm", "ambient_temp_c", "soil_moisture_pct"];
 
 const METRIC_LABELS = {
@@ -128,7 +150,7 @@ function renderBackendStats(backendStats) {
 }
 
 async function fetchTrend(sensorType) {
-  const res = await fetch(`/api/readings?sensor_type=${sensorType}&limit=20`);
+  const res = await fetch(`${API_BASE}/api/readings?sensor_type=${sensorType}&limit=20`);
   return res.json();
 }
 
@@ -177,9 +199,9 @@ function renderWaterholeTrend(items) {
 async function tick() {
   try {
     const [reservesResp, health, backendStats] = await Promise.all([
-      fetch("/api/reserves").then((r) => r.json()),
-      fetch("/api/health").then((r) => r.json()),
-      fetch("/api/backend-stats").then((r) => r.json()),
+      fetch(`${API_BASE}/api/reserves`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/health`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/backend-stats`).then((r) => r.json()),
     ]);
 
     const reserves = reservesResp.reserves || [];
@@ -201,5 +223,7 @@ async function tick() {
   }
 }
 
-tick();
-setInterval(tick, 2500);
+loadApiBase().then(() => {
+  tick();
+  setInterval(tick, 2500);
+});

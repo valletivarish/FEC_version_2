@@ -1,6 +1,8 @@
 package com.fec.wildlife.dashboard;
 
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
+import software.amazon.awssdk.services.dynamodb.model.Select;
 import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.lambda.model.GetFunctionRequest;
 import software.amazon.awssdk.services.sqs.SqsClient;
@@ -47,8 +49,19 @@ public class PipelineChecks {
         }
     }
 
+    // A single Select.COUNT scan only counts the ~1MB page DynamoDB happens
+    // to return, silently undercounting any table larger than that (the
+    // same undercount bug already found and fixed, with four other code
+    // shapes, in this portfolio's four other reassigned projects). Here the
+    // fix uses the SDK's own scanPaginator() -- an Iterable that follows
+    // LastEvaluatedKey across pages automatically -- rather than a hand-
+    // rolled loop, do-while, or recursive call.
     public int itemCount(DynamoDbClient dynamo, String tableName) {
-        return dynamo.scan(b -> b.tableName(tableName)
-            .select(software.amazon.awssdk.services.dynamodb.model.Select.COUNT)).count();
+        ScanRequest request = ScanRequest.builder().tableName(tableName).select(Select.COUNT).build();
+        int total = 0;
+        for (var page : dynamo.scanPaginator(request)) {
+            total += page.count();
+        }
+        return total;
     }
 }

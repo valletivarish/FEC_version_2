@@ -1,4 +1,11 @@
 #!/bin/bash
+# LocalStack-only deploy tooling: the endpoint default below and the
+# hardcoded test/test credentials further down only make sense against
+# LocalStack's fake account (000000000000) and its lambda-role stub. Never
+# invoke this script against real AWS -- it would silently target
+# localstack:4566 if AWS_ENDPOINT_URL happens to be unset, and would
+# overwrite any real credentials already exported in the environment. The
+# real AWS deployment uses its own separate CLI commands (see readme.txt).
 set -e
 
 ENDPOINT="${AWS_ENDPOINT_URL:-http://localstack:4566}"

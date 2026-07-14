@@ -3,6 +3,7 @@ package com.fec.wildlife.dashboard;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.lambda.model.State;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -44,5 +45,11 @@ class PipelineChecksTest {
     @Test
     void itemCountReadsTheScanCount() {
         assertEquals(42, checks.itemCount(new FakeDynamoDbClient(Map.of(), 42), "wcm-readings"));
+    }
+
+    @Test
+    void itemCountFollowsLastEvaluatedKeyAcrossPagesInsteadOfCountingOnlyTheFirst() {
+        FakeDynamoDbClient fake = new FakeDynamoDbClient(Map.of(), List.of(400, 400, 400, 87));
+        assertEquals(1287, checks.itemCount(fake, "wcm-readings"));
     }
 }

@@ -50,10 +50,12 @@ public class HabitatGateway {
 
     void runWindowCycle() {
         try {
+            List<AggregatePayload> payloads = new ArrayList<>();
             for (WindowAggregate window : flushWindow()) {
                 List<String> alerts = HabitatAlerts.evaluate(window.sensorType(), window);
-                publisher.publish(window, alerts);
+                payloads.add(new AggregatePayload(window, alerts));
             }
+            publisher.publishBatch(payloads);
         } catch (Exception exc) {
             System.out.println("window flush failed: " + exc.getMessage());
         }

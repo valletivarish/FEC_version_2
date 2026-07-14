@@ -74,7 +74,10 @@ public class WildlifeDashboardApp {
         return lambda;
     }
 
-    private static <B extends software.amazon.awssdk.awscore.client.builder.AwsClientBuilder<B, T>, T> T awsClient(B builder) {
+    // Package-private (not private) so WildlifeDashboardLambda -- the
+    // separate API-Gateway-facing entry point -- can build its own clients
+    // through the same endpoint/credentials wiring without duplicating it.
+    static <B extends software.amazon.awssdk.awscore.client.builder.AwsClientBuilder<B, T>, T> T awsClient(B builder) {
         builder.region(Region.of(REGION));
         // LocalStack accepts any static credentials; real AWS issues temporary
         // ones (session token required) via the execution role, so this
