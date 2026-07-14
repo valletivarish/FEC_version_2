@@ -1,6 +1,14 @@
 Marine Vessel / Cruise Ship Monitoring Fog/Edge Pipeline
 Fog and Edge Computing (H9FECC) - CA Project
 
+ATTRIBUTION
+-----------
+This project (23-marine-vessel-monitoring) is the individual CA submission
+of Gopi Krishnan, Student ID X25112627. It is NOT part of the primary
+student's own portfolio of work in the rest of this repository. See
+DEPLOYMENT (AWS) below for the live resources this project's own AWS
+Academy Learner Lab account hosts.
+
 All commands below assume your working directory is this folder
 (projects/23-marine-vessel-monitoring/), not the repo root.
 
@@ -10,16 +18,15 @@ Two cruise vessels (vessel-a, vessel-b) each carry five simulated sensors
 (engine room temperature, fuel consumption, ballast water level, hull
 vibration, passenger count) that feed a fog node. The fog node windows and
 aggregates each sensor's readings, raises threshold alerts, and dispatches
-one aggregate per window to a queue. An AWS Lambda function (running
-inside LocalStack) consumes the queue and stores records; a web dashboard
-renders a Bridge Console -- a two-column vessel-a/vessel-b comparison
-panel, one row per reading -- plus a chronological Voyage Log of recent
-aggregation windows.
+one aggregate per window to a queue. An AWS Lambda function consumes the
+queue and stores records; a web dashboard renders a Bridge Console -- a
+two-column vessel-a/vessel-b comparison panel, one row per reading -- plus
+a chronological Voyage Log of recent aggregation windows.
 
-Phase 1 (this project) runs entirely on Docker with LocalStack emulating
-AWS SQS, DynamoDB, and Lambda. The AWS SDK (boto3) is used throughout, so a
-real AWS/Azure deployment is a deliberately deferred Phase 2 item for the
-whole portfolio, not attempted here.
+Local development and CI run entirely on Docker with LocalStack emulating
+AWS SQS, DynamoDB, and Lambda. The AWS SDK (boto3) is used throughout, so
+the same code deploys unchanged to a real AWS account -- see DEPLOYMENT
+(AWS) below.
 
 LAYOUT
 ------
@@ -124,7 +131,8 @@ Example curl commands (verified live against a running stack):
   curl "http://localhost:8102/api/voyage-log?limit=10"
 
 fog itself is not published to the host (only reachable at http://fog:8000
-inside the compose network, matching the brief's fog/backend split); to
+inside the compose network, keeping fog and backend genuinely separate
+services); to
 exercise it directly -- e.g. to see a real 400 from a malformed /ingest
 payload -- run from inside the dashboard container, which already has
 Python and network access to fog:
@@ -214,8 +222,9 @@ window entries across both vessels, newest first, distinct from any
 sibling's trend chart, manifest row, or detail table. The theme is a
 lighter marine teal/white palette (--teal: #0e6e6a, --teal-soft: #dbeeec)
 deliberately distinct from 06-offshore-wind-farm's deep navy maritime
-turbine-grid, per the brief's own guidance to avoid navy given both
-projects are "sea"-adjacent. Standard system font stack only
+turbine-grid, avoiding navy specifically since both projects are
+"sea"-adjacent and would otherwise risk reading as the same palette.
+Standard system font stack only
 (-apple-system/Segoe UI/Roboto/Helvetica/Arial), zero custom SVG (grep -rn
 "<svg" backend/dashboard/static returns no matches outside the vendored,
 unmodified Chart.js bundle), zero emoji, native <meter> for every bounded
@@ -228,16 +237,19 @@ window.innerWidth == 375 with the final mobile CSS tuning).
 REUSE / THIRD-PARTY COMPONENTS
 --------------------------------
 The overall pipeline shape (SQS -> Lambda -> DynamoDB via LocalStack, the
-sort_key disambiguation scheme, the dashboard health-check pattern) was
-adapted from this student's own earlier projects in this same CA
-submission (01-smart-agriculture, 05-cold-chain-logistics,
-12-smart-building-energy, 13-ev-charging-network,
+sort_key disambiguation scheme, the dashboard health-check pattern) is
+adapted from seven earlier Python projects sharing this portfolio repository
+(05-cold-chain-logistics, 12-smart-building-energy, 13-ev-charging-network,
 14-smart-parking-management, 17-solar-farm-monitoring,
-21-bridge-structural-health), not a prior/external coursework project.
-This is the 8th Python project in the portfolio, so every implementation-
-choice axis below was deliberately made a genuinely distinct combination
-from all 7 prior Python siblings, confirmed by reading each sibling's
-current real source before writing this one:
+21-bridge-structural-health, and 01-smart-agriculture -- the last one a
+separate individual CA submission by a different student, Kondragunta
+Lakshmi Chaitanya, X25171216). None of these are this student's own prior
+work; they are disclosed here honestly, not presented as built entirely
+from scratch. This is the 8th
+Python project in the portfolio, so every implementation-choice axis below
+was deliberately made a genuinely distinct combination from all 7 prior
+Python siblings, confirmed by reading each sibling's current real source
+before writing this one:
 
 1. Fog buffering (fog/buffering.py)
    This project: _buffers and _units are plain module-level dicts with NO
@@ -363,8 +375,9 @@ current real source before writing this one:
 4. HTTP routing/framework (fog/app.py, backend/dashboard/app.py)
    This project: Tornado (tornado.web.Application, class-based
    RequestHandler subclasses overriding get()/post()) for both the fog
-   node and the dashboard backend -- no FastAPI, no Flask, per the brief's
-   explicit instruction to avoid reusing either from prior siblings.
+   node and the dashboard backend -- no FastAPI, no Flask, since both
+   are already used by prior siblings and reusing either here would
+   blur this project's framework choice into theirs.
      01/05 fog/app.py:   FastAPI (async def handlers, Pydantic models).
      12 fog/app.py:      stdlib http.server.ThreadingHTTPServer,
                           hand-dispatched if/elif routes in
@@ -452,8 +465,8 @@ comparison table + Voyage Log layout) is new for this project. No
 hand-drawn SVG appears anywhere in the frontend (grep -rn "<svg"
 backend/dashboard/static returns no matches outside the vendored Chart.js
 bundle) -- alerts render as plain colour-coded text badges and every
-bounded reading renders as a native <meter> element, per the brief's
-no-custom-SVG rule; standard system font stack only, no emoji anywhere.
+bounded reading renders as a native <meter> element instead of a
+hand-drawn gauge; standard system font stack only, no emoji anywhere.
 Third-party open-source components used as standard libraries/tools:
   - Tornado (HTTP framework for fog and dashboard) - https://www.tornadoweb.org
   - boto3 (AWS SDK for Python) - https://boto3.amazonaws.com
@@ -465,5 +478,6 @@ Third-party open-source components used as standard libraries/tools:
     https://www.localstack.cloud
   - pytest (test suite) - https://pytest.org
 No FastAPI or Flask is used anywhere in this project's application code,
-per the brief's explicit instruction; the only third-party runtime
-dependencies across the whole app are tornado and boto3.
+keeping the framework choice distinct from the siblings that already use
+them; the only third-party runtime dependencies across the whole app are
+tornado and boto3.

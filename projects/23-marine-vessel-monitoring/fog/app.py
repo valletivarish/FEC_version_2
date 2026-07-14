@@ -75,17 +75,17 @@ def build_messages(snapshot, units, window_start, window_end):
 
 def flush(client, queue_url):
     """Snapshot+clear the buffer, aggregate and evaluate alerts for every
-    non-empty (sensor_type, site_id) group, and fire-and-forget publish one
-    message per group. Returns the built messages (useful for tests and for
-    the caller to log, even though publishing itself never blocks on them)."""
+    non-empty (sensor_type, site_id) group, and fire-and-forget publish the
+    whole window as one batched send (chunked at 10 entries). Returns the
+    built messages (useful for tests and for the caller to log, even
+    though publishing itself never blocks on them)."""
     window_end = utcnow()
     window_start = window_end - timedelta(seconds=WINDOW_SECONDS)
     snapshot, units = buffering.snapshot_and_clear()
     if not snapshot:
         return []
     messages = build_messages(snapshot, units, window_start.isoformat(), window_end.isoformat())
-    for message in messages:
-        publisher.publish(client, queue_url, message)
+    publisher.publish_batch(client, queue_url, messages)
     return messages
 
 

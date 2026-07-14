@@ -38,3 +38,21 @@ def publish(client, queue_url, message, executor=None):
     `executor` is only ever overridden in tests."""
     pool = executor or _executor
     return pool.submit(_send, client, queue_url, message)
+
+
+def _send_batch(client, queue_url, messages):
+    entries = [{"Id": str(i), "MessageBody": json.dumps(m)} for i, m in enumerate(messages)]
+    client.send_message_batch(QueueUrl=queue_url, Entries=entries)
+
+
+def publish_batch(client, queue_url, messages, executor=None):
+    """Fire-and-forget, same as publish(), but chunks messages at
+    SendMessageBatch's 10-entry limit and submits one batched send per
+    chunk instead of one send_message per message. `executor` is only
+    ever overridden in tests."""
+    pool = executor or _executor
+    futures = []
+    for start in range(0, len(messages), 10):
+        chunk = messages[start:start + 10]
+        futures.append(pool.submit(_send_batch, client, queue_url, chunk))
+    return futures

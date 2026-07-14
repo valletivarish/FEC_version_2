@@ -11,9 +11,15 @@ publisher = load_module("mvs_fog_publisher", "fog/publisher.py")
 class FakeSqsClient:
     def __init__(self):
         self.sent = []
+        self.batch_calls = []
 
     def send_message(self, QueueUrl, MessageBody):
         self.sent.append((QueueUrl, json.loads(MessageBody)))
+
+    def send_message_batch(self, QueueUrl, Entries):
+        self.batch_calls.append(len(Entries))
+        for entry in Entries:
+            self.sent.append((QueueUrl, json.loads(entry["MessageBody"])))
 
 
 class FlakyThenOkClient:
@@ -80,6 +86,41 @@ def test_single_worker_executor_serialises_multiple_publishes():
     for future in futures:
         future.result(timeout=2)
     assert [msg["n"] for _url, msg in client.sent] == [0, 1, 2, 3, 4]
+    executor.shutdown(wait=True)
+
+
+def test_publish_batch_chunks_at_ten_entries():
+    client = FakeSqsClient()
+    executor = ThreadPoolExecutor(max_workers=1)
+    messages = [{"n": i} for i in range(23)]
+    futures = publisher.publish_batch(client, "http://queue-url", messages, executor=executor)
+    for future in futures:
+        future.result(timeout=2)
+    assert client.batch_calls == [10, 10, 3]
+    assert [msg["n"] for _url, msg in client.sent] == list(range(23))
+    executor.shutdown(wait=True)
+
+
+def test_publish_batch_is_fire_and_forget():
+    class SlowClient:
+        def send_message_batch(self, QueueUrl, Entries):
+            time.sleep(0.3)
+
+    executor = ThreadPoolExecutor(max_workers=1)
+    started = time.monotonic()
+    futures = publisher.publish_batch(SlowClient(), "http://queue-url", [{"a": 1}], executor=executor)
+    elapsed = time.monotonic() - started
+    assert elapsed < 0.1, "publish_batch() should return immediately, not block on the network call"
+    for future in futures:
+        future.result(timeout=2)
+    executor.shutdown(wait=True)
+
+
+def test_publish_batch_empty_list_sends_nothing():
+    client = FakeSqsClient()
+    executor = ThreadPoolExecutor(max_workers=1)
+    futures = publisher.publish_batch(client, "http://queue-url", [], executor=executor)
+    assert futures == []
     executor.shutdown(wait=True)
 
 

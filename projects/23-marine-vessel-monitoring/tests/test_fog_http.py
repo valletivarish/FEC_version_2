@@ -13,9 +13,15 @@ fog_app = load_module("mvs_fog_app", "fog/app.py")
 class FakeSqsClient:
     def __init__(self):
         self.sent = []
+        self.batch_calls = 0
 
     def send_message(self, QueueUrl, MessageBody):
         self.sent.append((QueueUrl, json.loads(MessageBody)))
+
+    def send_message_batch(self, QueueUrl, Entries):
+        self.batch_calls += 1
+        for entry in Entries:
+            self.sent.append((QueueUrl, json.loads(entry["MessageBody"])))
 
 
 def wait_until(predicate, timeout=2.0, interval=0.02):
@@ -99,7 +105,7 @@ class TestFogHttp(AsyncHTTPTestCase):
         assert units["hull_vibration_mm"] == "mm/s"
 
 
-def test_flush_publishes_one_message_per_group_fire_and_forget():
+def test_flush_publishes_the_whole_window_as_one_batched_send():
     fog_app.buffering.snapshot_and_clear()
     fog_app.buffering.record("engine_room_temp_c", "vessel-a", "C", [{"ts": "t1", "value": 80.0}])
     fog_app.buffering.record("engine_room_temp_c", "vessel-b", "C", [{"ts": "t1", "value": 40.0}])
@@ -109,6 +115,7 @@ def test_flush_publishes_one_message_per_group_fire_and_forget():
 
     assert len(messages) == 2
     assert wait_until(lambda: len(client.sent) == 2), "expected both fire-and-forget publishes to land"
+    assert client.batch_calls == 1, "both messages should go out in a single SendMessageBatch call"
     by_site = {m["site_id"]: m for m in messages}
     assert by_site["vessel-a"]["alerts"] == ["engine_overheat_risk"]
     assert by_site["vessel-b"]["alerts"] == []

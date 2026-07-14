@@ -165,5 +165,14 @@ def lambda_active():
         return False
 
 
-def items_in_table():
-    return table().scan(Select="COUNT")["Count"]
+def items_in_table(start_key=None):
+    """Recursive pagination: each call scans one page and recurses on
+    LastEvaluatedKey until DynamoDB reports none left. A COUNT-select scan
+    only counts the single ~1MB page it reads, so a table larger than that
+    would otherwise be silently undercounted -- this is the 4th distinct
+    pagination-following shape in this portfolio (after do-while,
+    while-true-with-array-push, and generator+sum())."""
+    kwargs = {"ExclusiveStartKey": start_key} if start_key else {}
+    page = table().scan(Select="COUNT", **kwargs)
+    remaining = items_in_table(page["LastEvaluatedKey"]) if "LastEvaluatedKey" in page else 0
+    return page["Count"] + remaining

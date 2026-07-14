@@ -1,0 +1,125 @@
+name: mvs
+
+# Real-AWS variant of docker-compose.yml: runs the fog node and every
+# sensor container against the live account instead of LocalStack. No
+# AWS_ACCESS_KEY_ID or AWS_ENDPOINT_URL is set anywhere in this file, so
+# fog/publisher.py's boto3.client(...) call falls through to the SDK's
+# default credential provider chain and picks up this EC2 instance's
+# attached instance profile automatically. Neither localstack, dashboard,
+# nor the one-shot processor deploy job appear here: the DynamoDB table
+# and both Lambdas are provisioned directly against the account instead.
+# fog's port 8000 IS published here (unlike the LocalStack compose file,
+# where nothing needs to reach it from outside the compose network) since
+# the real dashboard Lambda's FOG_HEALTH_URL/FOG_THRESHOLDS_URL checks
+# reach it over this instance's public Elastic IP.
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  fog:
+    build:
+      context: ../fog
+    ports:
+      - "8000:8000"
+    environment:
+      AWS_REGION: us-east-1
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: mvs-vessel-agg
+    restart: unless-stopped
+
+  sensor-engine-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: engine_room_temp_c
+      SITE_ID: vessel-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  sensor-engine-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: engine_room_temp_c
+      SITE_ID: vessel-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-fuel-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: fuel_consumption_lph
+      SITE_ID: vessel-a
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-fuel-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: fuel_consumption_lph
+      SITE_ID: vessel-b
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  sensor-ballast-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: ballast_water_level_pct
+      SITE_ID: vessel-a
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "12"
+
+  sensor-ballast-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: ballast_water_level_pct
+      SITE_ID: vessel-b
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "13"
+
+  sensor-hull-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: hull_vibration_mm
+      SITE_ID: vessel-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "14"
+
+  sensor-hull-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: hull_vibration_mm
+      SITE_ID: vessel-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-passenger-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: passenger_count
+      SITE_ID: vessel-a
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "15"
+
+  sensor-passenger-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: passenger_count
+      SITE_ID: vessel-b
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "16"

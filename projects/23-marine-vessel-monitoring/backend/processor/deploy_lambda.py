@@ -1,3 +1,9 @@
+"""Deploys backend/processor to LocalStack only -- the hardcoded
+"000000000000" LocalStack account ID in the IAM role ARN below is not a
+valid real-AWS role and would fail against a genuine account, where
+LabRole is used instead. Not part of the real-AWS deployment path; see
+docker-compose.aws.yml and DEPLOYMENT (AWS) in readme.txt for that."""
+
 import io
 import os
 import time
@@ -21,6 +27,9 @@ def build_zip():
 
 
 def wait_for(fn, attempts=60, delay=3):
+    # LocalStack's SQS/Lambda services can take a few seconds to finish
+    # provisioning after the container reports healthy, so queue lookups
+    # and function creation are retried rather than treated as fatal.
     last_exc = None
     for _ in range(attempts):
         try:
@@ -41,6 +50,10 @@ def wait_until_active(lam, attempts=60, delay=3):
 
 
 def create_or_update_function(lam):
+    # Re-running this script (e.g. after a code change) hits
+    # ResourceConflictException on create_function since the function
+    # already exists -- falls back to updating its code instead of
+    # failing, so the script is safely re-runnable.
     code = build_zip()
     try:
         lam.create_function(

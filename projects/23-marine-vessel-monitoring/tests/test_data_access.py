@@ -10,8 +10,12 @@ class FakeTable:
     honours ScanIndexForward/Limit the same way DynamoDB does, reading the
     sensor_type equality value straight out of the boto3 Key condition."""
 
-    def __init__(self, rows):
+    def __init__(self, rows, page_sizes=None):
         self.rows = rows
+        # page_sizes, if given, simulates a multi-page Scan response instead
+        # of returning everything in one call -- used to test that
+        # items_in_table() actually follows LastEvaluatedKey.
+        self.page_sizes = page_sizes
 
     def query(self, KeyConditionExpression, ScanIndexForward=True, Limit=None):
         sensor_type = KeyConditionExpression._values[1]
@@ -22,8 +26,14 @@ class FakeTable:
             matching = matching[:Limit]
         return {"Items": matching}
 
-    def scan(self, Select=None):
-        return {"Count": len(self.rows)}
+    def scan(self, Select=None, ExclusiveStartKey=None):
+        if self.page_sizes is None:
+            return {"Count": len(self.rows)}
+        page_index = ExclusiveStartKey["page"] if ExclusiveStartKey else 0
+        result = {"Count": self.page_sizes[page_index]}
+        if page_index + 1 < len(self.page_sizes):
+            result["LastEvaluatedKey"] = {"page": page_index + 1}
+        return result
 
 
 def make_row(sensor_type, site_id, window_end, avg, max_value=None, alerts=None):
@@ -125,6 +135,12 @@ def test_freshest_window_age_none_when_table_empty(monkeypatch):
 def test_items_in_table_counts_rows(monkeypatch):
     patched_table(monkeypatch, ENGINE_ROWS)
     assert data_access.items_in_table() == len(ENGINE_ROWS)
+
+
+def test_items_in_table_follows_last_evaluated_key_across_pages(monkeypatch):
+    fake = FakeTable([], page_sizes=[400, 400, 400, 87])
+    monkeypatch.setattr(data_access, "table", lambda: fake)
+    assert data_access.items_in_table() == 1287
 
 
 class FakeSqsUnreachable:
