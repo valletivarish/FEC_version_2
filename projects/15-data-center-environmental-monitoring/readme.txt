@@ -8,8 +8,9 @@ Nithin, Student ID X25125338, as a separate individual submission. It is
 NOT part of the primary student's own portfolio of work in the rest of
 this repository -- it is deliberately architected to differ from every
 other project in this repository (see TECH STACK and REUSE / THIRD-PARTY
-COMPONENTS below for the exact, source-verified differences), per the
-individual rubric Nithin was assessed against.
+COMPONENTS below for the exact, source-verified differences), since
+this is Nithin's own independent piece of work, not a copy of anyone
+else's.
 
 All commands below assume your working directory is this folder
 (projects/15-data-center-environmental-monitoring/), not the repo root.
@@ -143,9 +144,8 @@ projects' current source before writing this section.
     independent plain setInterval calls is a genuinely different fifth
     scheduling idiom.
 
-  - The project's real architectural novelty is the backend, per Nithin's
-    individual rubric requirement: instead of a dashboard server directly
-    calling DynamoDB/SQS/Lambda (what all four Node siblings' backend/
+  - The project's real architectural novelty is the backend: instead of a
+    dashboard server directly calling DynamoDB/SQS/Lambda (what all four Node siblings' backend/
     dashboard/server.js do), this project deploys a SEPARATE Lambda
     function ("dce-api", backend/api/handler.js) that does its OWN
     internal path/method routing (backend/api/router.js's route(), an
@@ -160,10 +160,15 @@ projects' current source before writing this section.
     at startup via GetRestApisCommand (apiGatewayProxy.js's
     resolveInvokeUrl(), the SDK equivalent of `aws apigateway
     get-rest-apis`), caches it, and reverse-proxies every subsequent
-    /api/* request to it (apiGatewayProxy.js's proxyRequest()). No other
-    project in this portfolio has a second, API-Gateway-fronted Lambda at
-    all -- this is a structurally different backend, not just a
-    differently-shaped module inside the same architecture.
+    /api/* request to it (apiGatewayProxy.js's proxyRequest()). Projects 22
+    and 01 have since also split their dashboard-serving Lambda from their
+    ingestion Lambda behind an API Gateway of their own, so a second,
+    API-Gateway-fronted Lambda is no longer unique to this project
+    portfolio-wide -- but the concrete technique stays genuinely different
+    from both: this project provisions the older REST API product (a
+    single {proxy+} AWS_PROXY resource) with the dashboard server reduced
+    to resolving the invoke URL once and reverse-proxying every request,
+    rather than either sibling's HTTP API v2 integration.
 
   - Testing uses Node's built-in node:test + node:assert/strict runner --
     no Jest/Mocha dependency, matching every Node sibling. AWS-facing code
@@ -418,20 +423,21 @@ handling, two-setInterval sensor scheduling) -- verified by directly
 reading those four projects' current source before writing this section,
 not assumed from memory.
 
-Nithin's individually-required backend architecture -- a SEPARATE Lambda
-function ("dce-api") doing its own internal request routing, fronted by a
-REAL AWS API Gateway REST API deployed to LocalStack (a single {proxy+}
-resource, ANY method, AWS_PROXY integration, deployed to stage "local"),
-with the dashboard server reduced to a pure static-file host and reverse
-proxy that resolves the API Gateway's invoke URL exactly once at startup
--- is portfolio-unique. No other project in this repository (Node.js,
-Python, or Java) provisions a real API Gateway REST API or runs two
-separate Lambda functions behind one pipeline; every other project's
-dashboard talks to DynamoDB/SQS/Lambda directly via the AWS SDK from a
-single always-running backend process. This satisfies Nithin's rubric
-requirement for a genuinely different backend architecture from every
-other project in this portfolio, and is documented here explicitly per
-that requirement.
+Nithin's backend architecture -- a SEPARATE Lambda function ("dce-api")
+doing its own internal request routing, fronted by a REAL AWS API Gateway
+REST API deployed to LocalStack (a single {proxy+} resource, ANY method,
+AWS_PROXY integration, deployed to stage "local"), with the dashboard
+server reduced to a pure static-file host and reverse proxy that resolves
+the API Gateway's invoke URL exactly once at startup -- was
+portfolio-unique when first built. Projects 22 and 01 have since added
+their own second, API-Gateway-fronted Lambda too, each behind an HTTP
+API rather than this project's REST API product, so what remains
+genuinely distinct here is the REST API v1 product choice and the
+once-resolved reverse-proxy design, not the mere existence of a second
+Lambda behind API Gateway. This is documented here for the same reason
+the rest of this section exists: making explicit, in one place, exactly
+how this project's backend differs in substance from its Node.js
+siblings.
 
 Third-party open-source components used as standard libraries/tools:
   - AWS SDK for JavaScript v3 (@aws-sdk/client-sqs, client-dynamodb,
