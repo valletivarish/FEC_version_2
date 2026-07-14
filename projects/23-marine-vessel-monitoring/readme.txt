@@ -107,6 +107,21 @@ scan (project 15), the trie-walk router (project 22), and the
 Mangum-wrapped-native-routes reuse (project 01) -- reusing data_access.py
 directly, the same module the local Tornado handlers call.
 
+index.html requests its assets at /static/style.css, /static/dashboard.js,
+and /static/vendor/chart.umd.min.js (matching how the local Tornado
+server mounts StaticFileHandler), so the S3 upload MUST preserve that
+path shape -- index.html goes to the bucket root, everything else goes
+under a static/ prefix inside the bucket:
+  aws s3 cp backend/dashboard/static/index.html s3://<bucket>/index.html
+  aws s3 cp backend/dashboard/static/style.css s3://<bucket>/static/style.css
+  aws s3 cp backend/dashboard/static/dashboard.js s3://<bucket>/static/dashboard.js
+  aws s3 cp backend/dashboard/static/vendor/chart.umd.min.js s3://<bucket>/static/vendor/chart.umd.min.js
+A flat `aws s3 sync backend/dashboard/static/ s3://<bucket>/` uploads
+everything to the bucket root instead, breaking every asset reference
+with a 404 -- caught and fixed after deployment via a real browser check
+(curl alone doesn't catch this, since curl was only ever pointed at the
+JSON API endpoints, never at the HTML page's own asset references).
+
 Live URLs:
   Dashboard: http://mvs-frontend-573065484152.s3-website-us-east-1.amazonaws.com/
   API:       https://3crovrzml6.execute-api.us-east-1.amazonaws.com/prod
