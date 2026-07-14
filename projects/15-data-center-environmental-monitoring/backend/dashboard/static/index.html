@@ -3,6 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Left blank for local dev, where the dashboard server itself reverse-proxies
+       /api/* (see backend/dashboard/apiGatewayProxy.js). A static deployment served
+       from its own origin (e.g. S3) has no such proxy in front of it, so this is set
+       to the deployed API Gateway's invoke URL and dashboard.js reads it directly. -->
+  <meta name="api-base" content="">
   <title>Data Center Environmental Monitor</title>
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/vendor/chart.umd.min.js"></script>

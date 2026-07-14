@@ -1,0 +1,130 @@
+name: dce
+
+# Real-AWS variant of docker-compose.yml: runs only the fog node and the ten
+# sensor containers. No localstack, no one-shot processor/api-deploy jobs, and
+# no dashboard container -- the backend Lambdas, API Gateway, and DynamoDB
+# table are deployed straight to the real account (see readme.txt DEPLOYMENT
+# (AWS) section), and the dashboard's static assets are served from S3
+# instead of this instance. Credentials come from the EC2 instance profile
+# (LabInstanceProfile), so no AWS_ACCESS_KEY_ID/AWS_ENDPOINT_URL are set here
+# at all -- fog/publisher.js's buildClient() falls through to the SDK's
+# default credential chain whenever no endpoint override is present.
+
+networks:
+  dce_net:
+    name: dce_net
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+  networks:
+    - dce_net
+
+services:
+  fog:
+    build:
+      context: ../fog
+    environment:
+      AWS_REGION: us-east-1
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: dce-hall-agg
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    networks:
+      - dce_net
+
+  sensor-temp-h1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: temperature_c
+      SITE_ID: hall-1
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  sensor-temp-h2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: temperature_c
+      SITE_ID: hall-2
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-humidity-h1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: humidity_pct
+      SITE_ID: hall-1
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-humidity-h2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: humidity_pct
+      SITE_ID: hall-2
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  sensor-airflow-h1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: airflow_cfm
+      SITE_ID: hall-1
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "7"
+
+  sensor-airflow-h2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: airflow_cfm
+      SITE_ID: hall-2
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "6"
+
+  sensor-power-h1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: power_load_kw
+      SITE_ID: hall-1
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "6"
+
+  sensor-power-h2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: power_load_kw
+      SITE_ID: hall-2
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "5"
+
+  sensor-dust-h1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: dust_density_ugm3
+      SITE_ID: hall-1
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-dust-h2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: dust_density_ugm3
+      SITE_ID: hall-2
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"

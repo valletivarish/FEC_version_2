@@ -8,12 +8,15 @@ const { SQSClient, GetQueueUrlCommand, SendMessageBatchCommand } = require("@aws
 // groups (one per sensor type per hall pairing that had traffic).
 const SQS_BATCH_LIMIT = 10;
 
+// Only the local emulator needs a fixed dummy key pair; a real deployment
+// (EC2 instance profile, or any environment with genuine temporary
+// credentials already in the chain) must fall through to the SDK's own
+// default credential resolution instead of being pinned to "test"/"test".
 function buildClient(endpoint, region) {
-  return new SQSClient({
-    endpoint,
-    region,
-    credentials: { accessKeyId: "test", secretAccessKey: "test" },
-  });
+  const clientConfig = endpoint
+    ? { endpoint, region, credentials: { accessKeyId: "test", secretAccessKey: "test" } }
+    : { region };
+  return new SQSClient(clientConfig);
 }
 
 async function resolveQueueUrl(client, queueName, retries = 30, delayMs = 2000) {

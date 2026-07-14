@@ -10,12 +10,16 @@ let client;
 function documentClient() {
   if (client) return client;
   const config = { region: process.env.AWS_REGION || "eu-west-1" };
-  if (process.env.AWS_ENDPOINT_URL) config.endpoint = process.env.AWS_ENDPOINT_URL;
-  if (process.env.AWS_ACCESS_KEY_ID) {
-    config.credentials = {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "test",
-    };
+  // A real Lambda execution environment always populates AWS_ACCESS_KEY_ID
+  // with genuine, session-token-bearing temporary credentials, so keying
+  // off that variable's mere presence would wrongly pin this client to a
+  // dummy static pair on every real deployment too. AWS_ENDPOINT_URL is
+  // the one variable that is only ever set when pointing at the local
+  // emulator, so both the endpoint override and the dummy credentials are
+  // gated on it together.
+  if (process.env.AWS_ENDPOINT_URL) {
+    config.endpoint = process.env.AWS_ENDPOINT_URL;
+    config.credentials = { accessKeyId: "test", secretAccessKey: "test" };
   }
   client = DynamoDBDocumentClient.from(new DynamoDBClient(config));
   return client;

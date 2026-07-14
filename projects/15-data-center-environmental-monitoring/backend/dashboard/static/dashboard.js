@@ -1,3 +1,8 @@
+// Empty when the dashboard server itself reverse-proxies /api/* (local dev);
+// set to the API Gateway invoke URL when this file is served standalone from
+// its own origin, e.g. an S3 bucket with no proxy sitting in front of it.
+const API_BASE = document.querySelector('meta[name="api-base"]')?.content || "";
+
 const SENSOR_TYPES = ["temperature_c", "humidity_pct", "airflow_cfm", "power_load_kw", "dust_density_ugm3"];
 const SITE_IDS = ["hall-1", "hall-2"];
 
@@ -117,7 +122,7 @@ function renderBackendStats(backendStats) {
 }
 
 async function fetchTrend(sensorType) {
-  const res = await fetch(`/api/readings?sensor_type=${sensorType}&limit=20`);
+  const res = await fetch(`${API_BASE}/api/readings?sensor_type=${sensorType}&limit=20`);
   return res.json();
 }
 
@@ -183,9 +188,9 @@ async function tick() {
   tickInFlight = true;
   try {
     const [hallsResp, health, backendStats] = await Promise.all([
-      fetch("/api/halls").then((r) => r.json()),
-      fetch("/api/health").then((r) => r.json()),
-      fetch("/api/backend-stats").then((r) => r.json()),
+      fetch(`${API_BASE}/api/halls`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/health`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/backend-stats`).then((r) => r.json()),
     ]);
 
     const halls = hallsResp.halls || [];

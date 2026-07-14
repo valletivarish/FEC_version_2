@@ -12,7 +12,12 @@ function getClients() {
 function jsonResponse(statusCode, body) {
   return {
     statusCode,
-    headers: { "Content-Type": "application/json" },
+    // Real deployment serves the dashboard's static assets from a separate
+    // S3 origin and has the browser call this API directly, so responses
+    // need to be readable cross-origin; the local reverse-proxy path (see
+    // backend/dashboard/apiGatewayProxy.js) never hits a browser CORS check
+    // at all, so this header is inert there.
+    headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
     body: JSON.stringify(body),
   };
 }

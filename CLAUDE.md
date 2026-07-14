@@ -20,6 +20,17 @@ Live resources in this account (as of 2026-07-13, project 22 only): DynamoDB tab
 
 Live URLs: dashboard at `https://swm-frontend-548539235319.s3.us-east-1.amazonaws.com/index.html`, its API at `https://f721o30kd5.execute-api.us-east-1.amazonaws.com`. The dashboard and its API are fully serverless (S3 + Lambda + API Gateway) and do not depend on the EC2 instance being up; only `/api/health`'s `gateway` field and fresh sensor data depend on fog/sensors running on EC2.
 
+Project 15 (data-center-environmental-monitoring) is deployed to a separate real AWS account:
+
+- **Account ID: 373241496019** (AWS Academy Learner Lab, Vocareum-provisioned, student `x25125338@student.ncirl.ie`)
+- Region: `us-east-1` only (same region-lock pattern as project 22's account — confirmed by testing `dynamodb:ListTables` in `eu-west-1`, which was denied)
+- Role: `voclabs` (session), reuse `LabRole` for anything needing an IAM role or instance profile (this account also cannot create new IAM roles/users; confirmed the same `LabRole` exists here)
+- Credentials are temporary (`ASIA`-prefixed) and expire in ~4 hours, same as project 22's account
+
+**Before running any `aws`/deploy command for project 15: confirm `aws sts get-caller-identity` returns account `373241496019`.** If it returns a different account (e.g. `548539235319`, project 22's account), STOP and flag it to the user — never deploy project 15 into project 22's account or vice versa, they are different students' own Learner Labs.
+
+**This account is not a shared or general-purpose sandbox.** It is Nithin's (X25125338) personal AWS Academy Learner Lab. Project 15 is not available for any other student in this portfolio to deploy into, redeploy, or reuse as a template against this account.
+
 ## Attribution
 
 Some projects in this portfolio are individual CA submissions for different students, not all belonging to the same person:
