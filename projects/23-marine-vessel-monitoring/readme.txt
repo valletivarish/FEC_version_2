@@ -225,7 +225,7 @@ Or without a local Python 3.12:
   docker run --rm -v "$PWD":/app -w /app python:3.12-slim \
     bash -c "pip install -r requirements-dev.txt && pytest"
 
-106 tests currently pass covering: window aggregation math
+120 tests currently pass covering: window aggregation math
 (test_aggregation.py), the operator.gt/operator.lt-callable RULES list and
 evaluate()/thresholds_payload() (test_alerts.py, including that hull
 vibration is keyed on "max" not "avg" and that passenger_count never
@@ -248,9 +248,13 @@ hand-written fake DynamoDB table (test_transform.py + test_handler.py, no
 real AWS/LocalStack touched), the dashboard's DynamoDB/SQS/Lambda
 data-access functions including vessel_report()'s per-vessel grouping and
 recent_log_entries()'s newest-first merge (test_data_access.py, fake boto3
-objects), and the thresholds-proxy function against both a real local
+objects), the thresholds-proxy function against both a real local
 success server and a real closed TCP port (test_thresholds_proxy.py,
-genuine unreachable-upstream failure, not a mocked urlopen).
+genuine unreachable-upstream failure, not a mocked urlopen), and the
+API Gateway REST API dispatch table's method+path lookup, including its
+404-on-unknown-route fallthrough, query-param validation, and a
+degrades-to-zero-on-Scan-failure health path (test_dashboard_lambda_handler.py,
+mocked data-access layer).
 
 LOAD TEST (SCALABILITY EVIDENCE)
 ---------------------------------
@@ -311,7 +315,12 @@ adapted from seven earlier Python projects sharing this portfolio repository
 separate individual CA submission by a different student, Kondragunta
 Lakshmi Chaitanya, X25171216). None of these are this student's own prior
 work; they are disclosed here honestly, not presented as built entirely
-from scratch. This is the 8th
+from scratch. Note this is a different category of reuse from the brief's
+own clause ("you can reuse components from your previous projects"),
+which is phrased around a student's own earlier work -- these seven are
+shared-repository siblings, not this student's prior submissions, so this
+disclosure is offered for transparency rather than claimed as reuse
+authorized under that specific clause. This is the 8th
 Python project in the portfolio, so every implementation-choice axis below
 was deliberately made a genuinely distinct combination from all 7 prior
 Python siblings, confirmed by reading each sibling's current real source
