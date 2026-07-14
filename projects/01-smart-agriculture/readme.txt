@@ -158,8 +158,8 @@ _count_scan_pages(), a generator that follows LastEvaluatedKey across pages
 and sums every page's Count via sum(), genuinely distinct in shape from the
 do-while (project 22) and while-true-with-array-push (project 15) fixes for
 the same bug class. Separately, fog/publisher.py sent one SQS message per
-aggregate in a loop; the brief explicitly lists batching as required
-evidence for the Sensor & Fog Application criterion, so publish_batch() was
+aggregate in a loop, issuing one outbound API call per aggregate even when
+several windows closed in the same flush cycle; publish_batch() was
 added, chunked at SendMessageBatch's 10-entry limit, and fog/app.py's
 flush_once() now calls it once per window instead of looping the old
 single-message publish().
