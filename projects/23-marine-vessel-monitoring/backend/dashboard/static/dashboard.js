@@ -1,5 +1,11 @@
 const POLL_INTERVAL_MS = 2500;
 
+// Deploy-time token substitution: the S3 deploy step sed-replaces this
+// literal token with the real API Gateway URL before upload. If it's
+// still present verbatim (local dev, served same-origin by Tornado),
+// fall back to relative paths instead.
+const API_BASE = "%%API_BASE%%".startsWith("%%") ? "" : "%%API_BASE%%";
+
 const SENSOR_META = {
   engine_room_temp_c: { label: "Engine Room Temp", lo: 20, hi: 90 },
   fuel_consumption_lph: { label: "Fuel Consumption", lo: 0, hi: 500 },
@@ -140,8 +146,8 @@ function ensureTrendChart() {
 async function refreshTrendChart() {
   try {
     const [respA, respB] = await Promise.all([
-      fetch("/api/readings?sensor_type=engine_room_temp_c&site_id=vessel-a&limit=20"),
-      fetch("/api/readings?sensor_type=engine_room_temp_c&site_id=vessel-b&limit=20"),
+      fetch(API_BASE + "/api/readings?sensor_type=engine_room_temp_c&site_id=vessel-a&limit=20"),
+      fetch(API_BASE + "/api/readings?sensor_type=engine_room_temp_c&site_id=vessel-b&limit=20"),
     ]);
     const [dataA, dataB] = await Promise.all([respA.json(), respB.json()]);
     const chart = ensureTrendChart();
@@ -157,7 +163,7 @@ async function refreshTrendChart() {
 async function loadRulesOnce() {
   if (rulesLoaded) return;
   try {
-    const resp = await fetch("/api/thresholds");
+    const resp = await fetch(API_BASE + "/api/thresholds");
     if (resp.ok) {
       rulesByType = await resp.json();
       rulesLoaded = true;
@@ -170,10 +176,10 @@ async function loadRulesOnce() {
 async function pollOnce() {
   try {
     const [vesselsResp, healthResp, statsResp, logResp] = await Promise.all([
-      fetch("/api/vessels"),
-      fetch("/api/health"),
-      fetch("/api/backend-stats"),
-      fetch("/api/voyage-log?limit=25"),
+      fetch(API_BASE + "/api/vessels"),
+      fetch(API_BASE + "/api/health"),
+      fetch(API_BASE + "/api/backend-stats"),
+      fetch(API_BASE + "/api/voyage-log?limit=25"),
     ]);
     const [vessels, health, stats, log] = await Promise.all([
       vesselsResp.json(), healthResp.json(), statsResp.json(), logResp.json(),

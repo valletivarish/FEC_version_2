@@ -66,6 +66,57 @@ ALERT THRESHOLDS (evaluated on the window aggregate)
   ballast_water_level_pct: avg > 90  -> ballast_overfill_risk
   hull_vibration_mm:       max > 15  -> hull_stress_warning
 
+DEPLOYMENT (AWS)
+-----------------
+Deployed live to a real AWS account (AWS Academy Learner Lab, account
+573065484152, us-east-1, under Gopi Krishnan's own AWS Academy
+credentials): DynamoDB table mvs-readings (PAY_PER_REQUEST, partition key
+sensor_type, sort key sort_key), SQS queue mvs-vessel-agg, Lambda
+mvs-processor (SQS-triggered ingestion via an event-source mapping) and
+Lambda mvs-dashboard-api (dashboard API, behind API Gateway REST API
+3crovrzml6), EC2 instance i-00cee8327e251f43d (tagged mvs-fog-host, runs
+the fog node + 10 sensor containers, security group sg-0237d7ef5cf8bf8c9
+allows only inbound TCP 8000, no SSH -- no key pair was provisioned,
+administered via SSM only), Elastic IP 3.93.139.149 (allocation
+eipalloc-080d56c695197faf4, associated with that instance so its public
+IP stays fixed across stop/start), S3 bucket mvs-frontend-573065484152
+(static dashboard frontend, public read-only, static website hosting
+enabled) and S3 staging bucket mvs-deploy-573065484152 (used to ship
+source to the EC2 instance since this repo is private).
+
+Configuration-only differences from the LocalStack stack, no code fork:
+(1) the EC2 instance runs infra/docker-compose.aws.yml (fog and the ten
+sensors only -- no LocalStack, no dashboard container, no one-shot
+processor-deploy job, since both Lambdas and the DynamoDB table are
+provisioned straight against the real account instead) with no
+AWS_ACCESS_KEY_ID or AWS_ENDPOINT_URL set at all, so fog/publisher.py's
+boto3.client(...) call falls through to the SDK's default credential
+chain and picks up the EC2 instance's attached LabInstanceProfile
+automatically; (2) the dashboard's static assets are served directly
+from S3 rather than through the local Tornado server, so dashboard.js's
+API_BASE constant -- a %%API_BASE%% token, sed-replaced with the real
+API Gateway URL at deploy time -- points fetch() calls at
+https://3crovrzml6.execute-api.us-east-1.amazonaws.com/prod instead of
+same-origin relative paths, a distinct mechanism from project 01's
+runtime-config.js file and project 15's <meta name="api-base"> tag.
+
+The dashboard Lambda answers /api/* through backend/dashboard/
+lambda_handler.py, a flat dict[(method, path)] lookup table -- a 4th
+distinct dispatch shape in this portfolio after the ordered regex-list
+scan (project 15), the trie-walk router (project 22), and the
+Mangum-wrapped-native-routes reuse (project 01) -- reusing data_access.py
+directly, the same module the local Tornado handlers call.
+
+Live URLs:
+  Dashboard: http://mvs-frontend-573065484152.s3-website-us-east-1.amazonaws.com/
+  API:       https://3crovrzml6.execute-api.us-east-1.amazonaws.com/prod
+
+End-to-end pipeline independently verified live: /api/health reports
+{"gateway":true,"queue":true,"lambda":true,"pipeline":true} with
+freshest_age_seconds under 1 second, /api/vessels and /api/voyage-log
+return real per-vessel aggregate data, and /api/backend-stats confirmed
+59 items already written to DynamoDB minutes after the stack came up.
+
 REQUIREMENTS
 ------------
   Docker + Docker Compose (for the running stack)
