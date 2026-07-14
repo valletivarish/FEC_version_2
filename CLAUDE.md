@@ -35,10 +35,22 @@ Live resources in this account (as of 2026-07-14, project 15 only): DynamoDB tab
 
 Live URLs: dashboard at `https://dce-frontend-373241496019.s3.us-east-1.amazonaws.com/index.html`, its API at `https://nke958yhid.execute-api.us-east-1.amazonaws.com/prod`. The dashboard and its API are fully serverless (S3 + Lambda + API Gateway) and do not depend on the EC2 instance being up; only `/api/health`'s `gateway` field and fresh sensor data depend on fog/sensors running on EC2.
 
+Project 01 (smart-agriculture) is deployed to a separate real AWS account:
+
+- **Account ID: 733939924597** (AWS Academy Learner Lab, Vocareum-provisioned, student `x25171216@student.ncirl.ie`)
+- Region: `us-east-1` only (same region-lock pattern as the other two accounts — confirmed by testing `dynamodb:ListTables` in `eu-west-1`, which was denied)
+- Role: `voclabs` (session), reuse `LabRole` for anything needing an IAM role or instance profile
+- Credentials are temporary (`ASIA`-prefixed) and expire in ~4 hours, same as the other two accounts
+
+**Before running any `aws`/deploy command for project 01: confirm `aws sts get-caller-identity` returns account `733939924597`.** If it returns a different account (e.g. `548539235319` or `373241496019`), STOP and flag it to the user — never deploy project 01 into another project's account or vice versa, they are three different students' own Learner Labs.
+
+**This account is not a shared or general-purpose sandbox.** It is Kondragunta Lakshmi Chaitanya's (X25171216) personal AWS Academy Learner Lab. Project 01 is not available for any other student in this portfolio to deploy into, redeploy, or reuse as a template against this account.
+
 ## Attribution
 
 Some projects in this portfolio are individual CA submissions for different students, not all belonging to the same person:
 
+- Project 01 (smart-agriculture): Kondragunta Lakshmi Chaitanya, Student ID X25171216
 - Project 15 (data-center-environmental-monitoring): Nithin, Student ID X25125338
 - Project 22 (smart-waste-management): Gundeti Sachin Reddy, Student ID X23432721
 
@@ -48,4 +60,6 @@ Each such project's own `readme.txt` carries an ATTRIBUTION section with the sam
 
 Project 22 (smart-waste-management) is functionally complete: sensor/fog/backend/dashboard implementation, unit and integration tests, and the real AWS deployment described above are all done and live. The report (`documents/Gundeti_Sachin_Reddy_X23432721/report.docx`) has had every concrete defect a multi-agent rubric re-verification found addressed: the deployment-topology figure (was clipped to column width, hiding 5 of 9 components), reference-list numbering (now strict IEEE order-of-first-citation, 1-21), missing reference page numbers, repetitive "rather than"/"genuine" style tics, and remaining long sentences. Reference list expanded 10 → 21 with independently verified peer-reviewed sources. Only the presentation & demo (20% of the grade) remains undelivered — that is a human action, not something further report editing can address.
 
-Project 15 (data-center-environmental-monitoring) is functionally complete: sensor/fog/backend/dashboard implementation, unit tests (114 total), and the real AWS deployment described above are all done and live, following the same rigor as project 22: two credential-handling bugs proactively found and fixed before deployment (three files silently fell back to hardcoded LocalStack-only credentials, which would have broken authentication in real Lambda/EC2 exactly like project 22's earlier bug — fixed with three genuinely distinct code shapes, not copy-pasted from project 22's fix or from each other), plus the same DynamoDB Scan-pagination undercount bug found and fixed in `pipelineStatus.js`. End-to-end pipeline independently verified live: real sensor data flows through fog, SQS, both Lambdas, DynamoDB, API Gateway, and renders on the S3-hosted dashboard with zero console errors. The 6-page IEEE report (`documents/Nithin_X25125338/report.docx`) is also done, built directly from the template with the page-number footer and self-referential-language avoidance applied from the start rather than as a later fix, 11 independently verified peer-reviewed references in correct citation order, and live evidence (a 300-message burst load test, two live health-check polls) gathered directly against the real deployment. Only the presentation & demo (20% of the grade) remains undelivered.
+Project 15 (data-center-environmental-monitoring) is functionally complete: sensor/fog/backend/dashboard implementation, unit tests (114 total), and the real AWS deployment described above are all done and live, following the same rigor as project 22: two credential-handling bugs proactively found and fixed before deployment (three files silently fell back to hardcoded LocalStack-only credentials, which would have broken authentication in real Lambda/EC2 exactly like project 22's earlier bug — fixed with three genuinely distinct code shapes, not copy-pasted from project 22's fix or from each other), plus the same DynamoDB Scan-pagination undercount bug found and fixed in `pipelineStatus.js`. End-to-end pipeline independently verified live: real sensor data flows through fog, SQS, both Lambdas, DynamoDB, API Gateway, and renders on the S3-hosted dashboard with zero console errors. The 6-page IEEE report (`documents/Nithin_X25125338/report.docx`) is structurally complete (all 7 brief-required elements present, GitHub link included, H1-level code verified independently for both Sensor/Fog and Backend) — a style-tic/long-sentence language polish pass is in progress to move the Technical Report score off the H2.1/H2.2 boundary. Only the presentation & demo (20% of the grade) remains undelivered otherwise.
+
+Project 01 (smart-agriculture) was reassigned from the main portfolio to Chaitanya (X25171216) on 2026-07-14 and is just starting: her own AWS account (733939924597) is confirmed live, but no code audit, deployment, or report work has been done yet.
