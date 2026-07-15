@@ -21,251 +21,81 @@ bin weight, and lid-open activity. A fog node buffers incoming readings,
 windows and aggregates them every WINDOW_SECONDS, evaluates
 tamper/fire/odor/collection threshold rules against the aggregate, and
 dispatches one aggregate message per window to a queue. A Lambda function
-(running inside LocalStack) consumes the queue and stores records in
-DynamoDB. A web dashboard renders a "collection priority list" -- a flat,
-sorted worklist of every bin ordered by fill level, the way a dispatcher
-would triage which bin to send a truck to next -- plus per-district raw
-reading cards and a fill-level trend chart.
+consumes the queue and stores records in DynamoDB. A web dashboard renders
+a "collection priority list" -- a flat, sorted worklist of every bin
+ordered by fill level, the way a dispatcher would triage which bin to send
+a truck to next -- plus per-district raw reading cards and a fill-level
+trend chart.
 
-Local development and this project's own CI both run entirely on Docker
-with LocalStack emulating AWS SQS, DynamoDB, and Lambda. The AWS SDK for
-JavaScript v3 is used throughout, so the move to real AWS was an
-endpoint/credential-resolution change rather than a rewrite (see the two
-credential-gating bugs that move surfaced, described in the DEPLOYMENT
-(AWS) section below). Unlike the rest of the portfolio, where real cloud
-deployment remains a deliberately deferred Phase 2 item, this project HAS
-been deployed and tested on a real AWS account -- see DEPLOYMENT (AWS)
-and MIGRATION HISTORY below for the live architecture, resources, and
-URLs.
+Local development and this project's own CI run entirely on Docker with
+LocalStack emulating AWS SQS, DynamoDB, and Lambda. The AWS SDK for
+JavaScript v3 is used throughout, so the same code runs against LocalStack
+locally and against real AWS in production (an endpoint/credential
+resolution difference only, not a rewrite). This project has also been
+deployed and tested on a real AWS account -- see DEPLOYMENT (AWS) below for
+the live architecture, resources, and URLs; see the project report's
+evaluation section for the defects found and fixed during that deployment.
 
 TECH STACK
 ----------
-Node.js 20 (plain CommonJS, no TypeScript build step, zero Express -- plain
-http.createServer everywhere), the seventh Node.js implementation in this
-CA portfolio, after 03-patient-vitals, 06-offshore-wind-farm,
-10-wildfire-forest-monitoring, 11-water-treatment-utility,
-15-data-center-environmental-monitoring, and
-18-elevator-escalator-fleet-monitoring. To avoid all seven same-language
-projects sharing recognisable source-level structure, this project
-deliberately picks a seventh, genuinely different implementation choice on
-every axis where those six siblings already differ from each other and
-from one another. Every claim below was checked directly against each
-sibling's current source file before being written here.
+Node.js 20 with plain CommonJS modules and Node's built-in http.createServer
+everywhere.
 
-  - Sensor-loop scheduling: 03-patient-vitals runs one flat setInterval
-    that samples every tick and checks a Date.now() elapsed threshold to
-    decide whether to dispatch inline, on the same tick. 06-offshore-
-    wind-farm's sensors/sensor.js also runs a single setInterval, but each
-    tick calls buildRig()'s sample() and then checks dueForFlush() (again a
-    Date.now() elapsed check) against a stateful "rig" object -- still one
-    timer literally ticking at the sample rate. 10-wildfire-forest-
-    monitoring's sensors/sensor.js runs two fully independent
-    self-rescheduling setTimeout loops (startSampleLoop/startDispatchLoop),
-    one per concern, each re-arming itself at the end of its own body.
-    11-water-treatment-utility pairs a setInterval sampler with a
-    recursive setImmediate "opportunistic" drain loop
-    (startDrainLoop/drainTick) that only sends once the outbox is
-    non-empty AND a Date.now() elapsed check passes -- no dispatch timer at
-    all. 15-data-center-environmental-monitoring's sensors/sensor.js runs
-    two fully independent setInterval calls, one per concern (its own
-    comment says this is deliberately the simplest option because that
-    project's novelty budget is spent elsewhere).
-    18-elevator-escalator-fleet-monitoring's sensors/driftLoop.js runs two
-    independent process.hrtime()-anchored, drift-corrected setTimeout
-    loops (one per concern). This project uses a seventh idiom, distinct
-    from all six: sensors/pulse.js's buildPulseState/pulseTick/
-    startPulseLoop drive BOTH sampling and dispatch off a SINGLE physical
-    setInterval timer ("the pulse"), ticking at a base rate
-    (PULSE_MS, default 250ms) that is decoupled from both
-    SAMPLE_INTERVAL and DISPATCH_INTERVAL -- neither rate has to divide the
-    other, or the pulse. Each pulse adds basePulseMs to two independent
-    millisecond accumulators (sampleAcc, dispatchAcc); whenever an
-    accumulator reaches its own interval, that concern fires and the
-    accumulator is decremented (not reset to 0) by that interval, carrying
-    any overshoot forward (a leaky-bucket/software-PLL divisor) so the
-    long-run average rate stays accurate. This is not a second timer (like
-    10/15/18) and not one timer whose OWN rate is a sample rate with a
-    wall-clock dispatch check riding along on the same tick (03/06) and not
-    a timer-free opportunistic loop (11) -- it is one timer, decoupled from
-    both configured rates, driving both via independent tick-count
-    divisors. sensors/pulse.js's pulseTick is directly unit-tested by
-    calling it repeatedly with fake onSample/onDispatch callbacks, no real
-    timers involved (see pulse.test.js).
+  - Sensor loop: a single physical setInterval ("pulse", PULSE_MS default
+    250ms) drives both sampling and dispatch via two independent
+    millisecond accumulators, decoupled from SAMPLE_INTERVAL/
+    DISPATCH_INTERVAL (sensors/pulse.js). pulseTick is directly unit-tested
+    with fake onSample/onDispatch callbacks, no real timers involved.
+  - Fog buffering: readings are grouped per-key at ingest into a double
+    buffer (fog/doubleBuffer.js); each window flush (swapAndDrain) swaps in
+    a fresh empty Map as the live buffer and hands the previous Map to the
+    caller to drain, so ingest and drain never touch the same object.
+  - Alert rules: fog/alerts.js's evaluateAlerts(sensorType, summary) is a
+    plain switch statement on sensor type. A separate THRESHOLD_TABLE
+    object is descriptive metadata only, exposed via the /thresholds
+    endpoint, and is never consulted by evaluateAlerts.
+  - SQS publisher: fog/publishQueue.js is a self-draining async FIFO work
+    queue -- publish() enqueues a job and returns a promise that settles
+    once that job is sent; a single _pump() loop drains jobs strictly one
+    at a time in arrival order.
+  - HTTP routing: fog/router.js and backend/dashboard/router.js are a
+    hand-rolled trie (prefix tree) router with path-parameter support,
+    walked segment-by-segment by dispatch(), so lookup cost tracks path
+    depth rather than the number of registered routes.
+  - Testing uses Node's built-in node:test + node:assert/strict runner.
+    AWS-facing code accepts an injected client, so unit tests use
+    hand-written fake client objects instead of hitting LocalStack.
 
-  - Fog buffering: 03-patient-vitals' fog/app.js groups readings into a
-    shared per-key array (app.locals.pending, a Map) directly at ingest,
-    and flushWindow() takes a snapshot via `new Map(app.locals.pending)`
-    then calls `.clear()` on the ORIGINAL live Map -- two operations
-    against the live object every flush. 06-offshore-wind-farm's
-    fog/accumulator.js folds each incoming value into a live streaming
-    accumulator (openAccumulator/fold) the instant it arrives, so no raw
-    reading list is ever kept at all. 10-wildfire-forest-monitoring's
-    fog/buffer.js decouples ingestion from buffering via a Node
-    EventEmitter: the HTTP handler only emits a "reading" event, and a
-    single listener owns the per-key Map. 11-water-treatment-utility's
-    fog/ledger.js defers ALL grouping to flush time over one flat
-    write-ahead-log array with no per-key structure at ingest at all.
-    15-data-center-environmental-monitoring's fog/ringBuffer.js uses a
-    fixed-capacity (256-slot) ring buffer per key, silently overwriting the
-    oldest unflushed slot under sustained overload.
-    18-elevator-escalator-fleet-monitoring's fog/windowBuffer.js groups
-    into a plain Map<string, Array> directly at ingest (the same
-    "group-at-ingest" idea as 03), and its own comment states plainly that
-    the real difference from 03 is the flush *scheduling* (its
-    scheduler.js's recursive async Promise chain), not the buffer
-    structure -- takeSnapshot() walks the ONE live Map object directly and
-    calls `.clear()` on that SAME object in place, no copy at all. This
-    project's fog/doubleBuffer.js also groups at ingest into a per-key
-    array (addReading), the same starting idea as 03/18, but flush
-    (swapAndDrain) works differently from both: it installs a brand-new
-    empty Map as the live `active` buffer in one assignment
-    (`db.active = new Map()`) and hands the PREVIOUS Map back to the caller
-    to walk -- that previous Map is never copied (unlike 03's
-    `new Map(...)`) and never explicitly `.clear()`-ed (unlike 03's or
-    18's in-place clear); it is simply left for the caller to read and then
-    let the garbage collector reclaim. Any reading that lands during or
-    after the walk goes into the fresh Map, so ingest and drain never touch
-    the same object. doubleBuffer.test.js proves this directly: it captures
-    the Map reference before swapAndDrain(), asserts `db.active` now points
-    at a DIFFERENT object afterwards, and asserts the old (drained) Map
-    still holds its original entries untouched.
-
-  - Alert rules: 03-patient-vitals' fog/alerts.js uses a generic
-    [field, op, limit, key] tuple-array object (VITAL_LIMITS) looped over
-    per vital. 06-offshore-wind-farm's fog/alerts.js uses a
-    per-sensor-type dispatch object of hand-written named inspector
-    functions (INSPECTORS). 10-wildfire-forest-monitoring's fog/alerts.js
-    uses a flat array of {sensorType, key, test} rule-descriptor objects
-    walked with RULES.filter().map(). 11-water-treatment-utility's
-    fog/alerts.js uses a Map<sensorType, Function> of closures manufactured
-    by a makeThreshold(field, op, limit, key) factory.
-    15-data-center-environmental-monitoring's fog/alerts.js uses a plain
-    object literal keyed by sensor_type mapping to rule-descriptor arrays,
-    walked with Object.entries(RULES).filter(). 18-elevator-escalator-
-    fleet-monitoring's fog/alertEngine.js wraps a Map<sensorType,
-    [{predicateFn, key}]> inside an AlertEngine class, built up via
-    registerRule() calls. This project's fog/alerts.js uses none of those
-    six container shapes: evaluateAlerts(sensorType, summary) is a plain
-    switch statement branching directly on sensorType, with each case
-    returning its fired key(s) inline -- there is no Map, object, array, or
-    class to look the sensor type up in at all. A separate THRESHOLD_TABLE
-    object remains purely descriptive metadata for the /thresholds
-    endpoint (never consulted by evaluateAlerts), matching the same
-    disclosure-vs-evaluation split every sibling fog service uses.
-
-  - SQS publisher: 03-patient-vitals' fog/queueGateway.js is a
-    QueueGateway class (constructor + init() + send()). 06-offshore-
-    wind-farm's fog/publisher.js is a closure factory, createPublisher(),
-    returning a fresh { publish, queueUrl } object per call.
-    10-wildfire-forest-monitoring's fog/publisher.js exports a bare
-    function, publish(sqsClient, queueName, payload), taking the SQS
-    client as an explicit parameter on every call, with a module-level Map
-    cache (queueUrlCache) memoizing queue-url lookups.
-    11-water-treatment-utility's fog/publisher.js makes module.exports
-    itself a single Object.freeze()'d object literal, with the client and
-    resolved queue url as private module state and queueUrl exposed as a
-    getter. 15-data-center-environmental-monitoring's fog/publisher.js
-    decouples flush from send via a Node EventEmitter ("window-closed"
-    event) and always sends via SendMessageBatchCommand, chunked at the
-    10-entry SQS batch limit. 18-elevator-escalator-fleet-monitoring's
-    fog/publisher.js wires a real Node stream.Transform
-    (PassThroughGroup) piped into a stream.Writable sink that performs the
-    actual SendMessageCommand, correlating each write with its outcome via
-    a Map<id, {resolve, reject}>. This project's fog/publishQueue.js is
-    none of those six shapes: it is a self-draining async FIFO work queue.
-    publish() never calls SendMessageCommand itself -- it only pushes a job
-    onto a private array (_jobs) and returns a Promise that settles once
-    THAT job is sent, then calls the internal _pump(). A single _pump()
-    loop drains _jobs strictly one job at a time in FIFO arrival order,
-    guarded by a _pumping flag so at most one pump ever runs: if a pump is
-    already active, publish() just appends and trusts the running pump to
-    reach the new job. publishQueue.test.js proves the ordering/exclusivity
-    property directly: three concurrent publish() calls against a fake
-    client that tracks concurrent in-flight sends assert maxInFlight === 1
-    and that results settle in strict FIFO order [1, 2, 3].
-
-  - HTTP routing: 03 and 06 both use Express under the hood (03 inline
-    routes directly on the app; 06 split into Express Router files,
-    ingestRouter.js / routes/readings.js / routes/status.js).
-    10-wildfire-forest-monitoring's fog/app.js and
-    15-data-center-environmental-monitoring's fog/app.js both use a plain
-    http.createServer with a hand-written if/else chain on
-    req.method/url.pathname -- no path-parameter support and no
-    declarative table at all (15's backend/dashboard/server.js reverse-
-    proxy front door is simpler still: a single manual
-    req.url.startsWith("/api/") check with a static-file fallback, by its
-    own comment deliberately kept minimal since that project's real
-    routing novelty lives in backend/api/'s regex ROUTES array instead).
-    11-water-treatment-utility's fog/router.js and
-    backend/dashboard/router.js hold an ordered array of
-    [method, regex, handler] tuples, matched with RegExp.exec() against
-    the pathname (15's backend/api/router.js ROUTES array uses the same
-    regex-table idiom for its own internal Lambda routing).
-    18-elevator-escalator-fleet-monitoring's fog/router.js is a hand-rolled
-    Express-style middleware-chain router: routes are
-    {method, path, handlers: [fn, fn, ...]} objects in a plain array,
-    matched by splitting the path into segments and comparing them
-    position-by-position (no RegExp at all), with dispatch() composing
-    multiple handlers per route via a next() continuation. This project's
-    fog/router.js and backend/dashboard/router.js are a seventh idiom:
-    an actual prefix tree (trie), one tree node per path segment. route()
-    walks/creates a chain of nodes as it registers a path; a ":name"
-    segment becomes a single dedicated "param child" slot on its parent
-    node (not a regex capture group, not a linear array of routes). At
-    request time, dispatch() walks the SAME tree segment-by-segment from
-    the root, so lookup cost tracks the path's depth, not the number of
-    routes registered (unlike every regex-table or linear-array approach
-    above, all of which scan some list). router.test.js exercises
-    dispatch() directly against plain method/pathname strings with no
-    http.createServer involved at all, the same testing discipline 11's
-    router.test.js and 18's router.test.js already established. Every
-    request in both services still passes through a real outer try/catch
-    that turns any uncaught exception into a structured 500 JSON response.
-
-  - Testing uses Node's built-in node:test + node:assert/strict runner --
-    no Jest/Mocha dependency, matching every sibling in this portfolio.
-    AWS-facing code is isolated behind functions/objects that accept an
-    injected client, so unit tests use hand-written fake client objects
-    ({ send: async (cmd) => ... }) instead of hitting LocalStack.
+A field-by-field comparison of these implementation choices against this
+portfolio's other Node.js projects (03, 06, 10, 11, 15, 18) is in the
+project report's architecture section, not here.
 
 LAYOUT
 ------
   sensors/            sensor simulator (one container per metric/district):
-                       a single shared pulse timer drives both sampling and
-                       dispatch via independent millisecond accumulators
-                       (pulse.js), random-walk profiles (profiles.js)
+                       pulse.js drives sampling+dispatch off one shared
+                       timer, profiles.js holds the random-walk profiles
   fog/                http.createServer edge gateway: trie-based routing
-                       (router.js) -> /ingest validates and appends into a
-                       grouped-at-ingest per-key buffer (doubleBuffer.js)
-                       -> window flush installs a fresh buffer via a
-                       reference swap and walks the old one
-                       (swapAndDrain) -> aggregates (aggregation.js) ->
-                       switch-statement alert evaluation (alerts.js) ->
-                       self-draining async FIFO publish queue
-                       (publishQueue.js), plus a /thresholds endpoint
-                       exposing the real rules as descriptive metadata only
+                       (router.js) -> /ingest validates and buffers per-key
+                       (doubleBuffer.js) -> window flush (swapAndDrain) ->
+                       aggregation.js -> alerts.js -> publishQueue.js,
+                       plus a /thresholds endpoint exposing the rules as
+                       descriptive metadata only
   backend/processor/  transform.js (pure transform building the sort_key)
                        + handler.js (Lambda entry point) + deploy_lambda.sh
                        (packages and registers the function with an SQS
                        event source mapping)
-  backend/dashboard/  http.createServer + Chart.js, no Express, same
-                       trie router.js as fog/. REST API covering all 5
-                       sensor types plus a per-district grouping endpoint
-                       (GET /api/districts and GET /api/districts/:id) AND
-                       a dedicated priority-list endpoint (GET /api/priority)
-                       that flattens both districts into one list sorted by
-                       fill_level_pct descending. Static frontend: a
-                       municipal-services teal-green + charcoal theme (dark
-                       background, inverse of 12-smart-building-energy's
-                       light green/white scorecard). Primary view is a
-                       plain sorted worklist table (collection priority
-                       list) -- a genuinely new "ranked by urgency" axis
-                       distinct from every sibling's card-grid/matrix-
-                       table/tile/dial/heatmap layouts. Secondary section:
+  backend/dashboard/  http.createServer + Chart.js, the same trie-based
+                       router.js as fog/. REST API: GET /api/districts,
+                       GET /api/districts/:id, GET /api/priority (both
+                       districts flattened into one collection-priority
+                       list sorted by fill_level_pct descending),
+                       GET /api/readings, GET /api/thresholds,
+                       GET /api/backend-stats, GET /api/health. Static
+                       frontend: a sorted priority-list worklist table,
                        per-district cards with all 5 raw readings as rows
-                       with native <meter> bars. Small Chart.js fill-level
-                       trend chart underneath. No hand-illustrated SVG
-                       anywhere (the brand mark is plain CSS shapes).
+                       with native <meter> bars, and a small Chart.js
+                       fill-level trend chart
   infra/              docker-compose stack, LocalStack bootstrap, pipeline
                        verification, load test, and dashboard screenshots
 
@@ -330,24 +160,18 @@ Or without a local Node.js install:
     bash -c "npm install && npm test"
 
 Test coverage includes: the pulse accumulator's tick-divisor and
-carry-forward behaviour (pulse.test.js, driven with fake onSample/
-onDispatch callbacks and no real timers), window aggregation math
-(count/min/max/avg/latest, latest = last-in-order not max), threshold
-evaluation against the exact hard-alert limits (including that
-tamper_suspected checks max, not avg), the double buffer's grouped-at-
-ingest + reference-swap-at-flush behaviour (including a direct assertion
-that the drained Map is left unmutated while a fresh Map becomes the live
-one), the publish queue's FIFO single-pump exclusivity (asserted with a
-fake client that tracks concurrent in-flight sends), the trie router's
-segment-by-segment dispatch and path-parameter capture (tested with no
-http.createServer at all), sort_key disambiguation (window_end#site_id),
-and REAL HTTP-level tests against a real local server on an ephemeral port
-(not just unit tests of the validation function) for both fog /ingest
-(accepts valid payloads with 202, rejects missing fields / malformed JSON /
-non-numeric values / empty readings arrays with 400) and the dashboard's
-/api/thresholds proxy function (covering both a real upstream success
-response and a real unreachable-upstream connection failure, per
-thresholdsProxy.test.js).
+carry-forward behaviour (pulse.test.js, driven with fake callbacks and no
+real timers), window aggregation math (count/min/max/avg/latest), threshold
+evaluation against the exact alert limits (including that tamper_suspected
+checks max, not avg), the double buffer's grouped-at-ingest +
+reference-swap-at-flush behaviour, the publish queue's FIFO single-pump
+exclusivity, the trie router's segment-by-segment dispatch and
+path-parameter capture, sort_key disambiguation (window_end#site_id), and
+real HTTP-level tests (not just unit tests of the validation function) for
+fog /ingest (valid payloads accepted with 202, malformed/missing/invalid
+payloads rejected with 400) and the dashboard's /api/thresholds proxy
+(covering both a real upstream success response and an unreachable-upstream
+failure, per thresholdsProxy.test.js).
 
 LOAD TEST (SCALABILITY EVIDENCE)
 ---------------------------------
@@ -364,25 +188,22 @@ rather than being stalled or broken.
 
 REUSE / THIRD-PARTY COMPONENTS
 -------------------------------
-The overall pipeline architecture (SQS -> Lambda -> DynamoDB via LocalStack,
-the sort_key disambiguation scheme window_end#site_id, the dashboard
-health-check pattern, the dual-rate SAMPLE_INTERVAL/DISPATCH_INTERVAL sensor
-knobs, the loadtest two-tier assertion pattern) is adapted from other prior
-codebases, not this student's own earlier work. Every line of application code, the
-domain logic (waste-management sensor profiles, the four alert thresholds,
-the collection-priority derivation), and the entire dashboard
-(municipal-services teal-green/charcoal theme, sorted priority-list
-worklist, per-district reading cards, trend chart) are original to this
-project. The internal module structure was deliberately written
-differently from 03-patient-vitals, 06-offshore-wind-farm,
-10-wildfire-forest-monitoring, 11-water-treatment-utility,
-15-data-center-environmental-monitoring, and
-18-elevator-escalator-fleet-monitoring's Node.js code on every axis called
-out in TECH STACK above (sensor-loop scheduling, fog buffering, alert-rule
-representation, SQS publisher shape, HTTP routing/dispatch), verified
-directly against each sibling's current source before writing this
-section, so none of the seven Node.js projects in this portfolio share
-recognisable source-level structure.
+Adapted from other codebases in this portfolio (not this student's own
+earlier work):
+  - the SQS -> Lambda -> DynamoDB pipeline architecture (via LocalStack)
+  - the sort_key disambiguation scheme (window_end#site_id)
+  - the dashboard health-check pattern
+  - the dual-rate SAMPLE_INTERVAL/DISPATCH_INTERVAL sensor knobs
+  - the load-test two-tier assertion pattern
+
+Original to this project: all application code, the domain logic
+(waste-management sensor profiles, the four alert thresholds, the
+collection-priority derivation), the entire dashboard (theme, priority-list
+worklist, per-district cards, trend chart), and the internal module
+structure (sensor scheduling, fog buffering, alert-rule representation, SQS
+publisher, HTTP routing/dispatch) -- see the project report's architecture
+section for the comparison against this portfolio's other Node.js projects
+(03, 06, 10, 11, 15, 18).
 
 Third-party open-source components used as standard libraries/tools:
   - AWS SDK for JavaScript v3 (@aws-sdk/client-sqs, client-dynamodb,
@@ -411,157 +232,78 @@ frontend feature.
 NOTE ON THE PRIORITY LIST WITH ONLY TWO DISTRICTS
 ---------------------------------------------------
 Site_id granularity in this project is per-district (district-a,
-district-b), matching the two-site scope every sibling project in this
-portfolio uses (plant-1/plant-2, turbine-1/turbine-2, etc.) -- so the
-collection priority list has at most two rows at any moment. What makes it
-a genuinely different structural axis from the sibling dashboards is not
-row count, it is that GET /api/priority (readingsStore.js's
-buildPriorityList) performs a real Array.prototype.sort() by
-fill_level_pct.latest descending and re-sorts on every poll, rendering
-whichever district has the highest fill level first, rather than a fixed
-left-to-right/row order keyed by site_id the way every sibling's matrix
-table or per-site card grid is laid out. The design generalises directly
-to more collection points without any structural change.
+district-b), so the collection priority list has at most two rows at any
+moment. GET /api/priority (readingsStore.js's buildPriorityList) performs a
+real sort by fill_level_pct.latest descending and re-sorts on every poll,
+so whichever district has the highest fill level is always listed first
+rather than a fixed left-to-right/row order. The design generalises
+directly to more collection points without any structural change.
 
 DEPLOYMENT (AWS)
 ----------------
-This project has been deployed and tested on a real AWS account (not
-LocalStack): AWS Academy Learner Lab, account 548539235319, region
-us-east-1, under Gundeti Sachin Reddy's (X23432721) own AWS Academy
-credentials.
+Deployed to a real AWS account: AWS Academy Learner Lab, account
+548539235319, region us-east-1, under Gundeti Sachin Reddy's (X23432721)
+own AWS Academy credentials.
 
-Real resources created:
-  DynamoDB table  swm-readings       (same sensor_type/sort_key schema)
+Live resources:
+  DynamoDB table  swm-readings
   SQS queue       swm-district-agg
-  Lambda function swm-processor      (nodejs20.x, LabRole execution role,
-                                       event-source-mapping to the queue --
-                                       this is the fog-dispatch consumer)
-  Lambda function swm-dashboard-api  (nodejs20.x, LabRole execution role,
-                                       reuses server.js's existing router/
-                                       handlers via lambdaHandler.js's fake-
-                                       ServerResponse shim, so the dashboard
-                                       API's business logic is not
-                                       duplicated between the container and
-                                       Lambda deployment targets)
-  API Gateway     f721o30kd5         (HTTP API, AWS_PROXY integration to
+  Lambda function swm-processor       (nodejs20.x, LabRole, SQS event
+                                       source mapping -- the fog-dispatch
+                                       consumer)
+  Lambda function swm-dashboard-api   (nodejs20.x, LabRole, behind API
+                                       Gateway; reuses server.js's existing
+                                       router/handlers via
+                                       lambdaHandler.js's fake-
+                                       ServerResponse shim)
+  API Gateway     f721o30kd5          (HTTP API, AWS_PROXY integration to
                                        swm-dashboard-api, public, HTTPS/443)
   S3 bucket       swm-frontend-548539235319 (static frontend: index.html,
                                        static/style.css, static/dashboard.js,
                                        static/vendor/chart.umd.min.js --
-                                       public s3:GetObject only, served over
-                                       the bucket's own HTTPS REST endpoint)
-  S3 bucket       swm-deploy-548539235319 (deployment staging only)
+                                       public s3:GetObject only)
+  S3 bucket       swm-deploy-548539235319   (deployment staging only)
   EC2 instance    i-022c30cf73b0c10db (t3.small, tag Name=swm-dashboard-host,
                                        LabInstanceProfile, no SSH/key-pair --
-                                       managed entirely via SSM Session
-                                       Manager; now runs ONLY fog + the 10
-                                       sensor containers via
-                                       infra/docker-compose.aws.yml, since
-                                       the dashboard moved to S3/Lambda/API
-                                       Gateway; security group open on
-                                       tcp/8100, fog's health/thresholds
-                                       endpoint, so the dashboard Lambda can
-                                       reach it -- this traffic is Lambda-to
-                                       -EC2, never the student's browser, so
-                                       it is unaffected by campus network
-                                       policy)
+                                       managed via SSM Session Manager;
+                                       runs fog + the 10 sensor containers
+                                       via infra/docker-compose.aws.yml;
+                                       security group open on tcp/8100 so
+                                       the dashboard Lambda can reach fog's
+                                       health/thresholds endpoint)
   Elastic IP      54.204.136.193 (allocation eipalloc-0d769166f544d0320,
-                                       associated with the EC2 instance above
-                                       so its public IP stays fixed across a
-                                       stop/start instead of changing each
-                                       time; the dashboard Lambda's
-                                       FOG_HEALTH_URL/FOG_THRESHOLDS_URL env
-                                       vars point at this IP and need
-                                       updating only if this address is ever
-                                       released and a new one allocated)
+                                       associated with the EC2 instance
+                                       above so its public IP stays fixed
+                                       across a stop/start; the dashboard
+                                       Lambda's FOG_HEALTH_URL/
+                                       FOG_THRESHOLDS_URL env vars point at
+                                       this IP and need updating only if it
+                                       is ever released and reallocated)
 
 Live URLs:
   Dashboard (open this):  https://swm-frontend-548539235319.s3.us-east-1.amazonaws.com/index.html
   Dashboard API:          https://f721o30kd5.execute-api.us-east-1.amazonaws.com
 
-MIGRATION HISTORY: EC2-hosted dashboard -> S3 + Lambda + API Gateway
----------------------------------------------------------------------
-The dashboard was originally deployed as a 4th container on the EC2
-instance (port 8101). Two problems with that: (1) it is not itself FaaS-
-based, the one piece of the "scalable backend" criterion still resting on
-a plain long-running server rather than queues/FaaS; (2) a raw EC2 public
-IP on a non-standard port over plain HTTP is exactly the traffic shape
-college/campus WiFi networks commonly block by policy (arbitrary IPs,
-non-standard ports, no TLS) -- confirmed as a real, reported access
-problem, not a hypothetical one.
+Historical note: the dashboard was originally a 4th container on the EC2
+instance itself (port 8101); it was migrated to the S3 + Lambda + API
+Gateway layout above because CloudFront and public/unauthenticated Lambda
+Function URLs are both blocked in this Learner Lab account (API Gateway is
+not). See the project report's evaluation section for the defects found
+during deployment and this migration.
 
-Migrated to: static frontend (index.html/dashboard.js/style.css/vendored
-Chart.js) on S3, dashboard API (lambdaHandler.js, a thin adapter reusing
-server.js's existing router and handlers unchanged) on its own Lambda
-function. Fog and the 10 sensor containers stay on EC2, since they are
-continuous generators/aggregators, not naturally invoke-on-demand, and
-they never need to be reached from a student's browser (only from the
-dashboard Lambda, which is AWS-to-AWS traffic, not subject to campus
-network policy at all).
-
-Two platform-level constraints discovered empirically, both AWS Academy
-Learner Lab guardrails (SCPs), not configuration mistakes on this
-project's part:
-  - CloudFront is entirely blocked in this account (even read-only
-    cloudfront:ListDistributions is denied) -- originally planned as the
-    HTTPS front door for the S3 static site. Fell back to S3's own
-    virtual-hosted-style HTTPS REST endpoint instead
-    (https://<bucket>.s3.us-east-1.amazonaws.com/<key>), which is HTTPS on
-    port 443 out of the box and needs no CloudFront distribution at all --
-    the only difference is no automatic "/" -> "/index.html" resolution,
-    so the URL above must include the /index.html suffix.
-  - Lambda Function URLs with public (AuthType=NONE) access are also
-    blocked -- confirmed via a direct authenticated `aws lambda invoke`
-    succeeding (the Lambda code itself was fine) while the same request
-    through its Function URL returned "Forbidden" regardless of the
-    resource-based policy granted. API Gateway (HTTP API, AWS_PROXY
-    integration) is NOT blocked and was used instead -- a different
-    invocation/permission surface than Function URLs, evidently outside
-    this particular guardrail's scope.
-
-Two real bugs found and fixed while building the Lambda adapter:
-  - API Gateway's quick-create (`aws apigatewayv2 create-api --target
-    <lambda-arn>`) did not actually attach the invoke permission it is
-    documented to add automatically -- confirmed via `aws lambda
-    get-policy` showing only the Function-URL statement. Fixed with an
-    explicit `aws lambda add-permission --principal apigateway.amazonaws.com
-    --source-arn arn:aws:execute-api:us-east-1:548539235319:f721o30kd5/*`.
-  - lambdaHandler.js's fake-ServerResponse shim initially passed through
-    server.js's real handler headers unchanged, including a numeric
-    Content-Length (from Buffer.byteLength()) -- Lambda's HTTP-API/
-    Function-URL response format requires every header value to be a
-    string, so this silently produced "Internal Server Error" with no
-    corresponding error in the Lambda's own CloudWatch logs (the function
-    itself completed successfully; only the response shape was rejected
-    downstream). Fixed by coercing every header value to a string before
-    returning.
-
-Two Node.js AWS-client-construction bugs were found and fixed earlier in
-this deployment (handler.js, awsClients.js, fog/publishQueue.js all
-hardcoded LocalStack-style static test credentials on a check that is
-also true for real Lambda/EC2 execution-role credentials, which
-additionally require a session token the hardcoded override omitted) --
-see commits 59f1f6a and ea6c9eb. This is a real, worth-citing finding for
-the report: tests passing against LocalStack did not catch a real-AWS-
-only failure mode, only the actual deployment did -- and neither did the
-first real deployment attempt, until the migration to Lambda surfaced the
-header-type bug above too.
-
-Because the deployment was left running rather than torn down after
-verification, session/lab expiry (this is a time-limited AWS Academy
-Learner Lab session) may eventually reclaim the EC2 instance and/or its
-public IP; DynamoDB/SQS/both Lambda functions/API Gateway/both S3 buckets
-are more likely to persist across a lab reset than the EC2 instance is,
-and none of them depend on the EC2 instance being up (the dashboard and
-its API stay live even while fog/sensors are paused between lab
-sessions -- only "gateway: false" in /api/health and stale sensor data
-would result, not a dead dashboard). To tear everything down: terminate
-the EC2 instance, delete the SQS queue, delete both Lambda functions (and
-the processor's event-source-mapping), delete the API Gateway API, delete
-the DynamoDB table, empty and delete both S3 buckets, and delete the
-security groups (swm-dashboard-sg) -- all resources are uniquely named
-with the swm- prefix or tagged Project=FEC-22-smart-waste-management,
-safe to filter on.
+Because this is a time-limited AWS Academy Learner Lab session, session/lab
+expiry may eventually reclaim the EC2 instance and/or its public IP;
+DynamoDB/SQS/both Lambda functions/API Gateway/both S3 buckets are more
+likely to persist across a lab reset than the EC2 instance is, and none of
+them depend on the EC2 instance being up (the dashboard and its API stay
+live even while fog/sensors are paused between lab sessions -- only
+"gateway: false" in /api/health and stale sensor data would result, not a
+dead dashboard). To tear everything down: terminate the EC2 instance,
+delete the SQS queue, delete both Lambda functions (and the processor's
+event-source-mapping), delete the API Gateway API, delete the DynamoDB
+table, empty and delete both S3 buckets, and delete the security groups
+(swm-dashboard-sg) -- all resources are uniquely named with the swm-
+prefix or tagged Project=FEC-22-smart-waste-management, safe to filter on.
 
 WAKING FOG/SENSORS BACK UP AFTER A LAB SESSION ENDS
 -----------------------------------------------------
