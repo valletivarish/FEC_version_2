@@ -511,26 +511,50 @@ functions are created directly via the AWS CLI, bypassing
 backend/processor/deploy_lambda.sh entirely (that script is documented as
 LocalStack-only tooling and was never exercised against the real account).
 
-LIVE RESOURCES (account 596691181085, us-east-1): DynamoDB table
-ska-readings, SQS queue ska-slope-agg, Lambda ska-processor (SQS-triggered
-ingestion) and Lambda ska-dashboard-api (behind API Gateway REST API
-se2853uk5d), EC2 instance i-0fddea02b8aafbc11 (tagged ska-fog-host, runs the
-fog node + ten sensor containers, security group sg-04856f639d9810d0d
-allows only inbound TCP 8000, no SSH -- administered via SSM only), Elastic
-IP 54.81.144.80 (allocation eipalloc-0dcc72698336c0dfc, associated with
-that instance), S3 bucket ska-frontend-596691181085 (static dashboard
-frontend, public read-only, static website hosting enabled) and S3 staging
-bucket ska-deploy-596691181085. All are prefixed ska-. The dashboard
-Lambda's FOG_HEALTH_URL/FOG_THRESHOLDS_URL env vars point at this Elastic
-IP; if it's ever released and reallocated, they need updating.
-
-LIVE URLS: dashboard at
+ORIGINAL DEPLOYMENT (account 596691181085, us-east-1, first deployed
+2026-07-15): DynamoDB table ska-readings, SQS queue ska-slope-agg, Lambda
+ska-processor (SQS-triggered ingestion) and Lambda ska-dashboard-api
+(behind API Gateway REST API se2853uk5d), EC2 instance
+i-0fddea02b8aafbc11 (tagged ska-fog-host, runs the fog node + ten sensor
+containers, security group sg-04856f639d9810d0d allows only inbound TCP
+8000, no SSH -- administered via SSM only), Elastic IP 54.81.144.80
+(allocation eipalloc-0dcc72698336c0dfc, associated with that instance),
+S3 bucket ska-frontend-596691181085 (static dashboard frontend, public
+read-only, static website hosting enabled) and S3 staging bucket
+ska-deploy-596691181085. Independently verified end-to-end in a real
+browser after the credential and CORS fixes above: /api/health reported
+all four fields true with freshest_age_seconds under 1 second, DynamoDB
+item count climbed past 500 within minutes of the stack coming up, and
+the dashboard rendered live, changing sensor data, a correctly firing
+lift_wind_halt alert banner, and both slope risk gauges, with zero
+console errors and zero failed static asset requests. Original URLs:
+dashboard at
 https://ska-frontend-596691181085.s3.us-east-1.amazonaws.com/index.html,
 its API at https://se2853uk5d.execute-api.us-east-1.amazonaws.com/prod.
-Independently verified end-to-end in a real browser after the credential
-and CORS fixes above: /api/health reports all four fields true with
-freshest_age_seconds under 1 second, DynamoDB item count climbed past 500
-within minutes of the stack coming up, and the dashboard renders live,
-changing sensor data, a correctly firing lift_wind_halt alert banner, and
-both slope risk gauges, with zero console errors and zero failed static
-asset requests.
+That Learner Lab session later ended and its 4-hour credentials expired;
+account 596691181085's resources are now orphaned and unreachable (not
+deleted by us, just no longer accessible without a fresh session under
+that same account, which AWS Academy does not guarantee reissues).
+
+REDEPLOYMENT (account 475393590440, us-east-1, redeployed 2026-07-15):
+a new AWS Academy Learner Lab session for the same student
+(x25142224@student.ncirl.ie) provisioned a different sandbox account
+number, requiring a full from-scratch redeploy rather than a restart of
+the original resources. Same resource shape, new IDs: DynamoDB table
+ska-readings, SQS queue ska-slope-agg, Lambda ska-processor and Lambda
+ska-dashboard-api (behind API Gateway REST API fl6fe76mlf), EC2 instance
+i-02485962a872245d9 (tagged ska-fog-host, security group
+sg-043d59fbae6bca08f, inbound TCP 8000 only), Elastic IP 52.86.31.136
+(allocation eipalloc-026694ff3db3baee5), S3 bucket
+ska-frontend-475393590440 (static dashboard frontend, public read-only,
+static website hosting enabled) and S3 staging bucket
+ska-deploy-475393590440. Verified live: /api/health reports all four
+fields true with freshest_age_seconds under 7 seconds, DynamoDB item
+count climbing from a fresh 0. Current URLs: dashboard at
+https://ska-frontend-475393590440.s3.us-east-1.amazonaws.com/index.html,
+its API at https://fl6fe76mlf.execute-api.us-east-1.amazonaws.com/prod.
+
+All resources in both deployments are prefixed ska-. Each dashboard
+Lambda's FOG_HEALTH_URL/FOG_THRESHOLDS_URL env vars point at that
+deployment's own Elastic IP; if either is ever released and reallocated,
+they need updating.
