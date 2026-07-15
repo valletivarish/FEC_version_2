@@ -7,17 +7,27 @@ import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-public class FakeDynamoDbClient implements DynamoDbClient {
+public class FleetReadingsTable implements DynamoDbClient {
 
     private final Map<String, List<Map<String, AttributeValue>>> itemsBySensorType;
     private final int scanCount;
+    private final Iterator<ScanResponse> scanPages;
 
-    public FakeDynamoDbClient(Map<String, List<Map<String, AttributeValue>>> itemsBySensorType, int scanCount) {
+    public FleetReadingsTable(Map<String, List<Map<String, AttributeValue>>> itemsBySensorType, int scanCount) {
         this.itemsBySensorType = itemsBySensorType;
         this.scanCount = scanCount;
+        this.scanPages = null;
+    }
+
+    /** Multi-page constructor: each scan() call returns the next response in order. */
+    public FleetReadingsTable(List<ScanResponse> scanPages) {
+        this.itemsBySensorType = Map.of();
+        this.scanCount = 0;
+        this.scanPages = scanPages.iterator();
     }
 
     @Override
@@ -29,6 +39,7 @@ public class FakeDynamoDbClient implements DynamoDbClient {
 
     @Override
     public ScanResponse scan(ScanRequest request) {
+        if (scanPages != null) return scanPages.next();
         return ScanResponse.builder().count(scanCount).build();
     }
 

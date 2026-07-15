@@ -6,12 +6,12 @@ import software.amazon.awssdk.services.lambda.model.GetFunctionRequest;
 import software.amazon.awssdk.services.lambda.model.GetFunctionResponse;
 import software.amazon.awssdk.services.lambda.model.State;
 
-public class FakeLambdaClient implements LambdaClient {
+public class ProcessorStatusStub implements LambdaClient {
 
     private final boolean exists;
     private final State state;
 
-    public FakeLambdaClient(boolean exists, State state) {
+    public ProcessorStatusStub(boolean exists, State state) {
         this.exists = exists;
         this.state = state;
     }

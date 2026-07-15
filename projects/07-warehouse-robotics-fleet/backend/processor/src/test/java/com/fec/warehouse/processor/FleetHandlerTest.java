@@ -21,29 +21,29 @@ class FleetHandlerTest {
 
     @Test
     void processRecordsWritesEachRecord() {
-        FakeDynamoDbClient fake = new FakeDynamoDbClient();
-        FleetHandler.BatchTally tally = FleetHandler.processRecords(List.of(message(MESSAGE)), fake, "test-table");
+        DynamoWriteSpy spy = new DynamoWriteSpy();
+        FleetHandler.BatchTally tally = FleetHandler.processRecords(List.of(message(MESSAGE)), spy, "test-table");
 
         assertEquals(1, tally.written);
         assertTrue(tally.clean());
-        assertEquals(1, fake.puts.size());
-        assertEquals("test-table", fake.puts.get(0).tableName());
-        assertEquals("motor_temp_c", fake.puts.get(0).item().get("sensor_type").s());
+        assertEquals(1, spy.puts.size());
+        assertEquals("test-table", spy.puts.get(0).tableName());
+        assertEquals("motor_temp_c", spy.puts.get(0).item().get("sensor_type").s());
     }
 
     @Test
     void processRecordsHandlesBatch() {
-        FakeDynamoDbClient fake = new FakeDynamoDbClient();
-        FleetHandler.BatchTally tally = FleetHandler.processRecords(List.of(message(MESSAGE), message(MESSAGE)), fake, "test-table");
+        DynamoWriteSpy spy = new DynamoWriteSpy();
+        FleetHandler.BatchTally tally = FleetHandler.processRecords(List.of(message(MESSAGE), message(MESSAGE)), spy, "test-table");
 
         assertEquals(2, tally.written);
-        assertEquals(2, fake.puts.size());
+        assertEquals(2, spy.puts.size());
     }
 
     @Test
     void processRecordsCollectsFailuresWithoutStoppingBatch() {
-        FakeDynamoDbClient fake = new FakeDynamoDbClient(true);
-        FleetHandler.BatchTally tally = FleetHandler.processRecords(List.of(message(MESSAGE), message(MESSAGE)), fake, "test-table");
+        DynamoWriteSpy spy = new DynamoWriteSpy(true);
+        FleetHandler.BatchTally tally = FleetHandler.processRecords(List.of(message(MESSAGE), message(MESSAGE)), spy, "test-table");
 
         assertEquals(0, tally.written);
         assertFalse(tally.clean());
@@ -52,8 +52,8 @@ class FleetHandlerTest {
 
     @Test
     void malformedMessageIsRecordedAsFailureNotThrown() {
-        FakeDynamoDbClient fake = new FakeDynamoDbClient();
-        FleetHandler.BatchTally tally = FleetHandler.processRecords(List.of(message("not json")), fake, "test-table");
+        DynamoWriteSpy spy = new DynamoWriteSpy();
+        FleetHandler.BatchTally tally = FleetHandler.processRecords(List.of(message("not json")), spy, "test-table");
 
         assertFalse(tally.clean());
         assertEquals(0, tally.written);

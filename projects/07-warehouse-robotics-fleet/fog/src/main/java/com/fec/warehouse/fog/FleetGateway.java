@@ -65,10 +65,12 @@ public class FleetGateway {
 
     void runWindowCycle() {
         try {
+            List<String> payloads = new ArrayList<>();
             for (WindowAggregate window : flushWindow()) {
                 List<String> alerts = FleetAlerts.evaluate(window.sensorType(), window);
-                relay.publish(toPayload(window, alerts));
+                payloads.add(toPayload(window, alerts));
             }
+            relay.publishBatch(payloads);
         } catch (Exception exc) {
             System.out.println("window flush failed: " + exc.getMessage());
         }

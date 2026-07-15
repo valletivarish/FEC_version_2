@@ -1,14 +1,20 @@
 package com.fec.warehouse.dashboard;
 
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
+import software.amazon.awssdk.services.dynamodb.model.Select;
 import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.lambda.model.GetFunctionRequest;
 import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.sqs.model.GetQueueAttributesRequest;
 import software.amazon.awssdk.services.sqs.model.QueueAttributeName;
 
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Spliterator;
+import java.util.Spliterators;
+import java.util.stream.StreamSupport;
 
 public class PipelineChecks {
 
@@ -47,8 +53,29 @@ public class PipelineChecks {
         }
     }
 
+    // Hand-rolled Iterator over Scan pages, wrapped as a Spliterator-backed Stream -- no
+    // while/do-while loop, no recursion, no Stream.iterate, not the SDK's own paginator.
     public int itemCount(DynamoDbClient dynamo, String tableName) {
-        return dynamo.scan(b -> b.tableName(tableName)
-            .select(software.amazon.awssdk.services.dynamodb.model.Select.COUNT)).count();
+        Iterator<ScanResponse> pages = new Iterator<>() {
+            private ScanResponse next = dynamo.scan(b -> b.tableName(tableName).select(Select.COUNT));
+
+            @Override
+            public boolean hasNext() {
+                return next != null;
+            }
+
+            @Override
+            public ScanResponse next() {
+                ScanResponse current = next;
+                next = (current.lastEvaluatedKey() == null || current.lastEvaluatedKey().isEmpty())
+                    ? null
+                    : dynamo.scan(b -> b.tableName(tableName).select(Select.COUNT)
+                        .exclusiveStartKey(current.lastEvaluatedKey()));
+                return current;
+            }
+        };
+        return StreamSupport.stream(Spliterators.spliteratorUnknownSize(pages, Spliterator.ORDERED), false)
+            .mapToInt(ScanResponse::count)
+            .sum();
     }
 }

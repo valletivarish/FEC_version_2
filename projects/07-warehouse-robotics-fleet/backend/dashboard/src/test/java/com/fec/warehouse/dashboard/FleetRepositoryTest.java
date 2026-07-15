@@ -27,20 +27,20 @@ class FleetRepositoryTest {
 
     @Test
     void recentWindowsReturnsChronologicalOrder() {
-        FakeDynamoDbClient fake = new FakeDynamoDbClient(
+        FleetReadingsTable table = new FleetReadingsTable(
             Map.of("motor_temp_c", List.of(item("zone-a", "t2", 55, 55), item("zone-a", "t1", 45, 45))), 0);
 
-        var items = new FleetRepository().recentWindows(fake, "table", "motor_temp_c", 10);
+        var items = new FleetRepository().recentWindows(table, "table", "motor_temp_c", 10);
         assertEquals("t1", items.get(0).get("window_end"));
         assertEquals("t2", items.get(1).get("window_end"));
     }
 
     @Test
     void buildRosterGroupsBySiteWithinSensorType() {
-        FakeDynamoDbClient fake = new FakeDynamoDbClient(
+        FleetReadingsTable table = new FleetReadingsTable(
             Map.of("motor_temp_c", List.of(item("zone-b", "t1", 50, 50), item("zone-a", "t1", 40, 40))), 0);
 
-        var roster = new FleetRepository().buildRoster(fake, "table", new String[]{"motor_temp_c"}, 5);
+        var roster = new FleetRepository().buildRoster(table, "table", new String[]{"motor_temp_c"}, 5);
         @SuppressWarnings("unchecked")
         var rows = (List<Map<String, Object>>) roster.get("rows");
 
@@ -52,11 +52,11 @@ class FleetRepositoryTest {
 
     @Test
     void buildRosterIncludesTrailForSparkline() {
-        // DynamoDB returns newest-first (scanIndexForward=false); the fake mirrors that ordering.
-        FakeDynamoDbClient fake = new FakeDynamoDbClient(
+        // DynamoDB returns newest-first (scanIndexForward=false); the table mirrors that ordering.
+        FleetReadingsTable table = new FleetReadingsTable(
             Map.of("battery_level_pct", List.of(item("zone-a", "t2", 75, 75), item("zone-a", "t1", 80, 80))), 0);
 
-        var roster = new FleetRepository().buildRoster(fake, "table", new String[]{"battery_level_pct"}, 5);
+        var roster = new FleetRepository().buildRoster(table, "table", new String[]{"battery_level_pct"}, 5);
         @SuppressWarnings("unchecked")
         var rows = (List<Map<String, Object>>) roster.get("rows");
 
@@ -69,8 +69,8 @@ class FleetRepositoryTest {
 
     @Test
     void buildRosterSkipsSensorTypesWithNoData() {
-        FakeDynamoDbClient fake = new FakeDynamoDbClient(Map.of(), 0);
-        var roster = new FleetRepository().buildRoster(fake, "table", new String[]{"payload_kg"}, 5);
+        FleetReadingsTable table = new FleetReadingsTable(Map.of(), 0);
+        var roster = new FleetRepository().buildRoster(table, "table", new String[]{"payload_kg"}, 5);
         @SuppressWarnings("unchecked")
         var rows = (List<Map<String, Object>>) roster.get("rows");
         assertTrue(rows.isEmpty());

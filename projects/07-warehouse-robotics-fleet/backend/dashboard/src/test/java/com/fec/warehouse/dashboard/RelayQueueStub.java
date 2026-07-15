@@ -9,12 +9,12 @@ import software.amazon.awssdk.services.sqs.model.GetQueueUrlResponse;
 import java.util.Map;
 import java.util.function.Consumer;
 
-public class FakeSqsClient implements SqsClient {
+public class RelayQueueStub implements SqsClient {
 
     private final boolean queueExists;
     private final Map<String, String> attributes;
 
-    public FakeSqsClient(boolean queueExists, Map<String, String> attributes) {
+    public RelayQueueStub(boolean queueExists, Map<String, String> attributes) {
         this.queueExists = queueExists;
         this.attributes = attributes;
     }

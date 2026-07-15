@@ -7,16 +7,16 @@ import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
 import java.util.ArrayList;
 import java.util.List;
 
-public class FakeDynamoDbClient implements DynamoDbClient {
+public class DynamoWriteSpy implements DynamoDbClient {
 
     public final List<PutItemRequest> puts = new ArrayList<>();
     private final boolean rejectWrites;
 
-    public FakeDynamoDbClient() {
+    public DynamoWriteSpy() {
         this(false);
     }
 
-    public FakeDynamoDbClient(boolean rejectWrites) {
+    public DynamoWriteSpy(boolean rejectWrites) {
         this.rejectWrites = rejectWrites;
     }
 

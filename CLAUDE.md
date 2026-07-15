@@ -134,6 +134,7 @@ Some projects in this portfolio are individual CA submissions for different stud
 - Project 23 (marine-vessel-monitoring): Gopi Krishnan, Student ID X25112627
 - Project 24 (wildlife-conservation-monitoring): Hrishikesh Sajeev, Student ID X25132377
 - Project 25 (ski-resort-avalanche-safety): Ebin Joseph, Student ID X25142224
+- Project 07 (warehouse-robotics-fleet): Goutham Uppu, Student ID X25167936
 
 Each such project's own `readme.txt` carries an ATTRIBUTION section with the same detail (check there before assuming a project belongs to the main portfolio owner).
 
