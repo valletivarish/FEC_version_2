@@ -21,17 +21,13 @@ public class SafetyHandler implements RequestHandler<SQSEvent, Map<String, Objec
     static final String TABLE_NAME = System.getenv().getOrDefault("TABLE_NAME", "msm-readings");
     static DynamoDbClient client;
 
-    // Lambda (even under LocalStack) can reuse a warm execution environment
-    // across invocations, so the client is cached in a static field instead
-    // of being rebuilt on every handleRequest() call.
+    // Cached across warm invocations of the same Lambda execution environment.
     static synchronized DynamoDbClient client() {
         if (client == null) {
             String endpoint = System.getenv("AWS_ENDPOINT_URL");
             String region = System.getenv().getOrDefault("AWS_REGION", "eu-west-1");
             var builder = DynamoDbClient.builder().region(Region.of(region));
-            // Gated on endpoint, not any Lambda-injected var: Lambda always
-            // supplies its own execution-role credentials, so a static
-            // test/test pair here unconditionally would break real deploys.
+            // Gated on endpoint so real deploys keep their execution-role credentials.
             if (endpoint != null) {
                 builder.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
                 builder.endpointOverride(URI.create(endpoint));
@@ -49,10 +45,7 @@ public class SafetyHandler implements RequestHandler<SQSEvent, Map<String, Objec
                 dynamo.putItem(PutItemRequest.builder().tableName(tableName).item(item).build());
                 processed++;
             } catch (Exception e) {
-                // Deliberately fail the whole batch on any single bad record
-                // rather than skipping it: the SQS event source mapping will
-                // then leave the batch unacked and retry it, the simplest
-                // correct behaviour at this CA's demo scale.
+                // Fails the whole batch so the SQS event source mapping retries it.
                 throw new RuntimeException(e);
             }
         }

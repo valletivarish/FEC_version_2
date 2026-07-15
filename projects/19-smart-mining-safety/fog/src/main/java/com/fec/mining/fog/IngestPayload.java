@@ -6,13 +6,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Parses and validates an /ingest request body. Rejects malformed or
- * missing-field payloads with a descriptive reason instead of throwing an
- * unchecked NPE deep in field access -- the caller (GatewayRouter-dispatched
- * handleIngest) turns a non-null rejection reason into a 400 response,
- * proven at the real HTTP layer by MineFogNodeHttpTest.
- */
+// Parses and validates an /ingest request body, rejecting malformed payloads with a descriptive reason.
 record IngestPayload(String sensorType, String siteId, String unit, List<Reading> readings) {
 
     static final class ValidationException extends RuntimeException {

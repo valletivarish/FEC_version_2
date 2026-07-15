@@ -6,7 +6,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-/** Lock-free per-key ConcurrentLinkedQueue buffer with atomic per-key detach via ConcurrentHashMap.computeIfPresent -- the 7th distinct Java fog buffering mechanism in this portfolio, relying on no lock, no AtomicReference, and no dedicated worker thread. */
+// Lock-free per-key ConcurrentLinkedQueue buffer with atomic per-key detach via ConcurrentHashMap.computeIfPresent.
 public class HazardBuffer {
 
     private final ConcurrentHashMap<ShaftKey, ConcurrentLinkedQueue<Reading>> buffers = new ConcurrentHashMap<>();
@@ -23,14 +23,7 @@ public class HazardBuffer {
         return Set.copyOf(buffers.keySet());
     }
 
-    /**
-     * Atomically detaches and removes the entire queue for one key, returning
-     * its contents in arrival order. A concurrent ingest() for a DIFFERENT
-     * key is untouched; a concurrent ingest() for the SAME key either
-     * completes fully before or fully after this call, never interleaved,
-     * and lands in a freshly created queue afterwards -- no reading is ever
-     * silently dropped or double-counted.
-     */
+    // Atomically detaches and removes the entire queue for one key, in arrival order.
     public List<Reading> drain(ShaftKey key) {
         List<Reading> drained = new ArrayList<>();
         buffers.computeIfPresent(key, (k, queue) -> {

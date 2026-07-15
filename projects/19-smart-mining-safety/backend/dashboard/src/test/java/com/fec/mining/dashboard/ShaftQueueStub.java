@@ -6,12 +6,12 @@ import software.amazon.awssdk.services.sqs.model.*;
 import java.util.Map;
 import java.util.function.Consumer;
 
-class FakeSqsClient implements SqsClient {
+class ShaftQueueStub implements SqsClient {
 
     private final boolean queueExists;
     private final Map<String, String> attributes;
 
-    FakeSqsClient(boolean queueExists, Map<String, String> attributes) {
+    ShaftQueueStub(boolean queueExists, Map<String, String> attributes) {
         this.queueExists = queueExists;
         this.attributes = attributes;
     }

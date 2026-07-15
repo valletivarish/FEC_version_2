@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
 
-/** Two independent daemon/worker Thread objects, each with its own plain Thread.sleep loop, handed off lock-free through a producer/consumer LinkedBlockingQueue<Reading> instead of this portfolio's other Java sensors' shared-deadline loop, ScheduledExecutorService, or dual java.util.Timer approaches. */
+// Two daemon/worker threads handed off through a producer/consumer LinkedBlockingQueue<Reading>.
 public class ShaftSensorUnit {
 
     record Profile(String unit, double lo, double hi, double start, double step) {}
@@ -31,11 +31,7 @@ public class ShaftSensorUnit {
         return Math.max(lo, Math.min(hi, value));
     }
 
-    // Bounded random walk from the previous value, not a fresh draw each
-    // tick, so consecutive samples stay close together like a real sensor
-    // trace -- this is what makes the fog's windowed min/max/avg and the
-    // dashboard trend line look like plausible mine telemetry rather than
-    // white noise.
+    // Bounded random walk from the previous value, so samples trend like real telemetry rather than white noise.
     static double nextValue(double current, Profile profile) {
         double delta = ThreadLocalRandom.current().nextDouble(-profile.step(), profile.step());
         double moved = clamp(current + delta, profile.lo(), profile.hi());
@@ -87,10 +83,7 @@ public class ShaftSensorUnit {
         }, "sample-" + sensorType);
         sampleThread.setDaemon(true);
 
-        // Non-daemon: this thread's infinite loop is what keeps the JVM
-        // alive, so main() can simply join() it instead of parking on a
-        // CountDownLatch (the mechanism 04 and 16 both use to block their
-        // main threads forever).
+        // Non-daemon: this thread's loop is what keeps the JVM alive until join() returns.
         Thread dispatchThread = new Thread(() -> {
             while (true) {
                 try {
@@ -111,8 +104,7 @@ public class ShaftSensorUnit {
                     client.send(request, HttpResponse.BodyHandlers.discarding());
                     System.out.printf("%s dispatched %d readings%n", sensorType, batch.size());
                 } catch (Exception exc) {
-                    // Put the drained batch back so the next dispatch cycle
-                    // retries it instead of silently losing it.
+                    // Put the batch back so the next dispatch cycle retries it.
                     queue.addAll(batch);
                     System.out.printf("%s dispatch failed, will retry: %s%n", sensorType, exc.getMessage());
                 }

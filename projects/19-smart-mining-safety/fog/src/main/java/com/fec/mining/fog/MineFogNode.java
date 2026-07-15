@@ -19,15 +19,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Fog gateway for the underground mine safety pipeline: ingests batched
- * readings per (sensor_type, site_id) pair via HazardBuffer, windows/
- * aggregates them every WINDOW_SECONDS, evaluates the real HazardRules
- * thresholds, and publishes one message per non-empty group to SQS via
- * SafetyPublisher. See HazardBuffer, ThresholdRule, SafetyPublisher and
- * GatewayRouter javadoc for exactly how each of those differs from the six
- * other Java fog siblings in this portfolio.
- */
+// Fog gateway: buffers batched readings per (sensor_type, site_id), windows/aggregates them, and publishes to SQS.
 public class MineFogNode {
 
     static final ObjectMapper JSON = new ObjectMapper();
@@ -144,8 +136,7 @@ public class MineFogNode {
 
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
         long periodMs = (long) (WINDOW_SECONDS * 1000);
-        // Initial delay equals periodMs (not 0) so the first flush only
-        // fires once a full window has actually accumulated.
+        // Initial delay equals periodMs so the first flush waits for a full window.
         scheduler.scheduleAtFixedRate(node::runWindowCycle, periodMs, periodMs, TimeUnit.MILLISECONDS);
     }
 }

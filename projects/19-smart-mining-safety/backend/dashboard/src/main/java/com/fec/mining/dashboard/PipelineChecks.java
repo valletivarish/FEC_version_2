@@ -51,13 +51,7 @@ class PipelineChecks {
         }
     }
 
-    // Select.COUNT only counts the page actually scanned (~1MB); a table
-    // past that needs LastEvaluatedKey followed across pages or the count
-    // silently undercounts. Stream.iterate() walks pages functionally --
-    // no while/do-while loop, no recursion, not the SDK's own paginator.
-    // next() returns null once a page has no LastEvaluatedKey, and that
-    // null is the sentinel Objects::nonNull stops on -- the seed itself is
-    // still always yielded, unlike gating hasNext on the seed's own key.
+    // next() returns null past the last page so the seed page is still always counted.
     int itemCount(DynamoDbClient dynamo, String tableName) {
         ScanResponse first = dynamo.scan(b -> b.tableName(tableName).select(Select.COUNT));
         return Stream.iterate(

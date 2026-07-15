@@ -68,9 +68,7 @@ public class MineDashboardApp {
         return lambda;
     }
 
-    // Gated on ENDPOINT, not on any Lambda-injected env var: Lambda always
-    // supplies its own execution-role credentials at runtime, so forcing a
-    // static test/test pair here unconditionally would break real deployments.
+    // Gated on ENDPOINT, not a Lambda-injected env var, so real deployments keep their execution-role credentials.
     private static <B extends software.amazon.awssdk.awscore.client.builder.AwsClientBuilder<B, T>, T> T awsClient(B builder) {
         builder.region(Region.of(REGION));
         if (ENDPOINT != null) {
@@ -121,10 +119,7 @@ public class MineDashboardApp {
     }
 
     private synchronized String thresholds() throws Exception {
-        // Cached for the process lifetime: HazardRules.CATALOG is a static,
-        // code-defined constant that never changes at runtime, so
-        // refetching it on every /api/thresholds call would just be a
-        // repeated round-trip to fog with no fresher data to show for it.
+        // Cached for the process lifetime: the rules never change at runtime.
         if (thresholdsCache == null) {
             thresholdsCache = thresholdsProxy.fetch(upstream, FOG_THRESHOLDS_URL);
         }

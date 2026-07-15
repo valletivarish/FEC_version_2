@@ -13,13 +13,7 @@ import java.net.http.HttpResponse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * Exercises /health, /thresholds and /ingest over a real HttpServer bound to
- * an ephemeral port (via GatewayRouter.bind(0, ...)), so the 400-on-
- * malformed-input behaviour required by the brief is proven at the actual
- * HTTP layer -- status code and body -- not just a unit test of
- * IngestPayload.parse() in isolation.
- */
+// Exercises /health, /thresholds and /ingest over a real HttpServer bound to an ephemeral port.
 class MineFogNodeHttpTest {
 
     private HttpServer server;

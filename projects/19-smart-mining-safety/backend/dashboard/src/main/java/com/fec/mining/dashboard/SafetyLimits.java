@@ -2,13 +2,7 @@ package com.fec.mining.dashboard;
 
 import java.util.Map;
 
-/**
- * Local mirror of the fog's 4 alert-bearing threshold limits (see
- * com.fec.mining.fog.HazardRules.CATALOG), used only to compute the
- * dashboard's CAUTION 75%-of-limit boundary. DANGER instead reads the real
- * fired alerts the fog already computed and the processor already stored on
- * each item -- it never recomputes alert logic itself.
- */
+// Local mirror of the fog's threshold limits, used only for the dashboard's CAUTION boundary.
 final class SafetyLimits {
 
     static final Map<String, Double> LIMITS = Map.of(

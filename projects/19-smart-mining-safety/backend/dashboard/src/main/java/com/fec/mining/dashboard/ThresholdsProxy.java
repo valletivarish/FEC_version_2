@@ -6,13 +6,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 
-/**
- * Fetches the fog gateway's /thresholds JSON. Takes HttpClient and the
- * target URL as plain method arguments (not a static field baked in at
- * class load time), so it is directly unit testable against a real local
- * HttpServer without the actual fog container running -- see
- * ThresholdsProxyTest for both the success and unreachable-upstream paths.
- */
+// Fetches the fog gateway's /thresholds JSON; client and URL are plain args so this is directly unit testable.
 class ThresholdsProxy {
 
     String fetch(HttpClient client, String url) throws Exception {

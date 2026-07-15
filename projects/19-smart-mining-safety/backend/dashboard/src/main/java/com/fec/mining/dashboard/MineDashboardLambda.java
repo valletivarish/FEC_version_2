@@ -18,16 +18,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * Answers the real deployment's API Gateway REST API. server.js-equivalent
- * MineDashboardApp binds routes to a live com.sun.net.httpserver.HttpServer,
- * which has no meaning inside a single synchronous Lambda invocation, so
- * this class reuses the same ShaftRepository/PipelineChecks/ThresholdsProxy
- * classes behind a route registry expressed as enum constants -- each Route
- * carries its own method, path, and handler reference -- rather than the
- * array-of-templates, character trie, flat dict, or switch expression every
- * prior reassigned project's dashboard-Lambda has already used.
- */
+// Answers API Gateway directly since MineDashboardApp's HttpServer binding has no meaning inside a Lambda invocation.
 public class MineDashboardLambda implements RequestHandler<Map<String, Object>, Map<String, Object>> {
 
     private static final ObjectMapper JSON = new ObjectMapper();
@@ -44,7 +35,7 @@ public class MineDashboardLambda implements RequestHandler<Map<String, Object>, 
     public MineDashboardLambda() {
     }
 
-    /** Test seam: injects fake AWS clients instead of building real ones. */
+    // Test seam: injects stub AWS clients instead of building real ones.
     MineDashboardLambda(DynamoDbClient dynamo, SqsClient sqs, LambdaClient lambda) {
         this.dynamo = dynamo;
         this.sqs = sqs;

@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
-class FakeSqsAsyncClient implements SqsAsyncClient {
+class ShaftQueueSpy implements SqsAsyncClient {
 
     final List<SendMessageBatchRequest> batchRequests = new ArrayList<>();
     final List<SendMessageRequest> singleRequests = new ArrayList<>();

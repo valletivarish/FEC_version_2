@@ -18,12 +18,7 @@ public class RecordMapper {
         JsonNode data = JSON.readTree(messageBody);
         String siteId = data.has("site_id") ? data.get("site_id").asText() : "shaft-a";
         String windowEnd = data.get("window_end").asText();
-        // Partition key is sensor_type alone, so without a compound sort key
-        // shaft-a and shaft-b reporting the same sensor_type in the same
-        // flush cycle would collide on the same item. window_end leads the
-        // sort key (not site_id) so DynamoDB's native key ordering is already
-        // chronological for the dashboard's "most recent windows" query;
-        // site_id is only appended to disambiguate ties within one window.
+        // window_end leads the sort key so DynamoDB's native ordering is already chronological.
         String sortKey = windowEnd + "#" + siteId;
 
         Map<String, AttributeValue> item = new HashMap<>();

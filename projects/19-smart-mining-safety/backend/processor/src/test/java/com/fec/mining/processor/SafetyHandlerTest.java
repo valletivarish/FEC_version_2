@@ -21,28 +21,28 @@ class SafetyHandlerTest {
 
     @Test
     void processRecordsWritesEachRecord() {
-        FakeDynamoDbClient fake = new FakeDynamoDbClient();
-        int processed = SafetyHandler.processRecords(List.of(message(MESSAGE)), fake, "test-table");
+        DynamoPutSpy spy = new DynamoPutSpy();
+        int processed = SafetyHandler.processRecords(List.of(message(MESSAGE)), spy, "test-table");
 
         assertEquals(1, processed);
-        assertEquals(1, fake.puts.size());
-        assertEquals("test-table", fake.puts.get(0).tableName());
-        assertEquals("co_ppm", fake.puts.get(0).item().get("sensor_type").s());
+        assertEquals(1, spy.puts.size());
+        assertEquals("test-table", spy.puts.get(0).tableName());
+        assertEquals("co_ppm", spy.puts.get(0).item().get("sensor_type").s());
     }
 
     @Test
     void processRecordsHandlesABatch() {
-        FakeDynamoDbClient fake = new FakeDynamoDbClient();
-        int processed = SafetyHandler.processRecords(List.of(message(MESSAGE), message(MESSAGE)), fake, "test-table");
+        DynamoPutSpy spy = new DynamoPutSpy();
+        int processed = SafetyHandler.processRecords(List.of(message(MESSAGE), message(MESSAGE)), spy, "test-table");
 
         assertEquals(2, processed);
-        assertEquals(2, fake.puts.size());
+        assertEquals(2, spy.puts.size());
     }
 
     @Test
     void malformedRecordThrowsAndFailsTheWholeBatch() {
-        FakeDynamoDbClient fake = new FakeDynamoDbClient();
+        DynamoPutSpy spy = new DynamoPutSpy();
         assertThrows(RuntimeException.class, () ->
-            SafetyHandler.processRecords(List.of(message("not json")), fake, "test-table"));
+            SafetyHandler.processRecords(List.of(message("not json")), spy, "test-table"));
     }
 }

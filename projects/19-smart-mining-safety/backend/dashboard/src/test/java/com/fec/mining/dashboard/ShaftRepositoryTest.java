@@ -28,26 +28,26 @@ class ShaftRepositoryTest {
 
     @Test
     void recentWindowsReturnsChronologicalOrder() {
-        FakeDynamoDbClient fake = new FakeDynamoDbClient(
+        InMemoryReadingsTable table = new InMemoryReadingsTable(
             Map.of("methane_ppm", List.of(
                 item("methane_ppm", "shaft-a", "t2", 900.0, 950.0, 900.0, List.of()),
                 item("methane_ppm", "shaft-a", "t1", 800.0, 850.0, 800.0, List.of()))), 0);
 
-        var items = new ShaftRepository().recentWindows(fake, "table", "methane_ppm", 10);
+        var items = new ShaftRepository().recentWindows(table, "table", "methane_ppm", 10);
         assertEquals("t1", items.get(0).get("window_end"));
         assertEquals("t2", items.get(1).get("window_end"));
     }
 
     @Test
     void byShaftGroupsMetricsUnderEachShaftId() {
-        FakeDynamoDbClient fake = new FakeDynamoDbClient(Map.of(
+        InMemoryReadingsTable table = new InMemoryReadingsTable(Map.of(
             "methane_ppm", List.of(
                 item("methane_ppm", "shaft-a", "t1", 300.0, 320.0, 300.0, List.of()),
                 item("methane_ppm", "shaft-b", "t1", 320.0, 340.0, 320.0, List.of())),
             "ambient_temp_c", List.of(item("ambient_temp_c", "shaft-a", "t1", 27.0, 28.0, 27.0, List.of()))
         ), 0);
 
-        var result = new ShaftRepository().byShaft(fake, "table", new String[]{"methane_ppm", "ambient_temp_c"}, 5);
+        var result = new ShaftRepository().byShaft(table, "table", new String[]{"methane_ppm", "ambient_temp_c"}, 5);
         @SuppressWarnings("unchecked")
         var shafts = (List<Map<String, Object>>) result.get("shafts");
 
@@ -69,10 +69,10 @@ class ShaftRepositoryTest {
 
     @Test
     void byShaftIncludesTheComputedStatusField() {
-        FakeDynamoDbClient fake = new FakeDynamoDbClient(Map.of(
+        InMemoryReadingsTable table = new InMemoryReadingsTable(Map.of(
             "methane_ppm", List.of(item("methane_ppm", "shaft-a", "t1", 300.0, 320.0, 300.0, List.of()))
         ), 0);
-        var result = new ShaftRepository().byShaft(fake, "table", new String[]{"methane_ppm"}, 5);
+        var result = new ShaftRepository().byShaft(table, "table", new String[]{"methane_ppm"}, 5);
         @SuppressWarnings("unchecked")
         var shafts = (List<Map<String, Object>>) result.get("shafts");
         assertEquals("SAFE", shafts.get(0).get("status"));

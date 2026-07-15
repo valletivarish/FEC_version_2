@@ -11,20 +11,20 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-class FakeDynamoDbClient implements DynamoDbClient {
+class InMemoryReadingsTable implements DynamoDbClient {
 
     private final Map<String, List<Map<String, AttributeValue>>> itemsBySensorType;
     private final int scanCount;
     private final Iterator<ScanResponse> scanPages;
 
-    FakeDynamoDbClient(Map<String, List<Map<String, AttributeValue>>> itemsBySensorType, int scanCount) {
+    InMemoryReadingsTable(Map<String, List<Map<String, AttributeValue>>> itemsBySensorType, int scanCount) {
         this.itemsBySensorType = itemsBySensorType;
         this.scanCount = scanCount;
         this.scanPages = null;
     }
 
     /** Multi-page constructor: each call to scan() returns the next response in order, for testing pagination. */
-    FakeDynamoDbClient(List<ScanResponse> scanPages) {
+    InMemoryReadingsTable(List<ScanResponse> scanPages) {
         this.itemsBySensorType = Map.of();
         this.scanCount = 0;
         this.scanPages = scanPages.iterator();

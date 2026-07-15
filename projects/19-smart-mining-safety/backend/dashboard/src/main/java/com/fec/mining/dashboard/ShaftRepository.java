@@ -46,13 +46,7 @@ class ShaftRepository {
         return items;
     }
 
-    /**
-     * SAFE/CAUTION/DANGER classification for one shaft, computed from its
-     * latest window per alert-bearing sensor type: DANGER if any of the 4
-     * real fired-alert lists is non-empty; else CAUTION if any of the 4
-     * readings' latest window average is at or above 75% of its alert
-     * threshold; else SAFE. ambient_temp_c is excluded (no alert rule).
-     */
+    // DANGER if any alert list is non-empty, else CAUTION at >=75% of a threshold, else SAFE.
     static String classify(Map<String, Object> metrics) {
         boolean danger = false;
         boolean caution = false;
@@ -75,15 +69,7 @@ class ShaftRepository {
         return "SAFE";
     }
 
-    /**
-     * Per-shaft grouping endpoint: for each sensor type, the latest window
-     * reported by each site_id (shaft), plus the computed safety status.
-     * Distinct from 16's per-depot vehicle-type-card grouping and 09's
-     * per-pond ring cards in shape only insofar as the domain requires: the
-     * shaft is the section, each sensor type is a metric row inside it, and
-     * a top-level "status" field carries the SAFE/CAUTION/DANGER verdict
-     * the primary dashboard view reads directly.
-     */
+    // Per-shaft view: latest window per sensor type, plus the computed status field.
     Map<String, Object> byShaft(DynamoDbClient client, String tableName, String[] sensorTypes, int historyPerType) {
         Map<String, Map<String, Object>> shafts = new TreeMap<>();
         for (String sensorType : sensorTypes) {

@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-/** Resolves the queue URL via a non-blocking exceptionallyComposeAsync()+delayedExecutor() retry chain on the async SqsAsyncClient, never parking the thread, unlike every sibling's blocking Thread.sleep retry loop or synchronous retryWithBackoff() over SqsClient. */
+// Resolves the queue URL via a non-blocking exceptionallyComposeAsync()+delayedExecutor() retry chain, never parking the thread.
 public class SafetyPublisher {
 
     private static final int MAX_ATTEMPTS = 30;
@@ -31,10 +31,7 @@ public class SafetyPublisher {
 
     public SafetyPublisher(String endpointUrl, String region, String queueName) {
         var builder = SqsAsyncClient.builder().region(Region.of(region));
-        // Gated on endpointUrl, not any Lambda/EC2-injected var: only
-        // LocalStack needs a static credential pair here. On EC2 leaving
-        // this unset lets the SDK's default provider chain resolve the
-        // instance's own attached IAM role instead.
+        // Gated on endpointUrl so EC2 falls through to its own attached IAM role.
         if (endpointUrl != null) {
             builder.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
             builder.endpointOverride(URI.create(endpointUrl));
@@ -43,7 +40,7 @@ public class SafetyPublisher {
         this.queueName = queueName;
     }
 
-    /** Test seam: injects a fake SqsAsyncClient instead of building a real one. */
+    // Test seam: injects a spy SqsAsyncClient instead of building a real one.
     SafetyPublisher(SqsAsyncClient client, String queueName) {
         this.client = client;
         this.queueName = queueName;

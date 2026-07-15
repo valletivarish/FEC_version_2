@@ -36,8 +36,7 @@ class HazardRulesTest {
 
     @Test
     void vibrationRuleUsesMaxNotAvg() {
-        // avg (18) stays under 25, but max (30) exceeds it -- the rule must
-        // fire because it is defined against MAX, not AVG.
+        // avg (18) stays under 25, but max (30) exceeds it, since the rule reads MAX.
         assertEquals(java.util.List.of("blast_vibration_exceedance"),
             HazardRules.assess("ground_vibration_mms", window("ground_vibration_mms", 5, 30, 18)));
     }

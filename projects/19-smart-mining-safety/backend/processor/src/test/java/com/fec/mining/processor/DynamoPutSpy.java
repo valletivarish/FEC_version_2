@@ -7,7 +7,7 @@ import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
 import java.util.ArrayList;
 import java.util.List;
 
-public class FakeDynamoDbClient implements DynamoDbClient {
+public class DynamoPutSpy implements DynamoDbClient {
 
     public final List<PutItemRequest> puts = new ArrayList<>();
 

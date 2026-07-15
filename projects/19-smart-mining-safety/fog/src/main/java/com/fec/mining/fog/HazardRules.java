@@ -11,8 +11,7 @@ public class HazardRules {
         new ThresholdRule("co_ppm", AggregateField.AVG, 50, "co_exposure_risk"),
         new ThresholdRule("dust_concentration_mgm3", AggregateField.AVG, 10, "silica_dust_hazard"),
         new ThresholdRule("ground_vibration_mms", AggregateField.MAX, 25, "blast_vibration_exceedance")
-        // ambient_temp_c intentionally carries no rule: one of the 5 required
-        // sensor types, shown on the dashboard, but never raises an alert.
+        // ambient_temp_c intentionally carries no rule -- shown on the dashboard, never alerts.
     );
 
     static double valueOf(AggregateField field, WindowAggregate window) {
