@@ -81,12 +81,15 @@ With the stack running:
 REUSE / THIRD-PARTY COMPONENTS
 -------------------------------
 fog/aggregation.py's aggregate() function (window -> {count, min, max, avg,
-latest} summary record) is reused, with only its docstring dropped, from the
-same author's other individual submissions in this portfolio (projects
-12-smart-building-energy, 13-ev-charging-network, 14-smart-parking-management,
-17-solar-farm-monitoring, and 23-marine-vessel-monitoring use the identical
-function; 21-bridge-structural-health uses a near-identical variant
-parameterised over (value, ts) pairs instead of {"ts", "value"} dicts). Every
+latest} summary record) is reused, with only its docstring dropped, from
+other prior codebases in this shared portfolio repository, not this
+student's own earlier work (projects 12-smart-building-energy,
+13-ev-charging-network, 14-smart-parking-management, and
+17-solar-farm-monitoring belong to the main portfolio owner;
+23-marine-vessel-monitoring belongs to Gopi Krishnan, X25112627, another
+individually-attributed student -- all use the identical function;
+21-bridge-structural-health uses a near-identical variant parameterised
+over (value, ts) pairs instead of {"ts", "value"} dicts). Every
 other file in this project -- sensors/sensor.py, fog/app.py, fog/alerts.py,
 fog/publisher.py, backend/processor/*.py, backend/dashboard/app.py -- is an
 independent implementation for this domain, not shared with any sibling
