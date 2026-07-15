@@ -32,9 +32,8 @@ LAYOUT
                        mapping in LocalStack)
   backend/dashboard/  REST API + static frontend (charcoal/electric-green
                        EV-tech theme, charging-bay card grid)
-  infra/              docker-compose stack + LocalStack bootstrap
-  loadtest/           queue burst generator (scalability evidence)
-  scripts/            end-to-end pipeline verification
+  infra/              docker-compose stack, LocalStack bootstrap, pipeline
+                       verification, load test, and dashboard screenshots
   tests/              pytest unit + real HTTP-level route tests
 
 REQUIREMENTS
@@ -88,7 +87,7 @@ VERIFY END-TO-END
 ------------------
 With the stack running:
   AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_ENDPOINT_URL=http://localhost:4578 \
-    python scripts/verify_pipeline.py
+    python infra/verify_pipeline.py
 
 Example curl commands:
   curl http://localhost:8092/api/health
@@ -151,7 +150,7 @@ LOAD TEST (SCALABILITY EVIDENCE)
 ---------------------------------
 With the stack running:
   AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_ENDPOINT_URL=http://localhost:4578 \
-    python loadtest/burst.py --messages 2000 --workers 32
+    python infra/burst.py --messages 2000 --workers 32
 
 Asserts (1) the queue shows the burst immediately after sending, and (2)
 either the queue fully drains within the timeout, or -- if LocalStack's

@@ -34,11 +34,9 @@ LAYOUT
                        registers the function with an SQS event source
                        mapping in LocalStack)
   backend/dashboard/  Bottle + Chart.js live dashboard
-  infra/              docker-compose stack + LocalStack bootstrap
-  loadtest/           queue burst generator (scalability evidence)
-  scripts/            end-to-end pipeline verification
+  infra/              docker-compose stack, LocalStack bootstrap, pipeline
+                       verification, load test, and dashboard screenshots
   tests/              pytest unit + real-HTTP-level route tests
-  docs/               dashboard screenshots (desktop + 375px mobile)
 
 SENSOR TYPES
 ------------
@@ -112,7 +110,7 @@ VERIFY END-TO-END
 -----------------
 With the stack running:
   AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
-    AWS_ENDPOINT_URL=http://localhost:4586 python scripts/verify_pipeline.py
+    AWS_ENDPOINT_URL=http://localhost:4586 python infra/verify_pipeline.py
 
 A few manual curl checks against the running stack:
   curl http://localhost:8100/api/health
@@ -135,7 +133,7 @@ LOAD TEST (SCALABILITY EVIDENCE)
 With the stack running:
   AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
     AWS_ENDPOINT_URL=http://localhost:4586 \
-    python loadtest/burst.py --messages 2000 --workers 32
+    python infra/burst.py --messages 2000 --workers 32
 
 REUSE / THIRD-PARTY COMPONENTS
 -------------------------------

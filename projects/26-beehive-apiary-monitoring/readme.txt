@@ -67,17 +67,15 @@ LAYOUT
                        as secondary rows against a native <meter> each, plus
                        Chart.js window-average trend charts. No custom SVG,
                        no emoji anywhere.
-  infra/              docker-compose stack + LocalStack bootstrap
-  loadtest/           queue burst generator (scalability evidence)
-  scripts/            end-to-end pipeline verification
-  docs/               dashboard screenshots (desktop + 375px mobile)
+  infra/              docker-compose stack, LocalStack bootstrap, pipeline
+                       verification, load test, and dashboard screenshots
 
 REQUIREMENTS
 ------------
   Docker + Docker Compose (for the running stack)
   Node.js 20+ (only if running the unit tests locally)
-  Python 3.12+ with `pip install boto3` (only for loadtest/burst.py and
-  scripts/verify_pipeline.py)
+  Python 3.12+ with `pip install boto3` (only for infra/burst.py and
+  infra/verify_pipeline.py)
 
 RUN THE STACK
 -------------
@@ -114,7 +112,7 @@ slower physical drift of a hive's weight versus its acoustic signature).
 VERIFY END-TO-END
 ------------------
 With the stack running:
-  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test python scripts/verify_pipeline.py
+  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test python infra/verify_pipeline.py
 
 Example curl commands against the live REST API:
   curl http://localhost:8105/api/health
@@ -162,7 +160,7 @@ LOAD TEST (SCALABILITY EVIDENCE)
 ---------------------------------
 With the stack running:
   AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
-    python loadtest/burst.py --messages 2000 --workers 32
+    python infra/burst.py --messages 2000 --workers 32
 
 This asserts (1) the queue shows the burst immediately after sending, and
 (2) either the queue fully drains within the timeout, or -- if LocalStack's
@@ -363,8 +361,7 @@ Third-party open-source components used as standard libraries/tools:
     external test framework dependency
   - Node.js built-in http module (fog and dashboard HTTP servers) -- no
     Express or other web framework dependency anywhere in this project
-  - boto3 (Python AWS SDK, used only by the ops tooling in loadtest/ and
-    scripts/) - https://boto3.amazonaws.com
+  - boto3 (Python AWS SDK, used only by the ops tooling in infra/) - https://boto3.amazonaws.com
 
 NOTE ON /api/thresholds
 ------------------------

@@ -66,15 +66,14 @@ LAYOUT
                        grid of turbine tiles (CSS grid, not a vertical
                        list) with a status beacon per turbine; a secondary
                        section below compares power output across turbines
-  infra/              docker-compose stack + LocalStack bootstrap
-  loadtest/           queue burst generator (scalability evidence)
-  scripts/            end-to-end pipeline verification
+  infra/              docker-compose stack, LocalStack bootstrap, pipeline
+                       verification, load test, and dashboard screenshots
 
 REQUIREMENTS
 ------------
   Docker + Docker Compose (for the running stack)
   Node.js 20+ (only if running the unit tests locally)
-  Python 3.12+ (only for loadtest/burst.py and scripts/verify_pipeline.py)
+  Python 3.12+ (only for infra/burst.py and infra/verify_pipeline.py)
 
 RUN THE STACK
 -------------
@@ -95,17 +94,17 @@ infra/docker-compose.yml):
 VERIFY END-TO-END
 -----------------
 With the stack running:
-  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test python scripts/verify_pipeline.py
+  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test python infra/verify_pipeline.py
 
 CAPTURE DASHBOARD SCREENSHOTS (DESKTOP + MOBILE)
 -------------------------------------------------
 With the stack running, this renders the live dashboard in headless
 Chromium (Playwright) at desktop (1440x900) and mobile (390x844) viewport
-widths, saves both screenshots to docs/, and fails if either viewport
+widths, saves both screenshots to infra/, and fails if either viewport
 shows a browser console error or renders zero turbine tiles:
   cd scripts && npm install && node capture_dashboard_screenshots.js
 
-This is a Node-based ops tool kept in its own scripts/package.json,
+This is a Node-based ops tool kept in its own infra/package.json,
 isolated from the application package.json files (sensors/, fog/,
 backend/processor/, backend/dashboard/), the same way verify_pipeline.py
 and burst.py are kept as separate Python ops tooling.
@@ -126,7 +125,7 @@ LOAD TEST (SCALABILITY EVIDENCE)
 --------------------------------
 With the stack running:
   AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
-    python loadtest/burst.py --messages 2000 --workers 32
+    python infra/burst.py --messages 2000 --workers 32
 
 REUSE / THIRD-PARTY COMPONENTS
 -------------------------------
@@ -153,11 +152,10 @@ Third-party open-source components used as standard libraries/tools:
     https://www.localstack.cloud
   - Node.js built-in test runner (node:test, node:assert/strict) -- no
     external test framework dependency
-  - boto3 (Python AWS SDK, used only by the ops tooling in loadtest/ and
-    scripts/) - https://boto3.amazonaws.com
+  - boto3 (Python AWS SDK, used only by the ops tooling in infra/) - https://boto3.amazonaws.com
   - Playwright (headless Chromium, used only by the ops screenshot tool
-    scripts/capture_dashboard_screenshots.js, isolated in its own
-    scripts/package.json -- not a dependency of any application module) -
+    infra/capture_dashboard_screenshots.js, isolated in its own
+    infra/package.json -- not a dependency of any application module) -
     https://playwright.dev
 
 NOTE ON /api/thresholds

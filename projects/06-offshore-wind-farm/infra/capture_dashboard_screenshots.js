@@ -2,7 +2,7 @@
 // mobile viewport widths, using headless Chromium (Playwright) driven from
 // the same host/network namespace as the running docker-compose stack.
 // Run with the stack already up:
-//   cd scripts && npm install && node capture_dashboard_screenshots.js
+//   cd infra && npm install && node capture_dashboard_screenshots.js
 "use strict";
 
 const path = require("node:path");
@@ -10,7 +10,7 @@ const fs = require("node:fs");
 const { chromium } = require("playwright");
 
 const DASHBOARD_URL = process.env.DASHBOARD_URL || "http://localhost:8085/";
-const OUT_DIR = process.env.SCREENSHOT_DIR || path.join(__dirname, "..", "docs");
+const OUT_DIR = process.env.SCREENSHOT_DIR || __dirname;
 
 const VIEWPORTS = {
   desktop: { width: 1440, height: 900 },

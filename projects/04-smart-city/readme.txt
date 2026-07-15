@@ -70,15 +70,14 @@ LAYOUT
                        metric -- each zone card shows all 5 metrics, plus a
                        secondary "citywide trends" section comparing zones
                        per metric
-  infra/              docker-compose stack + LocalStack bootstrap
-  loadtest/           queue burst generator (scalability evidence)
-  scripts/            end-to-end pipeline verification
+  infra/              docker-compose stack, LocalStack bootstrap, pipeline
+                       verification, load test, and dashboard screenshots
 
 REQUIREMENTS
 ------------
   Docker + Docker Compose (for the running stack)
   Java 17+ and Maven (only if running the unit tests locally)
-  Python 3.12+ (only for loadtest/burst.py and scripts/verify_pipeline.py,
+  Python 3.12+ (only for infra/burst.py and infra/verify_pipeline.py,
                  which remain Python as ops tooling -- see TECH STACK above)
 
 RUN THE STACK
@@ -100,7 +99,7 @@ infra/docker-compose.yml):
 VERIFY END-TO-END
 -----------------
 With the stack running:
-  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test python scripts/verify_pipeline.py
+  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test python infra/verify_pipeline.py
 
 RUN THE TESTS
 -------------
@@ -118,7 +117,7 @@ LOAD TEST (SCALABILITY EVIDENCE)
 --------------------------------
 With the stack running:
   AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
-    python loadtest/burst.py --messages 2000 --workers 32
+    python infra/burst.py --messages 2000 --workers 32
 
 REUSE / THIRD-PARTY COMPONENTS
 -------------------------------
@@ -145,5 +144,4 @@ Third-party open-source components used as standard libraries/tools:
   - LocalStack (local AWS emulation for SQS/DynamoDB/Lambda) -
     https://www.localstack.cloud
   - JUnit 5 (test suite) - https://junit.org/junit5
-  - boto3 (Python AWS SDK, used only by the ops tooling in loadtest/ and
-    scripts/) - https://boto3.amazonaws.com
+  - boto3 (Python AWS SDK, used only by the ops tooling in infra/) - https://boto3.amazonaws.com

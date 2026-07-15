@@ -42,11 +42,9 @@ LAYOUT
   backend/dashboard/  Tornado REST API + static frontend (marine teal/white
                        "bridge display" theme, Bridge Console two-column
                        comparison panel + Voyage Log)
-  infra/              docker-compose stack + LocalStack bootstrap
-  loadtest/           queue burst generator (scalability evidence)
-  scripts/            end-to-end pipeline verification
+  infra/              docker-compose stack, LocalStack bootstrap, pipeline
+                       verification, load test, and dashboard screenshots
   tests/              pytest unit + real HTTP-level route tests
-  docs/               dashboard screenshots (desktop + 375px mobile)
 
 SENSOR TYPES
 ------------
@@ -185,7 +183,7 @@ VERIFY END-TO-END
 ------------------
 With the stack running:
   AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
-    AWS_ENDPOINT_URL=http://localhost:4588 python scripts/verify_pipeline.py
+    AWS_ENDPOINT_URL=http://localhost:4588 python infra/verify_pipeline.py
 
 Example curl commands (verified live against a running stack):
   curl http://localhost:8102/api/health
@@ -261,7 +259,7 @@ LOAD TEST (SCALABILITY EVIDENCE)
 With the stack running:
   AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
     AWS_ENDPOINT_URL=http://localhost:4588 \
-    python loadtest/burst.py --messages 2000 --workers 32
+    python infra/burst.py --messages 2000 --workers 32
 
 Asserts (1) the queue shows the burst immediately after sending, and (2)
 either the queue fully drains within the timeout, or -- if LocalStack's
@@ -298,7 +296,7 @@ Standard system font stack only
 (-apple-system/Segoe UI/Roboto/Helvetica/Arial), zero custom SVG (grep -rn
 "<svg" backend/dashboard/static returns no matches outside the vendored,
 unmodified Chart.js bundle), zero emoji, native <meter> for every bounded
-reading. Verified responsive at 375px (docs/dashboard-mobile.png): the
+reading. Verified responsive at 375px (infra/dashboard-mobile.png): the
 console table's own .console-table-wrap scrolls internally if needed
 (overflow-x: auto) but the page body itself never scrolls horizontally at
 375px (confirmed live: document.documentElement.scrollWidth ==

@@ -33,9 +33,8 @@ LAYOUT
                        point) + deploy_lambda.py (packages and registers the
                        function with an SQS event source mapping in LocalStack)
   backend/dashboard/  FastAPI + Chart.js live dashboard
-  infra/              docker-compose stack + LocalStack bootstrap
-  loadtest/           queue burst generator (scalability evidence)
-  scripts/            end-to-end pipeline verification
+  infra/              docker-compose stack, LocalStack bootstrap, pipeline
+                       verification, load test, and dashboard screenshots
   tests/              pytest unit + endpoint/route tests
 
 REQUIREMENTS
@@ -62,7 +61,7 @@ infra/docker-compose.yml):
 VERIFY END-TO-END
 -----------------
 With the stack running:
-  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test python scripts/verify_pipeline.py
+  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test python infra/verify_pipeline.py
 
 RUN THE TESTS
 -------------
@@ -77,7 +76,7 @@ LOAD TEST (SCALABILITY EVIDENCE)
 --------------------------------
 With the stack running:
   AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
-    python loadtest/burst.py --messages 2000 --workers 32
+    python infra/burst.py --messages 2000 --workers 32
 
 REUSE / THIRD-PARTY COMPONENTS
 -------------------------------

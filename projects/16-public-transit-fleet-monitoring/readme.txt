@@ -117,16 +117,15 @@ LAYOUT
                        summarizing that depot's fleet for that metric
                        against a native <meter> bar (no custom-drawn
                        graphics), plus per-metric trend charts underneath
-  infra/              docker-compose stack + LocalStack bootstrap
-  loadtest/           queue burst generator (scalability evidence)
-  scripts/            end-to-end pipeline verification
+  infra/              docker-compose stack, LocalStack bootstrap, pipeline
+                       verification, load test, and dashboard screenshots
 
 REQUIREMENTS
 ------------
   Docker + Docker Compose (for the running stack)
   JDK 17+ and Maven (only if building/testing locally outside Docker)
-  Python 3.12+ with boto3 installed (only for loadtest/burst.py and
-                 scripts/verify_pipeline.py, kept as language-neutral ops
+  Python 3.12+ with boto3 installed (only for infra/burst.py and
+                 infra/verify_pipeline.py, kept as language-neutral ops
                  tooling): pip install boto3
 
 RUN THE STACK
@@ -159,7 +158,7 @@ infra/docker-compose.yml):
 VERIFY END-TO-END
 -----------------
 With the stack running:
-  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test python scripts/verify_pipeline.py
+  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test python infra/verify_pipeline.py
 
 Or probe the dashboard's own REST API directly:
   curl http://localhost:8095/api/health
@@ -234,7 +233,7 @@ LOAD TEST (SCALABILITY EVIDENCE)
 ---------------------------------
 With the stack running:
   AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
-    python loadtest/burst.py --messages 2000 --workers 32
+    python infra/burst.py --messages 2000 --workers 32
 
 REUSE / THIRD-PARTY COMPONENTS
 --------------------------------
@@ -272,8 +271,7 @@ libraries/tools:
   - LocalStack (local AWS emulation for SQS/DynamoDB/Lambda) -
     https://www.localstack.cloud
   - JUnit 5 (test suite) - https://junit.org/junit5
-  - boto3 (Python AWS SDK, used only by the ops tooling in loadtest/ and
-    scripts/) - https://boto3.amazonaws.com
+  - boto3 (Python AWS SDK, used only by the ops tooling in infra/) - https://boto3.amazonaws.com
 
 NOTE ON /api/thresholds
 ------------------------

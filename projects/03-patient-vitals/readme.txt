@@ -65,15 +65,14 @@ LAYOUT
   backend/dashboard/  Express + Chart.js, grouped by PATIENT not by vital --
                        each patient card shows a live heart-rate trace plus
                        the other 4 vitals as compact tiles
-  infra/              docker-compose stack + LocalStack bootstrap
-  loadtest/           queue burst generator (scalability evidence)
-  scripts/            end-to-end pipeline verification
+  infra/              docker-compose stack, LocalStack bootstrap, pipeline
+                       verification, load test, and dashboard screenshots
 
 REQUIREMENTS
 ------------
   Docker + Docker Compose (for the running stack)
   Node.js 20+ (only if running the unit tests locally)
-  Python 3.12+ (only for loadtest/burst.py and scripts/verify_pipeline.py,
+  Python 3.12+ (only for infra/burst.py and infra/verify_pipeline.py,
                  which remain Python as ops tooling -- see TECH STACK above)
 
 RUN THE STACK
@@ -95,7 +94,7 @@ infra/docker-compose.yml):
 VERIFY END-TO-END
 -----------------
 With the stack running:
-  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test python scripts/verify_pipeline.py
+  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test python infra/verify_pipeline.py
 
 RUN THE TESTS
 -------------
@@ -113,7 +112,7 @@ LOAD TEST (SCALABILITY EVIDENCE)
 --------------------------------
 With the stack running:
   AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
-    python loadtest/burst.py --messages 2000 --workers 32
+    python infra/burst.py --messages 2000 --workers 32
 
 REUSE / THIRD-PARTY COMPONENTS
 -------------------------------
@@ -138,5 +137,4 @@ Third-party open-source components used as standard libraries/tools:
     https://www.localstack.cloud
   - Node.js built-in test runner (node:test, node:assert/strict) -- no
     external test framework dependency
-  - boto3 (Python AWS SDK, used only by the ops tooling in loadtest/ and
-    scripts/) - https://boto3.amazonaws.com
+  - boto3 (Python AWS SDK, used only by the ops tooling in infra/) - https://boto3.amazonaws.com

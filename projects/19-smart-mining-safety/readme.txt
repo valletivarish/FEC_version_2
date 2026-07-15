@@ -53,16 +53,14 @@ LAYOUT
                        a Chart.js methane trend chart. Deep stone/graphite
                        earth-tone palette with a copper accent; red/amber
                        reserved strictly for active CAUTION/DANGER states.
-  infra/              docker-compose stack + LocalStack bootstrap
-  loadtest/           Python queue burst generator (scalability evidence)
-  scripts/            Python end-to-end pipeline verification
-  docs/               dashboard-desktop.png / dashboard-mobile.png (375px)
+  infra/              docker-compose stack, LocalStack bootstrap, pipeline
+                       verification, load test, and dashboard screenshots
 
 REQUIREMENTS
 ------------
   Docker + Docker Compose (for the running stack)
   JDK 17+ and Maven (only if building/testing locally outside Docker)
-  Python 3.12 + boto3 (only for scripts/verify_pipeline.py and loadtest/burst.py)
+  Python 3.12 + boto3 (only for infra/verify_pipeline.py and infra/burst.py)
 
 RUN THE STACK
 -------------
@@ -118,7 +116,7 @@ VERIFY END-TO-END
 With the stack running (allow ~30s after startup for the first window
 flush), run the automated check:
   AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
-    AWS_ENDPOINT_URL=http://localhost:4584 python3 scripts/verify_pipeline.py
+    AWS_ENDPOINT_URL=http://localhost:4584 python3 infra/verify_pipeline.py
 
 Or curl the API directly:
   curl http://localhost:8098/api/health
@@ -143,7 +141,7 @@ LOAD TEST (SCALABILITY EVIDENCE)
 ---------------------------------
 With the stack running:
   AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
-    AWS_ENDPOINT_URL=http://localhost:4584 python3 loadtest/burst.py --messages 2000 --workers 32
+    AWS_ENDPOINT_URL=http://localhost:4584 python3 infra/burst.py --messages 2000 --workers 32
 
 Sends synthetic "loadtest_a".."loadtest_e" messages (never the real 5
 sensor types, so burst traffic never lands in the dashboard's live

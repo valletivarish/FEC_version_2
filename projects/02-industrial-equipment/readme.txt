@@ -57,12 +57,11 @@ LAYOUT
                        the REST endpoint naming convention and the vendored
                        Chart.js library are shared/reused, see REUSE section
                        below)
-  infra/              docker-compose stack + LocalStack bootstrap (unchanged
+  infra/              docker-compose stack, LocalStack bootstrap, pipeline
+                       verification, load test, and dashboard screenshots
                        structure -- only the Dockerfiles differ, service
                        names/env vars/ports are identical to before)
-  loadtest/           Python queue burst generator (scalability evidence) --
                        kept as ops tooling, not application code
-  scripts/            Python end-to-end pipeline verification -- same reason
   tests/              JUnit 5 unit + logic tests, one test module per Maven
                        project (sensors/fog/processor/dashboard)
 
@@ -90,7 +89,7 @@ infra/docker-compose.yml):
 VERIFY END-TO-END
 -----------------
 With the stack running:
-  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test python scripts/verify_pipeline.py
+  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test python infra/verify_pipeline.py
 
 RUN THE TESTS
 -------------
@@ -108,7 +107,7 @@ LOAD TEST (SCALABILITY EVIDENCE)
 --------------------------------
 With the stack running:
   AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
-    python loadtest/burst.py --messages 2000 --workers 32
+    python infra/burst.py --messages 2000 --workers 32
 
 REUSE / THIRD-PARTY COMPONENTS
 -------------------------------
