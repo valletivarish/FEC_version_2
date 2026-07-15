@@ -1,6 +1,9 @@
 const SENSOR_TYPES = ["snowpack_depth_cm", "snow_temp_c", "wind_speed_kmh", "seismic_vibration_mg", "lift_chair_count"];
 const SITE_IDS = ["slope-a", "slope-b"];
 
+// Empty apiBase means same-origin (local dev); prepended so the S3-hosted build reaches the API cross-origin.
+const API_BASE = JSON.parse(document.getElementById("api-config").textContent).apiBase || "";
+
 const METRIC_LABELS = {
   snowpack_depth_cm: "Snowpack Depth",
   snow_temp_c: "Snow Temperature",
@@ -9,9 +12,7 @@ const METRIC_LABELS = {
   lift_chair_count: "Lift Chair Count",
 };
 
-// Alert display text is a small local map -- the frontend does not call
-// /api/thresholds directly (that proxy exists for API completeness and is
-// covered by its own backend test; see readme.txt).
+// Local map -- the frontend never calls /api/thresholds directly (see readme.txt).
 const ALERT_LABELS = {
   avalanche_risk_detected: "Avalanche risk detected",
   lift_wind_halt: "Lift wind halt",
@@ -19,9 +20,7 @@ const ALERT_LABELS = {
   insufficient_snow_coverage: "Insufficient snow coverage",
 };
 
-// Axis bounds -- the range each reading's <meter> is drawn against in the
-// secondary reading panel, not a decision threshold. Real alert thresholds
-// come from fog/alerts.js.
+// Meter display range only, not a decision threshold -- those live in fog/alerts.js.
 const AXIS_RANGE = {
   snowpack_depth_cm: { lo: 0, hi: 400 },
   snow_temp_c: { lo: -25, hi: 5 },
@@ -30,10 +29,7 @@ const AXIS_RANGE = {
   lift_chair_count: { lo: 0, hi: 80 },
 };
 
-// The risk-scale index each gauge <meter> is drawn against: a plain 0-3
-// numeric position for LOW/MODERATE/HIGH/EXTREME, computed server-side by
-// readingsStore.js's deriveRiskLevel() and echoed back here purely as a
-// display label lookup.
+// Order must mirror readingsStore.js's deriveRiskLevel() server-side output.
 const RISK_SCALE = ["LOW", "MODERATE", "HIGH", "EXTREME"];
 
 const TREND_COLORS = { "slope-a": "#0b6fa8", "slope-b": "#b23a2f" };
@@ -43,11 +39,7 @@ function metricLabel(sensorType) {
   return METRIC_LABELS[sensorType] || sensorType;
 }
 
-// Primary structural view: a horizontal risk-level gauge per slope,
-// rendered as plain LOW/MODERATE/HIGH/EXTREME text against a native
-// <meter> (min=0 max=3, low=1 high=2 optimum=0 so the browser's own
-// optimum/sub-optimum/even-less-good coloring tracks rising severity) --
-// not a colored tile, dial, heatmap, or status-line.
+// low=1 high=2 optimum=0 makes the browser's native <meter> coloring track rising severity.
 function renderRiskGauge(slope) {
   const riskIndex = RISK_SCALE.indexOf(slope.risk_level);
   const ticks = RISK_SCALE.map(
@@ -72,9 +64,6 @@ function renderRiskGaugeGrid(slopes) {
   grid.innerHTML = slopes.map(renderRiskGauge).join("");
 }
 
-// Secondary detail: a plain label/value list per slope (not a rows-x-
-// columns matrix table), one row per reading with a small <meter> against
-// that reading's configured axis range.
 function readingRow(sensorType, metric) {
   if (!metric) {
     return `<div class="reading-row"><span class="reading-label">${metricLabel(sensorType)}</span><span class="reading-value">&ndash;&ndash;</span></div>`;
@@ -136,7 +125,7 @@ function renderBackendStats(backendStats) {
 }
 
 async function fetchTrend(sensorType) {
-  const res = await fetch(`/api/readings?sensor_type=${sensorType}&limit=20`);
+  const res = await fetch(`${API_BASE}/api/readings?sensor_type=${sensorType}&limit=20`);
   return res.json();
 }
 
@@ -197,9 +186,9 @@ function renderTrendGrid() {
 async function tick() {
   try {
     const [slopesResp, health, backendStats] = await Promise.all([
-      fetch("/api/slopes").then((r) => r.json()),
-      fetch("/api/health").then((r) => r.json()),
-      fetch("/api/backend-stats").then((r) => r.json()),
+      fetch(`${API_BASE}/api/slopes`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/health`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/backend-stats`).then((r) => r.json()),
     ]);
 
     const slopes = slopesResp.slopes || [];

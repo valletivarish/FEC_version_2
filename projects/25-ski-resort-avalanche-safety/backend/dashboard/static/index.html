@@ -6,6 +6,8 @@
   <title>Ski Resort &amp; Avalanche Safety Monitor</title>
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/vendor/chart.umd.min.js"></script>
+  <!-- Empty apiBase = same-origin (local dev); S3 deploy step sed-replaces it with the real API Gateway URL. -->
+  <script id="api-config" type="application/json">{"apiBase": ""}</script>
 </head>
 <body>
   <header class="topbar">

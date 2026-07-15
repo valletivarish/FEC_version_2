@@ -54,6 +54,24 @@ test("countTableItems returns the Scan COUNT result", async () => {
   assert.equal(await countTableItems(doc, "ska-readings"), 42);
 });
 
+test("countTableItems sums every page instead of stopping at the first", async () => {
+  const pages = [
+    { Count: 400, LastEvaluatedKey: { site_id: "slope-a" } },
+    { Count: 400, LastEvaluatedKey: { site_id: "slope-b" } },
+    { Count: 400, LastEvaluatedKey: { site_id: "slope-c" } },
+    { Count: 87 },
+  ];
+  let calls = 0;
+  const doc = {
+    send: async (command) => {
+      assert.equal(command.input.ExclusiveStartKey, pages[calls - 1]?.LastEvaluatedKey);
+      return pages[calls++];
+    },
+  };
+  assert.equal(await countTableItems(doc, "ska-readings"), 1287);
+  assert.equal(calls, 4, "all four pages must be scanned, not just the first");
+});
+
 test("isPipelineFlowing is false when freshestAge is null or stale, true when recent", () => {
   assert.equal(isPipelineFlowing(null), false);
   assert.equal(isPipelineFlowing(31), false);

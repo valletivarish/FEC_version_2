@@ -1,6 +1,13 @@
 Ski Resort & Avalanche Safety Monitoring Fog/Edge Pipeline
 Fog and Edge Computing (H9FECC) - CA Project
 
+ATTRIBUTION
+------------
+This project is Ebin Joseph's individual CA submission, Student ID
+X25142224, National College of Ireland. It shares this portfolio repository
+with several other students' independently attributed projects as a
+convenience; it is not part of the main portfolio owner's own submission.
+
 All commands below assume your working directory is this folder
 (projects/25-ski-resort-avalanche-safety/), not the repo root.
 
@@ -287,10 +294,11 @@ building this project):
 
 RUN THE TESTS
 -------------
-Each module has its own package.json and test script. All 102 tests below
+Each module has its own package.json and test script. All 121 tests below
 were run and confirmed passing (node --test, exit 0) at the time this
-readme was written: 13 in sensors/, 45 in fog/, 10 in backend/processor/,
-34 in backend/dashboard/.
+readme was written: 13 in sensors/, 47 in fog/, 10 in backend/processor/,
+51 in backend/dashboard/ (38 covering the local dashboard server plus 13 for
+lambdaHandler.js, the API Gateway REST API entry point described below).
   cd sensors && npm install && npm test
   cd fog && npm install && npm test
   cd backend/processor && npm install && npm test
@@ -340,12 +348,15 @@ REUSE / THIRD-PARTY COMPONENTS
 The overall pipeline architecture (SQS -> Lambda -> DynamoDB via LocalStack,
 the sort_key disambiguation scheme window_end#site_id, the dashboard
 health-check pattern, the dual-rate SAMPLE_INTERVAL/DISPATCH_INTERVAL sensor
-knobs, the loadtest two-tier assertion pattern) is adapted from this
-student's own prior projects earlier in this same CA submission
-(03-patient-vitals, 06-offshore-wind-farm, 10-wildfire-forest-monitoring,
+knobs, the loadtest two-tier assertion pattern) is adapted from other prior
+codebases in this shared portfolio repository (03-patient-vitals,
+06-offshore-wind-farm, 10-wildfire-forest-monitoring,
 11-water-treatment-utility, 15-data-center-environmental-monitoring,
-18-elevator-escalator-fleet-monitoring, 22-smart-waste-management), not a
-prior/external coursework project. Every line of application code, the
+18-elevator-escalator-fleet-monitoring, 22-smart-waste-management), not this
+student's own earlier work -- several of those belong to the portfolio's
+other individually-attributed students (15 to Nithin, X25125338; 22 to
+Gundeti Sachin Reddy, X23432721), the rest to the main portfolio owner.
+Every line of application code, the
 domain logic (ski-resort sensor profiles, the four alert thresholds, the
 avalanche risk-level derivation), and the entire dashboard (icy-blue/white
 alpine theme, risk-level gauge, per-slope reading panels, trend charts) are
@@ -359,9 +370,9 @@ Third-party open-source components used as standard libraries/tools:
   - AWS SDK for JavaScript v3 (@aws-sdk/client-sqs, client-dynamodb,
     lib-dynamodb, client-lambda) - https://github.com/aws/aws-sdk-js-v3
   - Chart.js (dashboard trend charts, vendored at
-    backend/dashboard/static/vendor/, copied unmodified from this
-    student's own 11-water-treatment-utility project) -
-    https://www.chartjs.org
+    backend/dashboard/static/vendor/, copied unmodified from the
+    portfolio's 11-water-treatment-utility project, not this student's
+    own earlier work) - https://www.chartjs.org
   - LocalStack (local AWS emulation for SQS/DynamoDB/Lambda) -
     https://www.localstack.cloud
   - Node.js built-in test runner (node:test, node:assert/strict) -- no
@@ -394,3 +405,136 @@ server-side and returned as part of GET /api/slopes and GET
 /api/slopes/:slopeId; the frontend only maps that string onto a 0-3 index
 for the <meter value> and a CSS colour class for the text label -- it does
 not re-derive risk from raw thresholds itself.
+
+REAL AWS DEPLOYMENT
+--------------------
+This project has also been deployed to a real AWS Academy Learner Lab
+account (Ebin Joseph's own, X25142224, account 596691181085), not just run
+against LocalStack. Five real defects were found and fixed as part of that
+deployment, none of which the LocalStack-backed test suite above had
+caught:
+
+1. DynamoDB Scan-pagination undercount. pipelineStatus.js's
+   countTableItems() issued a single Select: "COUNT" Scan call. Scan only
+   counts the page it actually reads -- roughly 1MB of scanned data -- and
+   signals there is more via LastEvaluatedKey; a caller that never follows
+   it under-reports once the table outgrows one page, with nothing to flag
+   the shortfall. Fixed with scanCountPages(), a recursive async generator
+   that yield*-delegates into itself for each LastEvaluatedKey page, summed
+   by countTableItems() via a for-await loop -- no while or do-while loop
+   anywhere in the file. Covered by a new test asserting a four-page fake
+   scan (400, 400, 400, 87 items) sums to exactly 1287, not just the first
+   page's 400.
+
+2. Missing SQS batching. fog/app.js's flushOnce() sent one
+   SendMessageCommand per closed (sensor_type, site_id) group in a loop --
+   correct but wasteful whenever more than one group closes in the same
+   flush window, the normal case across two slopes and five sensor types.
+   Fixed with publisher.publishBatch(), which chunks a whole window's
+   messages at SendMessageBatch's ten-entry limit; flushOnce() now calls it
+   once per window instead of looping publish(). Covered by a new test
+   asserting a 23-message window batches into calls of size ten, ten, and
+   three, not twenty-three individual sends.
+
+3. Credential-handling risk in deploy_lambda.sh. This LocalStack-only
+   deploy script unconditionally hardcoded `AWS_ACCESS_KEY_ID=test` /
+   `AWS_SECRET_ACCESS_KEY=test`, regardless of which endpoint it was
+   pointed at, which would have clobbered real credentials if ever run
+   against a live account by mistake. Not exercised in the real deployment
+   (both Lambdas were created directly via the AWS CLI, bypassing this
+   script entirely) but documented in the script with a comment so a
+   future reader does not assume it is safe to run against a live account.
+
+4. Wrong credential-gating variable, found live during deployment
+   verification itself, not by static reading. awsClients.js,
+   backend/processor/handler.js, and fog/publisher.js all conditionally
+   built explicit `credentials: {accessKeyId, secretAccessKey}` whenever
+   `AWS_ACCESS_KEY_ID` was present in the environment -- correct for
+   LocalStack, but AWS Lambda always injects that exact variable itself to
+   carry its own execution role's temporary credentials. The real
+   ska-processor and ska-dashboard-api Lambdas were therefore always
+   hitting this branch, rebuilding an *incomplete* credential object
+   missing `sessionToken`, and every DynamoDB/SQS/Lambda call failed with
+   `UnrecognizedClientException: The security token included in the
+   request is invalid.` -- confirmed directly in CloudWatch logs, and in
+   `/api/health` reporting queue/lambda both false. Fixed by gating on
+   `AWS_ENDPOINT_URL` instead (true only for the LocalStack profile, never
+   set by Lambda or on EC2); left unset, the SDK's default provider chain
+   correctly resolves either Lambda's full injected credential triple or
+   EC2's instance-metadata role. Confirmed fixed by redeploying both
+   Lambdas and rechecking `/api/health`: all four fields true within
+   seconds, and the ~160-message SQS backlog that had built up during the
+   outage drained completely once reprocessed.
+
+5. Missing CORS header, also found live, not by static reading.
+   lambdaHandler.js's responses carried no `Access-Control-Allow-Origin`
+   header, so the S3-hosted frontend's cross-origin fetch() calls were
+   silently blocked by the browser -- the page loaded with zero console
+   errors and zero failed network requests logged, because dashboard.js's
+   tick() swallows fetch failures into a bare retry with no logging, and a
+   CORS-blocked response does not surface as a network-tab failure either.
+   Caught only by loading the deployed page in an actual browser and
+   seeing every panel stay empty despite curl confirming the API itself
+   returned real data. Fixed by adding `Access-Control-Allow-Origin: *` to
+   every response lambdaHandler.js returns (this API serves aggregated,
+   non-personal sensor data with no auth layer by design, so a public
+   origin is consistent with Section II-F's security posture). Covered by
+   a new assertion in the existing 200-response test.
+
+The dashboard's local com.sun.net.httpserver-equivalent (server.js, a plain
+Node http server) is not reachable behind API Gateway, so
+backend/dashboard/lambdaHandler.js answers the real deployment's API
+Gateway REST API instead. Its dispatch is a template-segment matcher array
+(ROUTES, each entry a plain "/api/..." string with ":name" placeholder
+segments), walked by matchTemplate() and findRoute() -- the 6th distinct
+dashboard-Lambda dispatch shape in this portfolio, after Nithin's ordered
+regex-list scan, Sachin's trie-walk router, Chaitanya's Mangum-wrapped
+FastAPI native routes, Gopi's flat dict[(method,path)] lookup, and
+Hrishikesh's Java switch expression. It reuses the same readingsStore.js /
+pipelineStatus.js / thresholdsProxy.js logic server.js calls, wrapped in its
+own route functions that return a plain {status, body} instead of writing
+to a Node http.ServerResponse. Covered by 13 new tests
+(lambdaHandler.test.js): template matching, route lookup, and end-to-end
+handler behaviour with injected fake AWS clients.
+
+The static frontend's deploy-time API base uses a 5th distinct mechanism
+across this portfolio's reassigned projects: an inline JSON data island,
+`<script id="api-config" type="application/json">{"apiBase": ""}</script>`
+in index.html, sed-replaced at S3 upload time with the real API Gateway
+invoke URL and read once by dashboard.js via
+`JSON.parse(document.getElementById("api-config").textContent).apiBase` --
+not a <meta> tag (Nithin), a separate runtime-config.js file (Chaitanya), a
+%%API_BASE%% token substituted inside the JS source itself (Gopi), or a
+runtime fetch() of a separate static/api-config.json resource
+(Hrishikesh).
+
+infra/docker-compose.aws.yml runs only the fog gateway and the ten sensor
+containers against the real account (port 8000 published, no localstack
+service, no AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY set); both Lambda
+functions are created directly via the AWS CLI, bypassing
+backend/processor/deploy_lambda.sh entirely (that script is documented as
+LocalStack-only tooling and was never exercised against the real account).
+
+LIVE RESOURCES (account 596691181085, us-east-1): DynamoDB table
+ska-readings, SQS queue ska-slope-agg, Lambda ska-processor (SQS-triggered
+ingestion) and Lambda ska-dashboard-api (behind API Gateway REST API
+se2853uk5d), EC2 instance i-0fddea02b8aafbc11 (tagged ska-fog-host, runs the
+fog node + ten sensor containers, security group sg-04856f639d9810d0d
+allows only inbound TCP 8000, no SSH -- administered via SSM only), Elastic
+IP 54.81.144.80 (allocation eipalloc-0dcc72698336c0dfc, associated with
+that instance), S3 bucket ska-frontend-596691181085 (static dashboard
+frontend, public read-only, static website hosting enabled) and S3 staging
+bucket ska-deploy-596691181085. All are prefixed ska-. The dashboard
+Lambda's FOG_HEALTH_URL/FOG_THRESHOLDS_URL env vars point at this Elastic
+IP; if it's ever released and reallocated, they need updating.
+
+LIVE URLS: dashboard at
+https://ska-frontend-596691181085.s3.us-east-1.amazonaws.com/index.html,
+its API at https://se2853uk5d.execute-api.us-east-1.amazonaws.com/prod.
+Independently verified end-to-end in a real browser after the credential
+and CORS fixes above: /api/health reports all four fields true with
+freshest_age_seconds under 1 second, DynamoDB item count climbed past 500
+within minutes of the stack coming up, and the dashboard renders live,
+changing sensor data, a correctly firing lift_wind_halt alert banner, and
+both slope risk gauges, with zero console errors and zero failed static
+asset requests.

@@ -41,10 +41,26 @@ async function readQueueCounters(sqs, queueName) {
   }
 }
 
+// Select:"COUNT" only counts one ~1MB page; must follow LastEvaluatedKey or large tables undercount.
+async function* scanCountPages(doc, tableName, startKey) {
+  const resp = await doc.send(new ScanCommand({
+    TableName: tableName,
+    Select: "COUNT",
+    ExclusiveStartKey: startKey,
+  }));
+  yield resp.Count;
+  if (resp.LastEvaluatedKey) {
+    yield* scanCountPages(doc, tableName, resp.LastEvaluatedKey);
+  }
+}
+
 async function countTableItems(doc, tableName) {
   try {
-    const resp = await doc.send(new ScanCommand({ TableName: tableName, Select: "COUNT" }));
-    return resp.Count;
+    let total = 0;
+    for await (const pageCount of scanCountPages(doc, tableName)) {
+      total += pageCount;
+    }
+    return total;
   } catch {
     return null;
   }

@@ -1,0 +1,114 @@
+name: ska-aws
+
+# No AWS creds set here: buildRealClient() leaves them unset so the SDK's default chain picks up this EC2's LabRole.
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  fog:
+    build:
+      context: ../fog
+    ports:
+      - "8000:8000"
+    environment:
+      AWS_REGION: us-east-1
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: ska-slope-agg
+    restart: unless-stopped
+
+  sensor-snowpack-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: snowpack_depth_cm
+      SITE_ID: slope-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  sensor-snowpack-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: snowpack_depth_cm
+      SITE_ID: slope-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-snowtemp-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: snow_temp_c
+      SITE_ID: slope-a
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-snowtemp-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: snow_temp_c
+      SITE_ID: slope-b
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  sensor-wind-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: wind_speed_kmh
+      SITE_ID: slope-a
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "6"
+
+  sensor-wind-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: wind_speed_kmh
+      SITE_ID: slope-b
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "5"
+
+  sensor-seismic-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: seismic_vibration_mg
+      SITE_ID: slope-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "7"
+
+  sensor-seismic-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: seismic_vibration_mg
+      SITE_ID: slope-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "6"
+
+  sensor-lift-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: lift_chair_count
+      SITE_ID: slope-a
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-lift-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: lift_chair_count
+      SITE_ID: slope-b
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "8"

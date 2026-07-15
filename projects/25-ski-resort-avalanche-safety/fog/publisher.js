@@ -1,6 +1,6 @@
 "use strict";
 
-const { SQSClient, GetQueueUrlCommand, SendMessageCommand } = require("@aws-sdk/client-sqs");
+const { SQSClient, GetQueueUrlCommand, SendMessageCommand, SendMessageBatchCommand } = require("@aws-sdk/client-sqs");
 
 // An ES6 Proxy whose get trap lazily constructs and caches the SQSClient on first non-control property access -- the 7th distinct publisher shape among this portfolio's Node fog services.
 const target = { client: null };
@@ -10,20 +10,23 @@ let configured = false;
 let queueUrlPromise = null;
 let resolvedQueueUrl = null;
 
+const BATCH_LIMIT = 10;
+
+// Gated on config.endpoint (LocalStack only), not AWS_ACCESS_KEY_ID: Lambda
+// injects that var for its own execution-role credentials, which would break
+// if rebuilt here without a session token -- see awsClients.js/handler.js.
 function buildRealClient() {
-  return new SQSClient({
-    endpoint: config.endpoint,
-    region: config.region,
-    credentials: { accessKeyId: "test", secretAccessKey: "test" },
-  });
+  const clientConfig = { endpoint: config.endpoint, region: config.region };
+  if (config.endpoint) {
+    clientConfig.credentials = {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID || "test",
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "test",
+    };
+  }
+  return new SQSClient(clientConfig);
 }
 
-// Shared by the get trap below and publish(): builds the real client (via
-// buildRealClient) the first time it is actually needed, unless useClient()
-// already injected one directly onto target.client. configure() deliberately
-// nulls target.client out again (to pick up new endpoint/region on the next
-// access), so "configured but not yet built" and "never configured at all"
-// are two different states -- only the `configured` flag distinguishes them.
+// configure() nulls target.client so the next access rebuilds it with the new endpoint/region.
 function ensureClient() {
   if (!target.client) target.client = buildRealClient();
   return target.client;
@@ -58,9 +61,23 @@ async function publish(queueName, payload, retries, delayMs) {
   await ensureClient().send(new SendMessageCommand({ QueueUrl: queueUrl, MessageBody: JSON.stringify(payload) }));
 }
 
-// Control methods intercepted directly by the get trap before any lazy
-// client construction happens, so configuring/resetting the publisher never
-// forces a client to be built ahead of actual use.
+// Chunks at 10 entries per call because that's SQS's SendMessageBatch limit.
+async function publishBatch(queueName, payloads, retries, delayMs) {
+  if (!configured) throw new Error("publisher not configured -- call configure() or useClient() first");
+  if (payloads.length === 0) return;
+  const queueUrl = await resolveQueueUrl(queueName, retries, delayMs);
+  const client = ensureClient();
+  for (let offset = 0; offset < payloads.length; offset += BATCH_LIMIT) {
+    const chunk = payloads.slice(offset, offset + BATCH_LIMIT);
+    const entries = chunk.map((payload, i) => ({
+      Id: String(offset + i),
+      MessageBody: JSON.stringify(payload),
+    }));
+    await client.send(new SendMessageBatchCommand({ QueueUrl: queueUrl, Entries: entries }));
+  }
+}
+
+// Checked before lazy client construction so configure/reset never forces a client to be built.
 const CONTROL = {
   configure(endpoint, region) {
     config.endpoint = endpoint;
@@ -71,8 +88,7 @@ const CONTROL = {
     resolvedQueueUrl = null;
     return proxyPublisher;
   },
-  // Test seam: inject a hand-written fake client ({ send: async (cmd) => ... })
-  // instead of a real SQSClient, still exercised through the same lazy trap.
+  // Test seam: injects a fake client instead of a real SQSClient.
   useClient(client) {
     target.client = client;
     configured = true;
@@ -87,15 +103,14 @@ const CONTROL = {
     resolvedQueueUrl = null;
   },
   publish,
+  publishBatch,
 };
 
 const proxyPublisher = new Proxy(target, {
   get(t, prop) {
     if (prop === "queueUrl") return resolvedQueueUrl;
     if (Object.prototype.hasOwnProperty.call(CONTROL, prop)) return CONTROL[prop];
-    // Lazy construction: the first property read that reaches this point
-    // (e.g. `.send`) builds and caches the real client via ensureClient() if
-    // nothing has configured or injected one yet.
+    // Lazy construction: first property read here builds and caches the real client.
     const client = ensureClient();
     if (prop === "send") return (...args) => client.send(...args);
     return client[prop];

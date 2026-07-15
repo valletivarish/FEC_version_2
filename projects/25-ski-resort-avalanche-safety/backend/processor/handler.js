@@ -7,13 +7,16 @@ const { toItem } = require("./transform");
 const TABLE_NAME = process.env.TABLE_NAME || "ska-readings";
 
 let client;
+// Gating on AWS_ENDPOINT_URL, not AWS_ACCESS_KEY_ID: Lambda always injects the
+// latter for its own execution-role credentials (without a session token if
+// built here), so keying off it broke real deployments with UnrecognizedClientException.
 function documentClient() {
   if (client) return client;
   const config = { region: process.env.AWS_REGION || "eu-west-1" };
-  if (process.env.AWS_ENDPOINT_URL) config.endpoint = process.env.AWS_ENDPOINT_URL;
-  if (process.env.AWS_ACCESS_KEY_ID) {
+  if (process.env.AWS_ENDPOINT_URL) {
+    config.endpoint = process.env.AWS_ENDPOINT_URL;
     config.credentials = {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID || "test",
       secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "test",
     };
   }

@@ -93,6 +93,39 @@ test("configure() clears any previously cached client so the next access rebuild
   assert.equal(typeof publisher.send, "function");
 });
 
+test("publishBatch chunks a 23-message window into batches of ten, ten, and three", async () => {
+  const sent = [];
+  const client = {
+    send: async (command) => {
+      if (command.constructor.name === "GetQueueUrlCommand") return { QueueUrl: "http://q/ska-slope-agg" };
+      sent.push(command);
+      return {};
+    },
+  };
+  publisher.useClient(client);
+  const payloads = Array.from({ length: 23 }, (_, i) => ({ i }));
+  await publisher.publishBatch("ska-slope-agg", payloads, 3, 0);
+  assert.deepEqual(sent.map((c) => c.input.Entries.length), [10, 10, 3]);
+  assert.equal(
+    sent.flatMap((c) => c.input.Entries).length,
+    23,
+    "every payload must be sent exactly once across all batches",
+  );
+});
+
+test("publishBatch does nothing and never looks up the queue url for an empty window", async () => {
+  let lookups = 0;
+  const client = {
+    send: async (command) => {
+      if (command.constructor.name === "GetQueueUrlCommand") lookups += 1;
+      return { QueueUrl: "http://q/x" };
+    },
+  };
+  publisher.useClient(client);
+  await publisher.publishBatch("ska-slope-agg", [], 3, 0);
+  assert.equal(lookups, 0);
+});
+
 test("concurrent publishes for the same queue share one in-flight lookup", async () => {
   let calls = 0;
   const client = {

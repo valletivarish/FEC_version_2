@@ -98,13 +98,12 @@ async function flushOnce(station) {
   const windowEnd = new Date().toISOString();
   const windowStart = new Date(Date.now() - WINDOW_SECONDS * 1000).toISOString();
   const messages = drainWindow(station, windowStart, windowEnd);
-  for (const message of messages) {
-    await publisher.publish(QUEUE_NAME, message);
-  }
+  // Batches all closed groups into one SendMessageBatch instead of one send per group.
+  await publisher.publishBatch(QUEUE_NAME, messages);
   return messages;
 }
 
-// HTTP routing dispatches on a switch(true) over a composed `${method} ${pathname}` key -- the one sibling among this portfolio's Node fog services that avoids Express, if/else chains, tuple tables, or a prefix trie.
+// switch(true) dispatch keeps this fog service's routing distinct from its portfolio siblings.
 function buildHandler(station) {
   return async function handler(req, res) {
     try {
@@ -125,9 +124,7 @@ function buildHandler(station) {
           return sendJson(res, 404, { error: "not found" });
       }
     } catch (err) {
-      // Anything reaching this outer boundary is a genuine unexpected
-      // failure (client input problems are already turned into a 400 inside
-      // handleIngest), so it is reported as a 500.
+      // Unexpected failures only -- input errors already return 400 in handleIngest.
       sendJson(res, 500, { error: err.message || "internal error" });
     }
   };
