@@ -2,6 +2,21 @@
 
 NCI H9FECC (Fog and Edge Computing) CA coursework portfolio. Brief: `FEC Project Descript.md`.
 
+## Live URLs quick reference
+
+All dashboard URLs re-checked live on 2026-07-15 (HTTP status of the index page). Full resource IDs and guardrails for each are in the per-project sections below.
+
+| Project | Student | Dashboard | API | Status |
+|---|---|---|---|---|
+| 22 smart-waste-management | Gundeti Sachin Reddy | `https://swm-frontend-548539235319.s3.us-east-1.amazonaws.com/index.html` | `https://f721o30kd5.execute-api.us-east-1.amazonaws.com` | 200 OK |
+| 15 data-center-environmental-monitoring | Nithin | `https://dce-frontend-373241496019.s3.us-east-1.amazonaws.com/index.html` | `https://nke958yhid.execute-api.us-east-1.amazonaws.com/prod` | 200 OK |
+| 01 smart-agriculture | Chaitanya | `https://fec-agri-frontend-733939924597.s3.us-east-1.amazonaws.com/index.html` | `https://fjdi0s1wed.execute-api.us-east-1.amazonaws.com` | **BROKEN as of 2026-07-15: bucket returns `NoSuchBucket`** — likely the same "Learner Lab issued a different account" pattern seen on project 25, not yet investigated or redeployed since this is Chaitanya's own account and needs her fresh credentials |
+| 23 marine-vessel-monitoring | Gopi Krishnan | `http://mvs-frontend-573065484152.s3-website-us-east-1.amazonaws.com/` | `https://3crovrzml6.execute-api.us-east-1.amazonaws.com/prod` | 200 OK |
+| 24 wildlife-conservation-monitoring | Hrishikesh Sajeev | `https://wcm-frontend-670139527491.s3.us-east-1.amazonaws.com/index.html` | `https://oz61bjskyj.execute-api.us-east-1.amazonaws.com/prod` | 200 OK |
+| 25 ski-resort-avalanche-safety (current) | Ebin Joseph | `https://ska-frontend-475393590440.s3.us-east-1.amazonaws.com/index.html` | `https://fl6fe76mlf.execute-api.us-east-1.amazonaws.com/prod` | 200 OK |
+| 25 ski-resort-avalanche-safety (orphaned original) | Ebin Joseph | `https://ska-frontend-596691181085.s3.us-east-1.amazonaws.com/index.html` | `https://se2853uk5d.execute-api.us-east-1.amazonaws.com/prod` | orphaned, do not use |
+| 19 smart-mining-safety | Jaipal Kasireddy | `https://msm-frontend-639210843493.s3.us-east-1.amazonaws.com/index.html` | `https://abkr6m4y99.execute-api.us-east-1.amazonaws.com/prod` | 200 OK |
+
 ## AWS deployment guardrail
 
 Project 22 (smart-waste-management) is deployed to a real AWS account:
