@@ -28,10 +28,14 @@ public class SafetyHandler implements RequestHandler<SQSEvent, Map<String, Objec
         if (client == null) {
             String endpoint = System.getenv("AWS_ENDPOINT_URL");
             String region = System.getenv().getOrDefault("AWS_REGION", "eu-west-1");
-            var builder = DynamoDbClient.builder()
-                .region(Region.of(region))
-                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
-            if (endpoint != null) builder.endpointOverride(URI.create(endpoint));
+            var builder = DynamoDbClient.builder().region(Region.of(region));
+            // Gated on endpoint, not any Lambda-injected var: Lambda always
+            // supplies its own execution-role credentials, so a static
+            // test/test pair here unconditionally would break real deploys.
+            if (endpoint != null) {
+                builder.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
+                builder.endpointOverride(URI.create(endpoint));
+            }
             client = builder.build();
         }
         return client;

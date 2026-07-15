@@ -58,10 +58,12 @@ public class MineFogNode {
 
     void runWindowCycle() {
         try {
+            List<String> payloads = new ArrayList<>();
             for (WindowAggregate window : flushWindow()) {
                 List<String> alerts = HazardRules.assess(window.sensorType(), window);
-                publisher.emit(PayloadJson.toJson(window, alerts)).join();
+                payloads.add(PayloadJson.toJson(window, alerts));
             }
+            publisher.emitBatch(payloads).join();
         } catch (Exception exc) {
             System.out.println("window flush failed: " + exc.getMessage());
         }

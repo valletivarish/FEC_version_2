@@ -28,6 +28,15 @@ const AXIS_RANGE = {
 const TREND_COLORS = { "shaft-a": "#b87333", "shaft-b": "#7f9779" };
 let methaneChart = null;
 
+// Read once from the body's data-api-base attribute, sed-substituted into
+// index.html at S3 upload time. Falls back to same-origin ("") for local
+// dev, where index.html is served straight off disk with __API_BASE__
+// left untouched.
+const API_BASE = (() => {
+  const raw = document.body.dataset.apiBase || "";
+  return raw.startsWith("__API_BASE__") ? "" : raw.replace(/\/$/, "");
+})();
+
 function metricLabel(sensorType) {
   return METRIC_LABELS[sensorType] || sensorType;
 }
@@ -112,7 +121,7 @@ function renderBackendStats(backendStats) {
 }
 
 async function fetchTrend(sensorType) {
-  const res = await fetch(`/api/readings?sensor_type=${sensorType}&limit=20`);
+  const res = await fetch(`${API_BASE}/api/readings?sensor_type=${sensorType}&limit=20`);
   return res.json();
 }
 
@@ -161,9 +170,9 @@ function renderMethaneTrend(items) {
 async function tick() {
   try {
     const [shaftsResp, health, backendStats] = await Promise.all([
-      fetch("/api/shafts").then((r) => r.json()),
-      fetch("/api/health").then((r) => r.json()),
-      fetch("/api/backend-stats").then((r) => r.json()),
+      fetch(`${API_BASE}/api/shafts`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/health`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/backend-stats`).then((r) => r.json()),
     ]);
 
     const shafts = shaftsResp.shafts || [];

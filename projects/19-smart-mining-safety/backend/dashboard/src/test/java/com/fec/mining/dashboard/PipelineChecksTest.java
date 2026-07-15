@@ -1,8 +1,11 @@
 package com.fec.mining.dashboard;
 
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 import software.amazon.awssdk.services.lambda.model.State;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -55,5 +58,18 @@ class PipelineChecksTest {
     void itemCountReturnsTheScanCount() {
         FakeDynamoDbClient dynamo = new FakeDynamoDbClient(Map.of(), 42);
         assertEquals(42, new PipelineChecks().itemCount(dynamo, "msm-readings"));
+    }
+
+    @Test
+    void itemCountSumsEveryPageInsteadOfStoppingAtTheFirst() {
+        AttributeValue key = AttributeValue.builder().s("shaft-a").build();
+        List<ScanResponse> pages = List.of(
+            ScanResponse.builder().count(620).lastEvaluatedKey(Map.of("site_id", key)).build(),
+            ScanResponse.builder().count(275).lastEvaluatedKey(Map.of("site_id", key)).build(),
+            ScanResponse.builder().count(190).lastEvaluatedKey(Map.of("site_id", key)).build(),
+            ScanResponse.builder().count(88).build());
+        FakeDynamoDbClient dynamo = new FakeDynamoDbClient(pages);
+        assertEquals(1173, new PipelineChecks().itemCount(dynamo, "msm-readings"),
+            "all four pages must be summed, not just the first page's 620");
     }
 }

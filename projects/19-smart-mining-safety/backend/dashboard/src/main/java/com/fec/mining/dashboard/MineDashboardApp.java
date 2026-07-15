@@ -68,10 +68,15 @@ public class MineDashboardApp {
         return lambda;
     }
 
+    // Gated on ENDPOINT, not on any Lambda-injected env var: Lambda always
+    // supplies its own execution-role credentials at runtime, so forcing a
+    // static test/test pair here unconditionally would break real deployments.
     private static <B extends software.amazon.awssdk.awscore.client.builder.AwsClientBuilder<B, T>, T> T awsClient(B builder) {
-        builder.region(Region.of(REGION))
-            .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
-        if (ENDPOINT != null) builder.endpointOverride(URI.create(ENDPOINT));
+        builder.region(Region.of(REGION));
+        if (ENDPOINT != null) {
+            builder.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
+            builder.endpointOverride(URI.create(ENDPOINT));
+        }
         return builder.build();
     }
 

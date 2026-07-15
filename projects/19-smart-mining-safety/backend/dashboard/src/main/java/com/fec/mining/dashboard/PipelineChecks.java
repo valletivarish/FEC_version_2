@@ -1,6 +1,7 @@
 package com.fec.mining.dashboard;
 
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 import software.amazon.awssdk.services.dynamodb.model.Select;
 import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.lambda.model.GetFunctionRequest;
@@ -10,6 +11,7 @@ import software.amazon.awssdk.services.sqs.model.QueueAttributeName;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.stream.Stream;
 
 /** Health/queue-depth checks against the real AWS SDK v2 client interfaces. */
 class PipelineChecks {
@@ -49,7 +51,27 @@ class PipelineChecks {
         }
     }
 
+    // Select.COUNT only counts the page actually scanned (~1MB); a table
+    // past that needs LastEvaluatedKey followed across pages or the count
+    // silently undercounts. Stream.iterate() walks pages functionally --
+    // no while/do-while loop, no recursion, not the SDK's own paginator.
+    // next() returns null once a page has no LastEvaluatedKey, and that
+    // null is the sentinel Objects::nonNull stops on -- the seed itself is
+    // still always yielded, unlike gating hasNext on the seed's own key.
     int itemCount(DynamoDbClient dynamo, String tableName) {
-        return dynamo.scan(b -> b.tableName(tableName).select(Select.COUNT)).count();
+        ScanResponse first = dynamo.scan(b -> b.tableName(tableName).select(Select.COUNT));
+        return Stream.iterate(
+                first,
+                java.util.Objects::nonNull,
+                page -> hasMorePages(page)
+                    ? dynamo.scan(b -> b.tableName(tableName).select(Select.COUNT)
+                        .exclusiveStartKey(page.lastEvaluatedKey()))
+                    : null)
+            .mapToInt(ScanResponse::count)
+            .sum();
+    }
+
+    private static boolean hasMorePages(ScanResponse page) {
+        return page.lastEvaluatedKey() != null && !page.lastEvaluatedKey().isEmpty();
     }
 }

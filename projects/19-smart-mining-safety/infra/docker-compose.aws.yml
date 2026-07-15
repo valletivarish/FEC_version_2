@@ -1,0 +1,120 @@
+name: msm-aws
+
+# Real-AWS profile: only the fog gateway and the ten sensor containers run
+# here. No localstack service, no AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY --
+# SafetyPublisher and every other AWS client leave credentials unset
+# whenever no endpoint override is given, so the SDK's default provider
+# chain resolves this EC2 instance's attached LabRole automatically. Both
+# Lambda functions and the dashboard are deployed separately (Lambda +
+# API Gateway + S3), not as containers here.
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  fog:
+    build:
+      context: ../fog
+    ports:
+      - "8000:8000"
+    environment:
+      AWS_REGION: us-east-1
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: msm-shaft-agg
+    restart: unless-stopped
+
+  sensor-methane-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: methane_ppm
+      SITE_ID: shaft-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  sensor-methane-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: methane_ppm
+      SITE_ID: shaft-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-co-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: co_ppm
+      SITE_ID: shaft-a
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-co-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: co_ppm
+      SITE_ID: shaft-b
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  sensor-dust-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: dust_concentration_mgm3
+      SITE_ID: shaft-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "12"
+
+  sensor-dust-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: dust_concentration_mgm3
+      SITE_ID: shaft-b
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "13"
+
+  sensor-vibration-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: ground_vibration_mms
+      SITE_ID: shaft-a
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "7"
+
+  sensor-vibration-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: ground_vibration_mms
+      SITE_ID: shaft-b
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "6"
+
+  sensor-temp-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: ambient_temp_c
+      SITE_ID: shaft-a
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "15"
+
+  sensor-temp-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: ambient_temp_c
+      SITE_ID: shaft-b
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "14"

@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 
+# LocalStack-only: hardcodes test/test creds; never point ENDPOINT at real AWS or it clobbers real credentials. Real deployment bypasses this script.
 ENDPOINT="${AWS_ENDPOINT_URL:-http://localstack:4566}"
 QUEUE_NAME="${SQS_QUEUE_NAME:-msm-shaft-agg}"
 FUNCTION_NAME="${LAMBDA_FUNCTION_NAME:-msm-processor}"

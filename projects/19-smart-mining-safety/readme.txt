@@ -2,6 +2,14 @@ Smart Mining Safety & Environmental Monitoring
 Fog and Edge Computing (H9FECC) - CA Project
 Implementation language: Java 17
 
+ATTRIBUTION
+------------
+This project is Jaipal Kasireddy's individual CA submission, Student ID
+X25156381, National College of Ireland. It shares this portfolio
+repository with several other students' independently attributed projects
+as a convenience; it is not part of the main portfolio owner's own
+submission.
+
 All commands below assume your working directory is this folder
 (projects/19-smart-mining-safety/), not the repo root.
 
@@ -96,15 +104,15 @@ RUN THE TESTS
 -------------
 Each Maven project has its own JUnit 5 test suite:
   cd sensors && mvn test                  (5 tests)
-  cd fog && mvn test                      (44 tests)
+  cd fog && mvn test                      (47 tests)
   cd backend/processor && mvn test        (8 tests)
-  cd backend/dashboard && mvn test        (21 tests)
+  cd backend/dashboard && mvn test        (30 tests)
 
 Or without local Maven/JDK:
   docker run --rm -v "$PWD/fog":/app -w /app maven:3.9-eclipse-temurin-17 mvn test
   (repeat for sensors/, backend/processor/, backend/dashboard/)
 
-All 78 tests pass. Notable coverage: MineFogNodeHttpTest and
+All 90 tests pass. Notable coverage: MineFogNodeHttpTest and
 GatewayRouterTest exercise /ingest and the router's 404-vs-405 distinction
 over a REAL com.sun.net.httpserver.HttpServer bound to an ephemeral port
 (not a unit test of validation logic in isolation); ThresholdsProxyTest
@@ -172,9 +180,13 @@ REUSE / THIRD-PARTY COMPONENTS
 The overall pipeline SHAPE (sensors -> fog windowing/aggregation/alerting
 -> queue -> FaaS processor -> datastore -> dashboard, sort-key
 disambiguation for multi-site records, a health/thresholds-proxy pattern on
-the dashboard) follows the same design this student established across
-projects 01 through 18 of this same CA submission. The CODE ITSELF is an
-independent implementation. Domain-specific code (sensor types, thresholds,
+the dashboard) follows a design pattern established across other prior
+codebases in this shared portfolio repository (projects 01 through 18),
+not this student's own earlier work -- project 01 belongs to Kondragunta
+Lakshmi Chaitanya (X25171216) and project 15 to Nithin (X25125338), two
+other individually-attributed students; the remainder belong to the main
+portfolio owner. The CODE ITSELF is an independent implementation.
+Domain-specific code (sensor types, thresholds,
 the SAFE/CAUTION/DANGER classification, and the entire dashboard UI) is
 original to this project. This is the 7th Java project in the portfolio;
 the five axes below were deliberately chosen to be a genuinely distinct
@@ -423,7 +435,124 @@ SAFE/CAUTION/DANGER classification and its 75%-of-limit CAUTION rule) and
 the entire dashboard UI (stone/graphite/copper palette, status-tile layout,
 reading rows) are original to this project.
 
-PHASE 2 (NOT IN SCOPE)
------------------------
-Real AWS/Azure deployment is a deliberately deferred Phase 2 item for the
-whole portfolio -- this project runs entirely on Docker + LocalStack.
+REAL AWS DEPLOYMENT
+--------------------
+This project has also been deployed to a real AWS Academy Learner Lab
+account (Jaipal Kasireddy's own, X25156381, account 639210843493), not
+just run against LocalStack. A code audit performed before deployment
+found and fixed four defects, all before anything went live:
+
+1. DynamoDB Scan-pagination undercount. PipelineChecks.itemCount() issued
+   a single Select.COUNT Scan call. Scan only counts the page it actually
+   reads -- roughly 1MB of scanned data -- and signals there is more via
+   LastEvaluatedKey; a caller that never follows it under-reports once the
+   table outgrows one page, with nothing to flag the shortfall. Fixed with
+   Stream.iterate(first, Objects::nonNull, next), the SDK's own
+   scanPaginator() deliberately not used so this differs from every other
+   Java project's fix -- next() returns null once a page has no
+   LastEvaluatedKey, and Objects::nonNull is the sentinel hasNext stops on,
+   so the seed page itself is still always summed (an earlier draft that
+   gated hasNext directly on "does this page have a next page" silently
+   dropped the seed and undercounted every single-page table by its whole
+   count). Covered by a new test asserting a four-page fake scan (620, 275,
+   190, 88 items) sums to exactly 1173, not just the first page's 620.
+
+2. Missing SQS batching. MineFogNode.runWindowCycle() sent one
+   SendMessageRequest per closed (sensor_type, site_id) group in a loop --
+   correct but wasteful whenever more than one group closes in the same
+   flush window, the normal case across two shafts and five sensor types.
+   Fixed with SafetyPublisher.emitBatch(), which chunks a whole window's
+   messages at SendMessageBatch's ten-entry limit; runWindowCycle() now
+   calls it once per window instead of looping emit(). Covered by a new
+   test asserting a 27-message window batches into calls of size ten, ten,
+   and seven, not twenty-seven individual sends.
+
+3. Hardcoded static credentials in all three AWS-facing classes --
+   MineDashboardApp.awsClient(), SafetyHandler.client(), and
+   SafetyPublisher's constructor -- each unconditionally built a
+   StaticCredentialsProvider with "test"/"test" regardless of endpoint,
+   the widest instance of this bug class found across every project in
+   this portfolio's reassignment pass. Harmless under LocalStack, but it
+   would have silently overridden the real Lambda execution-role and EC2
+   instance-profile credentials this deployment actually depends on. Fixed
+   by gating all three on `ENDPOINT != null` (true only for the
+   LocalStack profile) instead of building the static provider
+   unconditionally, matching the pattern already used correctly elsewhere
+   in this project.
+
+4. Credential-handling risk in backend/processor/deploy_lambda.sh. This
+   LocalStack-only deploy script defaults to the LocalStack endpoint and
+   hardcodes test/test credentials whenever AWS_ENDPOINT_URL is unset. Not
+   exercised in the real deployment (both Lambdas were built with `mvn
+   package -DskipTests` and created directly via the AWS CLI, bypassing
+   this script entirely) but documented in the script with a comment so a
+   future reader does not assume it is safe to run against a live account.
+
+Because the credential-gating fix (item 3) was made proactively during the
+audit rather than discovered live, the deployed Lambdas answered
+`/api/health` with all four fields true on the very first check -- no
+live-only outage-and-fix round was needed this time, unlike some of this
+portfolio's earlier reassigned projects.
+
+The dashboard's local com.sun.net.httpserver-equivalent
+(MineDashboardApp) is not reachable behind API Gateway, so
+backend/dashboard/src/main/java/.../MineDashboardLambda.java answers the
+real deployment's API Gateway REST API instead. Its dispatch is an
+enum-based route registry (Route, each constant carrying its own method,
+path, and RouteHandler functional-interface reference), found via a
+linear Route.find() scan -- the 7th distinct dashboard-Lambda dispatch
+shape in this portfolio, after Nithin's ordered regex-list scan, Sachin's
+trie-walk router, Chaitanya's Mangum-wrapped FastAPI native routes,
+Gopi's flat dict[(method,path)] lookup, Hrishikesh's Java switch
+expression, and Ebin's JS template-segment-matcher array. It reuses the
+same ShaftRepository / PipelineChecks / ThresholdsProxy classes
+MineDashboardApp calls, wrapped in Route handler lambdas that return a
+plain body object instead of writing to a
+com.sun.net.httpserver.HttpExchange. Every response carries
+Access-Control-Allow-Origin: * from the start, proactively avoiding the
+CORS-blocking bug an earlier reassigned project only caught by loading
+its dashboard in a real browser. Covered by 8 new tests
+(MineDashboardLambdaTest): each route, 404 for unmatched paths and wrong
+methods, trailing-slash normalization, CORS header presence, and the
+thresholds route degrading to 500 instead of throwing when the fog host
+is unreachable.
+
+The static frontend's deploy-time API base uses an 8th distinct mechanism
+across this portfolio's reassigned projects: a `data-api-base` attribute
+on index.html's <body> tag, sed-replaced at S3 upload time with the real
+API Gateway invoke URL and read once by dashboard.js via
+`document.body.dataset.apiBase` -- not a <meta> tag (Nithin), a separate
+runtime-config.js file (Chaitanya), a %%API_BASE%% token substituted
+inside the JS source itself (Gopi), a runtime fetch() of a separate
+static/api-config.json resource (Hrishikesh), or an inline JSON data
+island parsed via JSON.parse() (Ebin).
+
+infra/docker-compose.aws.yml runs only the fog gateway and the ten sensor
+containers against the real account (port 8000 published, no localstack
+service, no AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY set); both Lambda
+functions are created directly via the AWS CLI, bypassing
+backend/processor/deploy_lambda.sh entirely (that script is documented as
+LocalStack-only tooling and was never exercised against the real
+account).
+
+LIVE RESOURCES (account 639210843493, us-east-1): DynamoDB table
+msm-readings, SQS queue msm-shaft-agg, Lambda msm-processor
+(SQS-triggered ingestion) and Lambda msm-dashboard-api (behind API
+Gateway REST API abkr6m4y99), EC2 instance i-0375e6d48f131629c (tagged
+msm-fog-host, runs the fog node + ten sensor containers, security group
+sg-0ca1a43089cff9bd7 allows only inbound TCP 8000, no SSH -- administered
+via SSM only), Elastic IP 3.212.203.181 (allocation
+eipalloc-03210b0f17e97b25f, associated with that instance), S3 bucket
+msm-frontend-639210843493 (static dashboard frontend, public read-only,
+static website hosting enabled) and S3 staging bucket
+msm-deploy-639210843493. All are prefixed msm-. The dashboard Lambda's
+FOG_HEALTH_URL/FOG_THRESHOLDS_URL env vars point at this Elastic IP; if
+it is ever released and reallocated, they need updating.
+
+Live URLs: dashboard at
+https://msm-frontend-639210843493.s3.us-east-1.amazonaws.com/index.html,
+its API at https://abkr6m4y99.execute-api.us-east-1.amazonaws.com/prod.
+The dashboard and its API are fully serverless (S3 + Lambda + API
+Gateway) and do not depend on the EC2 instance being up; only
+/api/health's gateway field and fresh sensor data depend on the fog node
+and sensors running on EC2.
