@@ -17,6 +17,14 @@ const STALE_AFTER_SECONDS = 30;
 const sparklines = {};
 let selectedRowKey = null;
 
+// Read once from a <link rel="api-base"> tag's href, sed-substituted at S3 upload time.
+// Falls back to same-origin ("") for local dev, where the href is left as __API_BASE__.
+const API_BASE = (() => {
+  const link = document.querySelector('link[rel="api-base"]');
+  const raw = link ? link.getAttribute("href") : "";
+  return !raw || raw.includes("__API_BASE__") ? "" : raw.replace(/\/$/, "");
+})();
+
 function rowKey(row) {
   return `${row.sensor_type}::${row.site_id}`;
 }
@@ -183,9 +191,9 @@ function renderFooter(health, backendStats) {
 async function tick() {
   try {
     const [fleet, health, backendStats] = await Promise.all([
-      fetch("/api/fleet").then((r) => r.json()),
-      fetch("/api/health").then((r) => r.json()),
-      fetch("/api/backend-stats").then((r) => r.json()),
+      fetch(`${API_BASE}/api/fleet`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/health`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/backend-stats`).then((r) => r.json()),
     ]);
 
     const rows = fleet.rows || [];

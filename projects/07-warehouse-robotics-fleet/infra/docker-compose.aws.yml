@@ -1,0 +1,114 @@
+name: wrf-aws
+
+# No AWS creds set here: RelayPublisher leaves them unset so the SDK's default chain picks up this EC2's LabRole.
+
+x-robot: &robot
+  build:
+    context: ../sensors
+  environment: &robot-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  fog:
+    build:
+      context: ../fog
+    ports:
+      - "8000:8000"
+    environment:
+      AWS_REGION: us-east-1
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: wrf-fleet-agg
+    restart: unless-stopped
+
+  robot-a-battery:
+    <<: *robot
+    environment:
+      <<: *robot-env
+      SENSOR_TYPE: battery_level_pct
+      SITE_ID: zone-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  robot-a-payload:
+    <<: *robot
+    environment:
+      <<: *robot-env
+      SENSOR_TYPE: payload_kg
+      SITE_ID: zone-a
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "9"
+
+  robot-a-motor:
+    <<: *robot
+    environment:
+      <<: *robot-env
+      SENSOR_TYPE: motor_temp_c
+      SITE_ID: zone-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "10"
+
+  robot-a-drift:
+    <<: *robot
+    environment:
+      <<: *robot-env
+      SENSOR_TYPE: position_drift_cm
+      SITE_ID: zone-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  robot-a-queue:
+    <<: *robot
+    environment:
+      <<: *robot-env
+      SENSOR_TYPE: task_queue_depth
+      SITE_ID: zone-a
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  robot-b-battery:
+    <<: *robot
+    environment:
+      <<: *robot-env
+      SENSOR_TYPE: battery_level_pct
+      SITE_ID: zone-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  robot-b-payload:
+    <<: *robot
+    environment:
+      <<: *robot-env
+      SENSOR_TYPE: payload_kg
+      SITE_ID: zone-b
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  robot-b-motor:
+    <<: *robot
+    environment:
+      <<: *robot-env
+      SENSOR_TYPE: motor_temp_c
+      SITE_ID: zone-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "11"
+
+  robot-b-drift:
+    <<: *robot
+    environment:
+      <<: *robot-env
+      SENSOR_TYPE: position_drift_cm
+      SITE_ID: zone-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  robot-b-queue:
+    <<: *robot
+    environment:
+      <<: *robot-env
+      SENSOR_TYPE: task_queue_depth
+      SITE_ID: zone-b
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "12"

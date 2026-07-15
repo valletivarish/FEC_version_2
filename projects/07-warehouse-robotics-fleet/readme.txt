@@ -40,14 +40,14 @@ LAYOUT
                        sort_key) + FleetHandler.java (Lambda entry point)
                        + deploy_lambda.sh (packages the shaded JAR and
                        registers an SQS event source mapping)
-  backend/dashboard/  FleetDashboardApp.java + FleetRepository.java
-                       (DynamoDB queries, fleet-roster grouping) +
-                       PipelineChecks.java (health/queue-depth checks),
-                       serving a dark orange-and-black fleet-ops HUD:
-                       a roster table (one row per robot/metric, inline
-                       sparkline, LED indicator) as the primary view, and
-                       a detail panel below for the selected/most-critical
-                       robot showing all 5 metrics in full
+  backend/dashboard/  local HTTP server plus its own REST API, serving a
+                       dark orange-and-black fleet-ops HUD: a roster table
+                       (one row per robot/metric, inline sparkline, LED
+                       indicator) as the primary view, and a detail panel
+                       below for the selected/most-critical robot showing
+                       all 5 metrics in full. A separate Lambda entry point
+                       answers the same API behind API Gateway for the
+                       real AWS deployment.
   infra/              docker-compose stack, LocalStack bootstrap, pipeline
                        verification, load test, and dashboard screenshots
 
@@ -106,7 +106,7 @@ math, alert-rule evaluation (including exactly-at-limit boundary
 behaviour), fog ingest buffering and multi-zone isolation, DynamoDB
 pagination and SQS batching, record mapping, Lambda batch processing with
 partial-failure tallying, dashboard roster grouping, and the
-health/queue-depth checks -- 108 tests total.
+health/queue-depth checks, and the Lambda entry point's routing -- 116 tests total.
 
 LOAD TEST (SCALABILITY EVIDENCE)
 --------------------------------
