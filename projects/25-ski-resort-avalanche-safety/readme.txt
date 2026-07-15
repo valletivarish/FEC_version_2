@@ -423,8 +423,8 @@ caught:
    that yield*-delegates into itself for each LastEvaluatedKey page, summed
    by countTableItems() via a for-await loop -- no while or do-while loop
    anywhere in the file. Covered by a new test asserting a four-page fake
-   scan (400, 400, 400, 87 items) sums to exactly 1287, not just the first
-   page's 400.
+   scan (512, 340, 289, 156 items) sums to exactly 1297, not just the first
+   page's 512.
 
 2. Missing SQS batching. fog/app.js's flushOnce() sent one
    SendMessageCommand per closed (sensor_type, site_id) group in a loop --

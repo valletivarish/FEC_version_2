@@ -56,10 +56,10 @@ test("countTableItems returns the Scan COUNT result", async () => {
 
 test("countTableItems sums every page instead of stopping at the first", async () => {
   const pages = [
-    { Count: 400, LastEvaluatedKey: { site_id: "slope-a" } },
-    { Count: 400, LastEvaluatedKey: { site_id: "slope-b" } },
-    { Count: 400, LastEvaluatedKey: { site_id: "slope-c" } },
-    { Count: 87 },
+    { Count: 512, LastEvaluatedKey: { site_id: "slope-a" } },
+    { Count: 340, LastEvaluatedKey: { site_id: "slope-b" } },
+    { Count: 289, LastEvaluatedKey: { site_id: "slope-a" } },
+    { Count: 156 },
   ];
   let calls = 0;
   const doc = {
@@ -68,7 +68,7 @@ test("countTableItems sums every page instead of stopping at the first", async (
       return pages[calls++];
     },
   };
-  assert.equal(await countTableItems(doc, "ska-readings"), 1287);
+  assert.equal(await countTableItems(doc, "ska-readings"), 1297);
   assert.equal(calls, 4, "all four pages must be scanned, not just the first");
 });
 
