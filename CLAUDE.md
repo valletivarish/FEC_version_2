@@ -4,7 +4,7 @@ NCI H9FECC (Fog and Edge Computing) CA coursework portfolio. Brief: `FEC Project
 
 ## Live URLs quick reference
 
-All dashboard URLs re-checked live on 2026-07-15 (HTTP status of the index page). Full resource IDs and guardrails for each are in the per-project sections below.
+All dashboard URLs re-checked live on 2026-07-15 (HTTP status of the index page). Full resource IDs and guardrails for each are in the per-project sections below. A structured, single-table copy of name/student ID/account ID/email/live URLs also lives at `student_deployments.csv` in the repo root, for quick lookups without reading prose.
 
 | Project | Student | Dashboard | API | Status |
 |---|---|---|---|---|
