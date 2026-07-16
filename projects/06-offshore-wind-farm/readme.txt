@@ -1,6 +1,14 @@
 Offshore Wind Farm Monitoring Fog/Edge Pipeline
 Fog and Edge Computing (H9FECC) - CA Project
 
+ATTRIBUTION
+-----------
+This project (06-offshore-wind-farm) is the individual CA submission of
+Vishvaksen Machana, Student ID X25173421. It shares this portfolio
+repository with several other students' independently attributed projects
+as a convenience; it is not part of the main portfolio owner's own
+submission.
+
 All commands below assume your working directory is this folder
 (projects/06-offshore-wind-farm/), not the repo root.
 
@@ -132,16 +140,15 @@ REUSE / THIRD-PARTY COMPONENTS
 The overall pipeline architecture (SQS -> Lambda -> DynamoDB via LocalStack,
 the sort_key disambiguation scheme window_end#site_id, the dashboard
 health-check pattern, the dual-rate SAMPLE_INTERVAL/DISPATCH_INTERVAL
-sensor knobs) is adapted from this student's own prior projects earlier in
-this same CA submission (01-smart-agriculture, 03-patient-vitals), not a
-prior/external coursework project. Every line of application code, the
-domain logic (turbine sensor profiles, structural/mechanical thresholds),
-and the entire dashboard (deep ocean-blue maritime theme, farm-layout grid,
+sensor knobs) is a design pattern shared across this portfolio repository,
+not built entirely from scratch for this project. It belongs to the main
+portfolio owner and, in project 01's specific case, another individually
+attributed student -- Kondragunta Lakshmi Chaitanya, X25171216 -- not this
+student's own prior work. Every line of application code, the domain logic
+(turbine sensor profiles, structural/mechanical thresholds), and the
+entire dashboard (deep ocean-blue maritime theme, farm-layout grid,
 turbine nameplate tiles, power-output trend comparison) are original to
-this project. The internal module structure was deliberately written
-differently from 03-patient-vitals's Node.js code (see TECH STACK above)
-so the two same-language projects do not share recognisable source-level
-structure.
+this project.
 Third-party open-source components used as standard libraries/tools:
   - Express (fog edge gateway, backend/dashboard) - https://expressjs.com
   - AWS SDK for JavaScript v3 (@aws-sdk/client-sqs, client-dynamodb,

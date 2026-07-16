@@ -49,6 +49,25 @@ test("countTableItems returns the scan count", async () => {
   assert.equal(await countTableItems(doc, "table"), 17);
 });
 
+test("countTableItems follows LastEvaluatedKey and sums every page", async () => {
+  let call = 0;
+  const doc = fakeClient((command) => {
+    call += 1;
+    if (call === 1) {
+      assert.equal(command.input.ExclusiveStartKey, undefined);
+      return { Count: 100, LastEvaluatedKey: { pk: "a" } };
+    }
+    if (call === 2) {
+      assert.deepEqual(command.input.ExclusiveStartKey, { pk: "a" });
+      return { Count: 100, LastEvaluatedKey: { pk: "b" } };
+    }
+    assert.deepEqual(command.input.ExclusiveStartKey, { pk: "b" });
+    return { Count: 42 };
+  });
+  assert.equal(await countTableItems(doc, "table"), 242);
+  assert.equal(call, 3);
+});
+
 test("isPipelineFlowing is true only under the freshness threshold", () => {
   assert.equal(isPipelineFlowing(5), true);
   assert.equal(isPipelineFlowing(31), false);

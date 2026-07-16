@@ -45,9 +45,7 @@ async function flushOnce(app, publisher) {
   const windowEnd = new Date().toISOString();
   const windowStart = new Date(Date.now() - WINDOW_SECONDS * 1000).toISOString();
   const messages = drainWindow(app.locals.station, windowStart, windowEnd);
-  for (const message of messages) {
-    await publisher.publish(message);
-  }
+  if (messages.length > 0) await publisher.publishBatch(messages);
   return messages;
 }
 

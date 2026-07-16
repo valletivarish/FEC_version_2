@@ -41,9 +41,22 @@ async function readQueueCounters(sqs, queueName) {
   }
 }
 
+// A single Scan(Select=COUNT) call only reports the items seen within one
+// 1MB response page, so a table larger than that would be undercounted.
+// Follow LastEvaluatedKey until DynamoDB reports the scan is exhausted.
 async function countTableItems(doc, tableName) {
-  const resp = await doc.send(new ScanCommand({ TableName: tableName, Select: "COUNT" }));
-  return resp.Count;
+  let total = 0;
+  let lastEvaluatedKey;
+  do {
+    const resp = await doc.send(new ScanCommand({
+      TableName: tableName,
+      Select: "COUNT",
+      ExclusiveStartKey: lastEvaluatedKey,
+    }));
+    total += resp.Count;
+    lastEvaluatedKey = resp.LastEvaluatedKey;
+  } while (lastEvaluatedKey);
+  return total;
 }
 
 async function checkFogGateway(healthUrl) {

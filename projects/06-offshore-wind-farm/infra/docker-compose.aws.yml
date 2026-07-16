@@ -1,0 +1,121 @@
+name: owf
+
+# Real-AWS variant of docker-compose.yml: runs the fog node and every sensor
+# container against the live account instead of LocalStack. No
+# AWS_ACCESS_KEY_ID or AWS_ENDPOINT_URL is set anywhere in this file, so
+# fog/publisher.js's createPublisher(...) call falls through to the SDK's
+# default credential provider chain and picks up this EC2 instance's
+# attached instance profile automatically. Neither localstack, dashboard,
+# nor the one-shot processor job appear here: the DynamoDB table and both
+# Lambdas are provisioned directly against the account instead.
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  fog:
+    build:
+      context: ../fog
+    ports:
+      - "8000:8000"
+    environment:
+      AWS_REGION: us-east-1
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: owf-turbine-agg
+    restart: unless-stopped
+
+  sensor-wind-t1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: wind_speed_ms
+      SITE_ID: turbine-1
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  sensor-wind-t2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: wind_speed_ms
+      SITE_ID: turbine-2
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-vibration-t1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: blade_vibration_mm
+      SITE_ID: turbine-1
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-vibration-t2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: blade_vibration_mm
+      SITE_ID: turbine-2
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  sensor-gentemp-t1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: generator_temp_c
+      SITE_ID: turbine-1
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "12"
+
+  sensor-gentemp-t2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: generator_temp_c
+      SITE_ID: turbine-2
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "13"
+
+  sensor-power-t1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: power_output_kw
+      SITE_ID: turbine-1
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-power-t2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: power_output_kw
+      SITE_ID: turbine-2
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-gearbox-t1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: gearbox_pressure_bar
+      SITE_ID: turbine-1
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "15"
+
+  sensor-gearbox-t2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: gearbox_pressure_bar
+      SITE_ID: turbine-2
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "16"

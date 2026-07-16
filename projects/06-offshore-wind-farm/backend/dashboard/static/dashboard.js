@@ -1,3 +1,12 @@
+// index.html sets window.API_BASE from an inline <script> block, sed-
+// substituted at S3 upload time. Treat a still-unreplaced placeholder
+// (anything wrapped in double underscores) the same as "not set" so local
+// dev, which never runs the substitution, falls back to same-origin.
+const API_BASE = (() => {
+  const raw = window.API_BASE || "";
+  return /^__.*__$/.test(raw) ? "" : raw;
+})();
+
 const METRIC_META = {
   wind_speed_ms:        { label: "Wind Speed",       unit: "m/s" },
   blade_vibration_mm:   { label: "Blade Vibration",  unit: "mm" },
@@ -115,7 +124,7 @@ function ensurePowerTrendChart() {
 async function refreshPowerTrend(siteIds) {
   const chart = ensurePowerTrendChart();
   const series = await Promise.all(siteIds.map(async (siteId) => {
-    const res = await fetch(`/api/readings?sensor_type=power_output_kw&site_id=${siteId}&limit=30`);
+    const res = await fetch(`${API_BASE}/api/readings?sensor_type=power_output_kw&site_id=${siteId}&limit=30`);
     const data = await res.json();
     return { siteId, items: data.items };
   }));
@@ -137,9 +146,9 @@ async function refreshPowerTrend(siteIds) {
 async function poll() {
   try {
     const [gridData, health, backendStats] = await Promise.all([
-      fetch("/api/farm-grid").then((r) => r.json()),
-      fetch("/api/health").then((r) => r.json()),
-      fetch("/api/backend-stats").then((r) => r.json()),
+      fetch(`${API_BASE}/api/farm-grid`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/health`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/backend-stats`).then((r) => r.json()),
     ]);
 
     const tiles = gridData.tiles;
