@@ -164,3 +164,31 @@ Third-party open-source components used as standard libraries/tools:
   - LocalStack (local AWS emulation for SQS/DynamoDB/Lambda) -
     https://www.localstack.cloud
   - pytest (test suite) - https://pytest.org
+
+REAL AWS DEPLOYMENT
+--------------------
+Deployed to a real AWS Academy Learner Lab account (Kasireddy Vadicherla's
+own, X25104047), account 661886400169, us-east-1, via the portfolio's
+shared Terraform module in a single `terraform apply`.
+
+The real deployment's dashboard API runs behind API Gateway via
+backend/dashboard/lambda_handler.py, reusing data_access.py and
+thresholds_proxy.py directly. Every response carries
+Access-Control-Allow-Origin: *. infra/docker-compose.aws.yml runs only
+the fog node and the ten sensor containers against the real account (no
+LocalStack service).
+
+LIVE RESOURCES (account 661886400169, us-east-1): DynamoDB table
+bshm-readings, SQS queue bshm-span-agg, Lambda bshm-processor
+(SQS-triggered ingestion) and Lambda bshm-dashboard-api (behind API
+Gateway REST API pe87xzlj3j), EC2 instance i-0248a49cf83500330 (runs the
+fog node + ten sensor containers, security group sg-0da0aeef22d0c9dba
+allows only inbound TCP 8000), Elastic IP 54.175.26.119 (allocation
+eipalloc-097aa1023dde3a1eb, associated with that instance), S3 bucket
+bshm-frontend-661886400169 (static dashboard frontend, public read-only,
+static website hosting enabled) and S3 staging bucket
+bshm-deploy-661886400169. All are prefixed bshm-.
+
+Live URLs: dashboard at
+https://bshm-frontend-661886400169.s3.us-east-1.amazonaws.com/index.html,
+its API at https://pe87xzlj3j.execute-api.us-east-1.amazonaws.com/prod.
