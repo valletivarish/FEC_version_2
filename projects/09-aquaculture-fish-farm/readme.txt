@@ -277,8 +277,30 @@ fetch itself (ThresholdsGateway.fetch) is unit tested (see RUN THE TESTS)
 against a real local HttpServer covering both the success and
 unreachable-upstream paths.
 
-PHASE 2 NOTE
-------------
-This project targets LocalStack only. Deployment to real AWS/Azure is a
-deliberately deferred phase-2 item for the whole portfolio and is not
-attempted or claimed here.
+REAL AWS DEPLOYMENT
+--------------------
+Deployed to a real AWS Academy Learner Lab account (Anjaneya Reddy
+Gurram's own, 24288853), account 713939620116, us-east-1, via the
+portfolio's shared Terraform module in a single `terraform apply`.
+
+The real deployment's dashboard API runs behind API Gateway via
+backend/dashboard's PondDashboardLambda class, reusing PondRepository,
+PipelineChecks, and ThresholdsGateway directly. Every response carries
+Access-Control-Allow-Origin: *. infra/docker-compose.aws.yml runs only
+the fog node and the ten sensor containers against the real account (no
+LocalStack service).
+
+LIVE RESOURCES (account 713939620116, us-east-1): DynamoDB table
+aff-readings, SQS queue aff-pond-agg, Lambda aff-processor
+(SQS-triggered ingestion) and Lambda aff-dashboard-api (behind API
+Gateway REST API 245ef52rjf), EC2 instance i-04f44183a9a947b3a (runs the
+fog node + ten sensor containers, security group sg-0f5cf26896fbc37f5
+allows only inbound TCP 8000), Elastic IP 100.61.58.69 (allocation
+eipalloc-0b0981782e7f41f29, associated with that instance), S3 bucket
+aff-frontend-713939620116 (static dashboard frontend, public read-only,
+static website hosting enabled) and S3 staging bucket
+aff-deploy-713939620116. All are prefixed aff-.
+
+Live URLs: dashboard at
+https://aff-frontend-713939620116.s3.us-east-1.amazonaws.com/index.html,
+its API at https://245ef52rjf.execute-api.us-east-1.amazonaws.com/prod.
