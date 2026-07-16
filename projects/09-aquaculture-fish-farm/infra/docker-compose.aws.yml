@@ -1,0 +1,120 @@
+name: aff
+
+# Real-AWS variant of docker-compose.yml: runs the fog node and every sensor
+# container against the live account instead of LocalStack. No
+# AWS_ACCESS_KEY_ID or AWS_ENDPOINT_URL is set anywhere in this file, so the
+# SDK's default credential provider chain picks up this EC2 instance's
+# attached instance profile automatically. Neither localstack, dashboard,
+# nor the one-shot processor job appear here: the DynamoDB table and both
+# Lambdas are provisioned directly against the account instead.
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  fog:
+    build:
+      context: ../fog
+    ports:
+      - "8000:8000"
+    environment:
+      AWS_REGION: us-east-1
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: aff-pond-agg
+    restart: unless-stopped
+
+  pond1-watertemp:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: water_temp_c
+      SITE_ID: pond-1
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  pond1-oxygen:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: dissolved_oxygen_mgl
+      SITE_ID: pond-1
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "9"
+
+  pond1-ph:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: ph_level
+      SITE_ID: pond-1
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  pond1-ammonia:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: ammonia_ppm
+      SITE_ID: pond-1
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "11"
+
+  pond1-feed:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: feed_dispensed_g
+      SITE_ID: pond-1
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "12"
+
+  pond2-watertemp:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: water_temp_c
+      SITE_ID: pond-2
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  pond2-oxygen:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: dissolved_oxygen_mgl
+      SITE_ID: pond-2
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "10"
+
+  pond2-ph:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: ph_level
+      SITE_ID: pond-2
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  pond2-ammonia:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: ammonia_ppm
+      SITE_ID: pond-2
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "12"
+
+  pond2-feed:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: feed_dispensed_g
+      SITE_ID: pond-2
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "13"

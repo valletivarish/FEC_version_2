@@ -13,11 +13,17 @@ import java.util.Map;
 class FakeDynamoDbClient implements DynamoDbClient {
 
     private final Map<String, List<Map<String, AttributeValue>>> itemsBySensorType;
-    private final int scanCount;
+    private final List<Integer> scanPageCounts;
+    private int scanCallsMade = 0;
 
     FakeDynamoDbClient(Map<String, List<Map<String, AttributeValue>>> itemsBySensorType, int scanCount) {
+        this(itemsBySensorType, List.of(scanCount));
+    }
+
+    /** scanPageCounts.size() > 1 simulates a table whose Scan(Select=COUNT) spans several pages. */
+    FakeDynamoDbClient(Map<String, List<Map<String, AttributeValue>>> itemsBySensorType, List<Integer> scanPageCounts) {
         this.itemsBySensorType = itemsBySensorType;
-        this.scanCount = scanCount;
+        this.scanPageCounts = scanPageCounts;
     }
 
     @Override
@@ -29,7 +35,13 @@ class FakeDynamoDbClient implements DynamoDbClient {
 
     @Override
     public ScanResponse scan(ScanRequest request) {
-        return ScanResponse.builder().count(scanCount).build();
+        int pageIndex = scanCallsMade++;
+        var response = ScanResponse.builder().count(scanPageCounts.get(pageIndex));
+        boolean hasNextPage = pageIndex < scanPageCounts.size() - 1;
+        if (hasNextPage) {
+            response.lastEvaluatedKey(Map.of("id", AttributeValue.fromS("page-" + (pageIndex + 1))));
+        }
+        return response.build();
     }
 
     @Override

@@ -28,10 +28,16 @@ public class PondHandler implements RequestHandler<SQSEvent, Map<String, Object>
         if (client == null) {
             String endpoint = System.getenv("AWS_ENDPOINT_URL");
             String region = System.getenv().getOrDefault("AWS_REGION", "eu-west-1");
-            var builder = DynamoDbClient.builder()
-                .region(Region.of(region))
-                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
-            if (endpoint != null) builder.endpointOverride(URI.create(endpoint));
+            var builder = DynamoDbClient.builder().region(Region.of(region));
+            // LocalStack accepts any static credentials; a real Lambda deployment
+            // always injects its own AWS_ACCESS_KEY_ID for the execution role, so
+            // gating on that variable would break real auth -- gate on the
+            // LocalStack-only endpoint instead, and let the default credential
+            // chain apply everywhere else.
+            if (endpoint != null) {
+                builder.endpointOverride(URI.create(endpoint));
+                builder.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
+            }
             client = builder.build();
         }
         return client;

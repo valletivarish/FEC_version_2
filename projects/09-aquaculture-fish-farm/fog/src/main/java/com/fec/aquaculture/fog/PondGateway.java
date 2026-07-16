@@ -54,10 +54,12 @@ public class PondGateway {
 
     void runWindowCycle() {
         try {
+            List<String> payloads = new ArrayList<>();
             for (WindowAggregate window : flushWindow()) {
                 List<String> alerts = PondAlerts.evaluate(window.sensorType(), window);
-                publisher.publish(StreamingJson.aggregatePayload(window, alerts));
+                payloads.add(StreamingJson.aggregatePayload(window, alerts));
             }
+            publisher.publishBatch(payloads);
         } catch (Exception exc) {
             System.out.println("window flush failed: " + exc.getMessage());
         }

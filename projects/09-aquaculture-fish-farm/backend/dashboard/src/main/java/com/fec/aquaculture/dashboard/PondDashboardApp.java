@@ -73,9 +73,14 @@ public class PondDashboardApp {
     }
 
     private static <B extends software.amazon.awssdk.awscore.client.builder.AwsClientBuilder<B, T>, T> T awsClient(B builder) {
-        builder.region(Region.of(REGION))
-            .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
-        if (ENDPOINT != null) builder.endpointOverride(URI.create(ENDPOINT));
+        builder.region(Region.of(REGION));
+        // LocalStack accepts any static credentials; a real deployment (Lambda)
+        // must fall through to the SDK's default credential chain instead, so
+        // this override stays scoped to the LocalStack-endpoint case only.
+        if (ENDPOINT != null) {
+            builder.endpointOverride(URI.create(ENDPOINT));
+            builder.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
+        }
         return builder.build();
     }
 

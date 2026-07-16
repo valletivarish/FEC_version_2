@@ -1,6 +1,8 @@
 package com.fec.aquaculture.dashboard;
 
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 import software.amazon.awssdk.services.dynamodb.model.Select;
 import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.lambda.model.GetFunctionRequest;
@@ -49,7 +51,21 @@ class PipelineChecks {
         }
     }
 
+    // A single Scan(Select=COUNT) call only counts one ~1MB page; once the
+    // table grows past that a lone call silently undercounts. Keep following
+    // LastEvaluatedKey until DynamoDB reports there is no next page.
     int itemCount(DynamoDbClient dynamo, String tableName) {
-        return dynamo.scan(b -> b.tableName(tableName).select(Select.COUNT)).count();
+        int total = 0;
+        Map<String, AttributeValue> exclusiveStartKey = null;
+        do {
+            Map<String, AttributeValue> startKey = exclusiveStartKey;
+            ScanResponse page = dynamo.scan(b -> {
+                b.tableName(tableName).select(Select.COUNT);
+                if (startKey != null) b.exclusiveStartKey(startKey);
+            });
+            total += page.count();
+            exclusiveStartKey = page.hasLastEvaluatedKey() ? page.lastEvaluatedKey() : null;
+        } while (exclusiveStartKey != null);
+        return total;
     }
 }

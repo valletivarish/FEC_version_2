@@ -2,6 +2,14 @@ Aquaculture Fish Farm Monitoring Fog/Edge Pipeline
 Fog and Edge Computing (H9FECC) - CA Project
 Implementation language: Java 17
 
+ATTRIBUTION
+-----------
+This project (09-aquaculture-fish-farm) is the individual CA submission of
+Anjaneya Reddy Gurram, Student ID 24288853. It shares this portfolio
+repository with several other students' independently attributed projects
+as a convenience; it is not part of the main portfolio owner's own
+submission.
+
 All commands below assume your working directory is this folder
 (projects/09-aquaculture-fish-farm/), not the repo root.
 
@@ -227,18 +235,21 @@ REUSE / THIRD-PARTY COMPONENTS
 The overall pipeline architecture (SQS -> Lambda -> DynamoDB via
 LocalStack, the sort_key disambiguation scheme window_end#site_id, the
 dashboard health-check pattern, the dual-rate SAMPLE_INTERVAL/
-DISPATCH_INTERVAL sensor knobs) is adapted from this student's own prior
-projects earlier in this same CA submission (01 through 08), not a prior
-or external coursework project. The implementation is an independent Java
-program: no source files, classes, or business logic were copied across
-projects, and (see LAYOUT/overview notes above) it also does not mirror
-any of the other four Java projects' (02, 04, 07, 08) internal structure --
-concurrency, alert-rule representation, JSON handling, HTTP routing, and
-processor batch-handling were all deliberately built as distinct designs,
-cited class-by-class above. Domain-specific code (pond sensor profiles,
-water-quality/feed thresholds) and the entire dashboard (aqua/teal theme,
-pond-map primary view, per-metric trend charts) are original to this
-project. Third-party open-source components used as standard
+DISPATCH_INTERVAL sensor knobs) is a design pattern shared across this
+portfolio repository (projects 01 through 08), not built entirely from
+scratch for this project. It belongs to the main portfolio owner and, in
+three cases, other individually attributed students -- project 01:
+Kondragunta Lakshmi Chaitanya, X25171216; project 06: Vishvaksen Machana,
+X25173421; project 07: Goutham Uppu, X25167936 -- not this student's own
+prior work. The implementation is an independent Java program: no source
+files, classes, or business logic were copied across projects, and (see
+LAYOUT/overview notes above) it also does not mirror any of the other Java
+projects' internal structure -- concurrency, alert-rule representation,
+JSON handling, HTTP routing, and processor batch-handling were all
+deliberately built as distinct designs, cited class-by-class above.
+Domain-specific code (pond sensor profiles, water-quality/feed thresholds)
+and the entire dashboard (aqua/teal theme, pond-map primary view,
+per-metric trend charts) are original to this project. Third-party open-source components used as standard
 libraries/tools:
   - AWS SDK for Java v2 (software.amazon.awssdk: sqs, dynamodb, lambda) -
     https://github.com/aws/aws-sdk-java-v2

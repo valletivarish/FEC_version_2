@@ -3,6 +3,7 @@ package com.fec.aquaculture.dashboard;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.lambda.model.State;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -55,5 +56,11 @@ class PipelineChecksTest {
     void itemCountReturnsTheScanCount() {
         FakeDynamoDbClient dynamo = new FakeDynamoDbClient(Map.of(), 42);
         assertEquals(42, new PipelineChecks().itemCount(dynamo, "aff-readings"));
+    }
+
+    @Test
+    void itemCountSumsAcrossEveryScanPageUntilPaginationIsExhausted() {
+        FakeDynamoDbClient dynamo = new FakeDynamoDbClient(Map.of(), List.of(500, 500, 214));
+        assertEquals(1214, new PipelineChecks().itemCount(dynamo, "aff-readings"));
     }
 }

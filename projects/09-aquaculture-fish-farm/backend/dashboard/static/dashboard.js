@@ -1,3 +1,11 @@
+// Read once from the hidden #api-base input's value, sed-substituted at S3
+// upload time. Falls back to same-origin ("") for local dev, where the
+// value is left as __API_BASE__.
+const API_BASE = (() => {
+  const raw = (document.getElementById("api-base") || {}).value || "";
+  return !raw || raw.includes("__API_BASE__") ? "" : raw.replace(/\/$/, "");
+})();
+
 const SENSOR_TYPES = ["water_temp_c", "dissolved_oxygen_mgl", "ph_level", "ammonia_ppm", "feed_dispensed_g"];
 
 const METRIC_LABELS = {
@@ -111,7 +119,7 @@ function renderBackendStats(backendStats) {
 }
 
 async function fetchTrend(sensorType) {
-  const res = await fetch(`/api/readings?sensor_type=${sensorType}&limit=20`);
+  const res = await fetch(`${API_BASE}/api/readings?sensor_type=${sensorType}&limit=20`);
   return res.json();
 }
 
@@ -172,9 +180,9 @@ function renderTrendGrid() {
 async function tick() {
   try {
     const [pondsResp, health, backendStats] = await Promise.all([
-      fetch("/api/ponds").then((r) => r.json()),
-      fetch("/api/health").then((r) => r.json()),
-      fetch("/api/backend-stats").then((r) => r.json()),
+      fetch(`${API_BASE}/api/ponds`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/health`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/backend-stats`).then((r) => r.json()),
     ]);
 
     const ponds = pondsResp.ponds || [];
