@@ -36,7 +36,7 @@ That instrumentation only helps if the data it produces reaches a decision point
 
 Three things had to be built and then proven working, not just described, for this project to count as finished. A sensor-and-fog tier needed to buffer, window, and evaluate readings for two slopes at whatever pace each of five sensor types was configured to run, not a rate hard-coded into the ingestion path. A backend needed to turn each closed window into a stored, queryable record using managed AWS services rather than a server this project has to keep patched itself. And none of that would count until it was actually running against a real AWS account and checked there directly, since a design that only works inside a local Docker Compose file has not yet proven anything about the cloud it claims to target.
 
-Section II lays out the architecture at each layer along with the alternatives that were weighed and set aside, and closes on the security posture the deployed system settles into. Section III moves to implementation: the software stack, the automated test suite, continuous integration, and the real AWS deployment itself, defects included. Section IV then evaluates the system using evidence pulled directly from that live deployment, and Section V assesses the project critically and sketches what is left for future work.
+Section II lays out the architecture at each layer along with the alternatives that were weighed and set aside, and closes on the security posture the deployed system settles into. Section III moves to implementation: the software stack, the automated test suite, continuous integration, the real AWS deployment itself with the defects it surfaced, and the evidence gathered directly from that live deployment. Section IV then draws the findings together and reflects on what the project demonstrated and what is left for future work.
 
 \section{System Architecture and Design}
 \subsection{Sensor and Fog Layer}
@@ -140,7 +140,6 @@ Fifth, the dashboard Lambda's responses carried no cross-origin response header 
 
 None of the five fixes were taken on faith from the unit test suite alone; each got a second check against the running deployment itself. The pagination and batching assertions (the four-page sum and the ten/ten/three chunk split) exercise the same code path a real DynamoDB or SQS client would run, so the fake-backed test result and the live behaviour are not two separate claims. The credential-gating and CORS fixes had no equivalent unit-level proxy available, so confirming them meant redeploying the Lambda code itself, polling the health endpoint afterward, and reloading the deployed page in a browser until every panel filled with live data. Full setup and deployment notes live in readme; the source, defects and fixes included, sits at [GitHub repository URL].
 
-\section{Evaluation}
 \subsection{Automated Test Coverage}
 All 121 tests, broken down by module in Table~\ref{tab:tests}, pass against the LocalStack-backed development setup, and the handful that touch real client-construction logic were checked a second time against the fixes confirmed on the live AWS deployment covered in Section III-D.
 
