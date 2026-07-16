@@ -279,28 +279,20 @@ unreachable-upstream paths.
 
 REAL AWS DEPLOYMENT
 --------------------
-Deployed to a real AWS Academy Learner Lab account (Anjaneya Reddy
-Gurram's own, 24288853), account 713939620116, us-east-1, via the
-portfolio's shared Terraform module in a single `terraform apply`.
+Account 713939620116, us-east-1.
 
-The real deployment's dashboard API runs behind API Gateway via
-backend/dashboard's PondDashboardLambda class, reusing PondRepository,
-PipelineChecks, and ThresholdsGateway directly. Every response carries
-Access-Control-Allow-Origin: *. infra/docker-compose.aws.yml runs only
-the fog node and the ten sensor containers against the real account (no
-LocalStack service).
+ARCHITECTURE: the dashboard API runs as an AWS Lambda function behind an
+API Gateway REST API. EC2 runs the fog node and the ten sensor
+containers (no LocalStack).
 
-LIVE RESOURCES (account 713939620116, us-east-1): DynamoDB table
-aff-readings, SQS queue aff-pond-agg, Lambda aff-processor
-(SQS-triggered ingestion) and Lambda aff-dashboard-api (behind API
-Gateway REST API 245ef52rjf), EC2 instance i-04f44183a9a947b3a (runs the
-fog node + ten sensor containers, security group sg-0f5cf26896fbc37f5
-allows only inbound TCP 8000), Elastic IP 100.61.58.69 (allocation
-eipalloc-0b0981782e7f41f29, associated with that instance), S3 bucket
-aff-frontend-713939620116 (static dashboard frontend, public read-only,
-static website hosting enabled) and S3 staging bucket
-aff-deploy-713939620116. All are prefixed aff-.
+LIVE RESOURCES: DynamoDB table aff-readings, SQS queue aff-pond-agg,
+Lambda aff-processor (SQS-triggered ingestion) and Lambda
+aff-dashboard-api (behind API Gateway REST API 245ef52rjf), EC2 instance
+i-04f44183a9a947b3a (security group sg-0f5cf26896fbc37f5, inbound TCP
+8000 only), Elastic IP 100.61.58.69, S3 bucket aff-frontend-713939620116
+(dashboard frontend, public read-only) and S3 staging bucket
+aff-deploy-713939620116.
 
 Live URLs: dashboard at
 https://aff-frontend-713939620116.s3.us-east-1.amazonaws.com/index.html,
-its API at https://245ef52rjf.execute-api.us-east-1.amazonaws.com/prod.
+API at https://245ef52rjf.execute-api.us-east-1.amazonaws.com/prod.
