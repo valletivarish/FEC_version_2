@@ -97,6 +97,40 @@ test("concurrent publishes for the same queue share one in-flight url lookup", a
   assert.equal(lookups, 1);
 });
 
+test("publishBatch rejects with a clear error when the pipeline has not been configured", async () => {
+  await assert.rejects(() => publisher.publishBatch([{ sensor_type: "motor_temp_c" }]), /not configured/);
+});
+
+test("publishBatch resolves without touching the client when given an empty list", async () => {
+  let called = false;
+  publisher.useClient({ send: async () => { called = true; return {}; } }, "eef-tower-agg");
+  await publisher.publishBatch([]);
+  assert.equal(called, false);
+});
+
+test("publishBatch sends up to 10 groups per SendMessageBatchCommand call", async () => {
+  const calls = [];
+  const client = {
+    send: async (command) => {
+      if (command.constructor.name === "GetQueueUrlCommand") return { QueueUrl: "http://q/eef-tower-agg" };
+      calls.push(command);
+      return {};
+    },
+  };
+  publisher.useClient(client, "eef-tower-agg");
+
+  const groups = Array.from({ length: 23 }, (_, i) => ({ sensor_type: "motor_temp_c", i }));
+  await publisher.publishBatch(groups);
+
+  assert.equal(calls.length, 3, "23 groups chunked at 10 per call should take 3 SendMessageBatch calls");
+  assert.equal(calls[0].input.Entries.length, 10);
+  assert.equal(calls[1].input.Entries.length, 10);
+  assert.equal(calls[2].input.Entries.length, 3);
+  assert.deepEqual(JSON.parse(calls[0].input.Entries[0].MessageBody), { sensor_type: "motor_temp_c", i: 0 });
+  assert.equal(calls[0].input.Entries[0].Id, "0");
+  assert.equal(calls[1].input.Entries[0].Id, "10");
+});
+
 // Directly exercises the underlying primitives to prove the implementation
 // genuinely uses stream.Transform + stream.Writable, not merely something
 // that behaves similarly.

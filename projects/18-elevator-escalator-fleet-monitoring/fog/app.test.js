@@ -176,7 +176,7 @@ test("flushOnce seals and publishes every non-empty buffer group, then clears th
   const sent = [];
   publisher.useClient({ send: async (command) => {
     if (command.constructor.name === "GetQueueUrlCommand") return { QueueUrl: "http://q/eef-tower-agg" };
-    sent.push(JSON.parse(command.input.MessageBody));
+    for (const entry of command.input.Entries) sent.push(JSON.parse(entry.MessageBody));
     return {};
   } }, "eef-tower-agg");
 
@@ -192,4 +192,36 @@ test("flushOnce seals and publishes every non-empty buffer group, then clears th
   assert.deepEqual(messages[0].alerts, ["overload_warning"]);
   assert.equal(sent.length, 1);
   assert.equal(buffer.size, 0);
+});
+
+test("flushOnce sends every sealed group through a single SendMessageBatch call, not one call per group", async () => {
+  const publisher = require("./publisher");
+  publisher.reset();
+  let batchCalls = 0;
+  publisher.useClient({ send: async (command) => {
+    if (command.constructor.name === "GetQueueUrlCommand") return { QueueUrl: "http://q/eef-tower-agg" };
+    batchCalls += 1;
+    return {};
+  } }, "eef-tower-agg");
+
+  const buffer = createBuffer();
+  addReading(buffer, "load_weight_kg", "tower-a", { ts: "t0", value: 900 });
+  addReading(buffer, "motor_temp_c", "tower-b", { ts: "t0", value: 40 });
+  addReading(buffer, "cab_vibration_mm", "tower-a", { ts: "t0", value: 1 });
+  const unitTracker = makeUnitTracker();
+
+  const messages = await flushOnce(buffer, unitTracker);
+  assert.equal(messages.length, 3);
+  assert.equal(batchCalls, 1, "three sealed groups within the 10-entry limit should ship in one SendMessageBatch call");
+});
+
+test("flushOnce sends nothing when the window buffer is empty", async () => {
+  const publisher = require("./publisher");
+  publisher.reset();
+  let calls = 0;
+  publisher.useClient({ send: async () => { calls += 1; return {}; } }, "eef-tower-agg");
+
+  const messages = await flushOnce(createBuffer(), makeUnitTracker());
+  assert.deepEqual(messages, []);
+  assert.equal(calls, 0, "an empty flush should not touch the SQS client at all");
 });

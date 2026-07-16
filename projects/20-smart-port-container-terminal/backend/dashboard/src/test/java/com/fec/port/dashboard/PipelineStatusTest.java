@@ -3,6 +3,7 @@ package com.fec.port.dashboard;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.lambda.model.State;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -55,5 +56,11 @@ class PipelineStatusTest {
     void itemCountReturnsTheScanCount() {
         FakeDynamoDbClient dynamo = new FakeDynamoDbClient(Map.of(), 42);
         assertEquals(42, new PipelineStatus().itemCount(dynamo, "spc-readings"));
+    }
+
+    @Test
+    void itemCountSumsAcrossPaginatedScanPages() {
+        FakeDynamoDbClient dynamo = new FakeDynamoDbClient(Map.of(), List.of(500, 500, 137));
+        assertEquals(1137, new PipelineStatus().itemCount(dynamo, "spc-readings"));
     }
 }

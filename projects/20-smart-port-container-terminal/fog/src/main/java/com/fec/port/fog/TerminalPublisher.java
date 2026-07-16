@@ -26,10 +26,15 @@ public class TerminalPublisher {
     private volatile String queueUrl;
 
     public TerminalPublisher(String endpointUrl, String region, String queueName) {
-        var builder = SqsClient.builder()
-            .region(Region.of(region))
-            .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
-        if (endpointUrl != null) builder.endpointOverride(URI.create(endpointUrl));
+        var builder = SqsClient.builder().region(Region.of(region));
+        // Static test/test credentials are only valid against LocalStack.
+        // A real deployment (EC2/Lambda) has no endpointUrl override and
+        // must fall through to the SDK's own default credential chain
+        // (instance profile / execution role), not this hardcoded pair.
+        if (endpointUrl != null) {
+            builder.endpointOverride(URI.create(endpointUrl))
+                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
+        }
         this.client = builder.build();
         this.queueName = queueName;
     }

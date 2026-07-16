@@ -95,20 +95,26 @@ def app(environ, start_response):
 
 def flush_once(publish):
     """Snapshot + clear the ring buffers, aggregate and evaluate alerts for
-    every non-empty (sensor_type, site_id) group, and ship one message per
-    group. Never reduces a raw list without going through aggregate(), so
-    the published payload always carries genuine window statistics."""
+    every non-empty (sensor_type, site_id) group, then ship the whole
+    window's summaries in one publish.batch() call rather than one
+    SendMessage per group. Never reduces a raw list without going through
+    aggregate(), so the published payload always carries genuine window
+    statistics."""
     window_end = utcnow()
     window_start = window_end - timedelta(seconds=WINDOW_SECONDS)
     snapshot, units = snapshot_and_clear()
 
+    summaries = []
     for (sensor_type, site_id), readings in snapshot.items():
         summary = aggregate(
             sensor_type, site_id, units.get(sensor_type, ""),
             readings, window_start.isoformat(), window_end.isoformat(),
         )
         summary["alerts"] = evaluate(sensor_type, summary)
-        publish(summary)
+        summaries.append(summary)
+
+    if summaries:
+        publish.batch(summaries)
 
 
 def flush_loop(publish):

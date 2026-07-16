@@ -10,7 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from aggregation import aggregate
 from alerts import evaluate, thresholds_payload
 from ingest_pipeline import enqueue_batch, snapshot_and_clear, start_consumer_thread
-from publisher import publish
+from publisher import publish_batch
 from validation import validate_batch
 
 WINDOW_SECONDS = float(os.getenv("WINDOW_SECONDS", "10"))
@@ -26,20 +26,25 @@ def utcnow():
 
 def flush_once():
     """Snapshot + clear the buffer, aggregate and evaluate alerts for every
-    non-empty (sensor_type, site_id) group, and ship one message per group
-    to SQS. Never reduces on a raw list without going through aggregate(),
-    so the published payload always carries genuine window statistics."""
+    non-empty (sensor_type, site_id) group, then ship the whole window's
+    summaries to SQS in one publish_batch() call rather than one
+    send_message per group. Never reduces on a raw list without going
+    through aggregate(), so each published payload always carries genuine
+    window statistics."""
     window_end = utcnow()
     window_start = window_end - timedelta(seconds=WINDOW_SECONDS)
     snapshot, units = snapshot_and_clear()
 
+    summaries = []
     for (sensor_type, site_id), readings in snapshot.items():
         summary = aggregate(
             sensor_type, site_id, units.get(sensor_type, ""),
             readings, window_start.isoformat(), window_end.isoformat(),
         )
         summary["alerts"] = evaluate(sensor_type, summary)
-        publish(ENDPOINT, REGION, QUEUE_NAME, summary)
+        summaries.append(summary)
+
+    publish_batch(ENDPOINT, REGION, QUEUE_NAME, summaries)
 
 
 def flush_loop():

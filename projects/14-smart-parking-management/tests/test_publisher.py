@@ -18,6 +18,7 @@ class FakeSqsClient:
     def __init__(self):
         self.get_queue_url_calls = 0
         self.sent = []
+        self.batch_calls = []
 
     def get_queue_url(self, QueueName):
         self.get_queue_url_calls += 1
@@ -25,6 +26,9 @@ class FakeSqsClient:
 
     def send_message(self, QueueUrl, MessageBody):
         self.sent.append((QueueUrl, MessageBody))
+
+    def send_message_batch(self, QueueUrl, Entries):
+        self.batch_calls.append((QueueUrl, Entries))
 
 
 class FlakyThenOkSqsClient(FakeSqsClient):
@@ -106,3 +110,55 @@ class TestMakePublisher:
 
         assert client_a.sent == [("http://queue/queue-a", json.dumps({"x": 1}))]
         assert client_b.sent == [("http://queue/queue-b", json.dumps({"x": 2}))]
+
+
+class TestPublishBatch:
+    def test_batch_under_the_limit_is_one_send_message_batch_call(self, monkeypatch):
+        fake_client = FakeSqsClient()
+        monkeypatch.setattr(publisher, "boto3", fake_boto3(fake_client))
+
+        publish = publisher.make_publisher("http://localstack:4566", "eu-west-1", "spm-lot-agg")
+        publish.batch([{"a": 1}, {"a": 2}, {"a": 3}])
+
+        assert len(fake_client.batch_calls) == 1
+        queue_url, entries = fake_client.batch_calls[0]
+        assert queue_url == "http://queue/spm-lot-agg"
+        assert [json.loads(e["MessageBody"]) for e in entries] == [{"a": 1}, {"a": 2}, {"a": 3}]
+
+    def test_batch_of_23_is_chunked_into_10_10_3(self, monkeypatch):
+        fake_client = FakeSqsClient()
+        monkeypatch.setattr(publisher, "boto3", fake_boto3(fake_client))
+
+        publish = publisher.make_publisher("http://localstack:4566", "eu-west-1", "spm-lot-agg")
+        publish.batch([{"a": i} for i in range(23)])
+
+        assert [len(entries) for _, entries in fake_client.batch_calls] == [10, 10, 3]
+
+    def test_entry_ids_are_unique_within_each_chunk(self, monkeypatch):
+        fake_client = FakeSqsClient()
+        monkeypatch.setattr(publisher, "boto3", fake_boto3(fake_client))
+
+        publish = publisher.make_publisher("http://localstack:4566", "eu-west-1", "spm-lot-agg")
+        publish.batch([{"a": i} for i in range(12)])
+
+        for _, entries in fake_client.batch_calls:
+            ids = [e["Id"] for e in entries]
+            assert len(ids) == len(set(ids))
+
+    def test_batch_reuses_the_already_resolved_queue_url(self, monkeypatch):
+        fake_client = FakeSqsClient()
+        monkeypatch.setattr(publisher, "boto3", fake_boto3(fake_client))
+
+        publish = publisher.make_publisher("http://localstack:4566", "eu-west-1", "spm-lot-agg")
+        publish.batch([{"a": 1}])
+
+        assert fake_client.get_queue_url_calls == 1
+
+    def test_empty_batch_sends_no_requests(self, monkeypatch):
+        fake_client = FakeSqsClient()
+        monkeypatch.setattr(publisher, "boto3", fake_boto3(fake_client))
+
+        publish = publisher.make_publisher("http://localstack:4566", "eu-west-1", "spm-lot-agg")
+        publish.batch([])
+
+        assert fake_client.batch_calls == []

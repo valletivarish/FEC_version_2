@@ -124,3 +124,104 @@ test("resolveQueueUrl-backed retries succeed before publishBatches yields", asyn
 test("getQueueUrl is null before any successful lookup", () => {
   assert.equal(gateway.getQueueUrl(), null);
 });
+
+test("publishBatch is an async generator function", () => {
+  assert.equal(gateway.publishBatch.constructor.name, "AsyncGeneratorFunction");
+});
+
+test("publishBatch throws when the publisher has not been configured", async () => {
+  const iterator = gateway.publishBatch("some-queue", [{ a: 1 }]);
+  await assert.rejects(() => iterator.next());
+});
+
+test("publishBatch sends one real SendMessageBatchCommand covering every payload up to the 10-entry limit", async () => {
+  const batchCalls = [];
+  const client = {
+    send: async (command) => {
+      if (command.constructor.name === "GetQueueUrlCommand") return { QueueUrl: "http://q/bam-apiary-agg" };
+      batchCalls.push(command.input.Entries.map((e) => JSON.parse(e.MessageBody)));
+      return {};
+    },
+  };
+  gateway.useClient(client);
+
+  const payloads = [{ sensor_type: "hive_weight_kg", avg: 35 }, { sensor_type: "internal_hive_temp_c", avg: 34 }];
+  const results = [];
+  for await (const result of gateway.publishBatch("bam-apiary-agg", payloads, 3, 0)) {
+    results.push(result);
+  }
+  assert.equal(batchCalls.length, 1, "two payloads fit in a single SendMessageBatch call");
+  assert.deepEqual(batchCalls[0], payloads);
+  assert.equal(results.length, 2);
+  assert.ok(results.every((r) => r.sent === true));
+  assert.deepEqual(results.map((r) => r.payload), payloads);
+});
+
+test("publishBatch chunks at the 10-entry SendMessageBatch limit across multiple calls", async () => {
+  const batchSizes = [];
+  const client = {
+    send: async (command) => {
+      if (command.constructor.name === "GetQueueUrlCommand") return { QueueUrl: "http://q/bam-apiary-agg" };
+      batchSizes.push(command.input.Entries.length);
+      return {};
+    },
+  };
+  gateway.useClient(client);
+
+  const payloads = Array.from({ length: 11 }, (_, i) => ({ i }));
+  const results = [];
+  for await (const result of gateway.publishBatch("bam-apiary-agg", payloads, 3, 0)) {
+    results.push(result);
+  }
+  assert.deepEqual(batchSizes, [10, 1], "11 payloads split into a 10-entry batch and a 1-entry batch");
+  assert.equal(results.length, 11);
+  assert.deepEqual(results.map((r) => r.payload.i), payloads.map((p) => p.i));
+});
+
+test("publishBatch resolves the queue url once and memoizes it across every batch call", async () => {
+  let lookups = 0;
+  const client = {
+    send: async (command) => {
+      if (command.constructor.name === "GetQueueUrlCommand") {
+        lookups += 1;
+        return { QueueUrl: "http://q/bam-apiary-agg" };
+      }
+      return {};
+    },
+  };
+  gateway.useClient(client);
+
+  const payloads = Array.from({ length: 12 }, (_, i) => ({ i }));
+  const results = [];
+  for await (const result of gateway.publishBatch("bam-apiary-agg", payloads, 3, 0)) {
+    results.push(result);
+  }
+  assert.equal(lookups, 1, "the queue url lookup should be memoized across every batch in the same generator run");
+  assert.equal(results.length, 12);
+});
+
+test("publishBatch rejects the in-flight iteration when SendMessageBatch itself rejects", async () => {
+  const client = {
+    send: async (command) => {
+      if (command.constructor.name === "GetQueueUrlCommand") return { QueueUrl: "http://q/bam-apiary-agg" };
+      throw new Error("batch send failed");
+    },
+  };
+  gateway.useClient(client);
+
+  const iterator = gateway.publishBatch("bam-apiary-agg", [{ a: 1 }], 3, 0);
+  await assert.rejects(() => iterator.next(), /batch send failed/);
+});
+
+test("publishBatch throws when SendMessageBatch reports partial failures via its Failed array", async () => {
+  const client = {
+    send: async (command) => {
+      if (command.constructor.name === "GetQueueUrlCommand") return { QueueUrl: "http://q/bam-apiary-agg" };
+      return { Failed: [{ Id: "1", Message: "throttled" }] };
+    },
+  };
+  gateway.useClient(client);
+
+  const iterator = gateway.publishBatch("bam-apiary-agg", [{ a: 1 }, { a: 2 }], 3, 0);
+  await assert.rejects(() => iterator.next(), /throttled/);
+});

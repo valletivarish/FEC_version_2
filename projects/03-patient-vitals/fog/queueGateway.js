@@ -1,14 +1,22 @@
 "use strict";
 
-const { SQSClient, GetQueueUrlCommand, SendMessageCommand } = require("@aws-sdk/client-sqs");
+const {
+  SQSClient,
+  GetQueueUrlCommand,
+  SendMessageCommand,
+  SendMessageBatchCommand,
+} = require("@aws-sdk/client-sqs");
+
+const BATCH_LIMIT = 10;
 
 class QueueGateway {
   constructor(endpoint, region, queueName) {
-    this.client = new SQSClient({
-      endpoint,
-      region,
-      credentials: { accessKeyId: "test", secretAccessKey: "test" },
-    });
+    const config = { region };
+    if (endpoint) {
+      config.endpoint = endpoint;
+      config.credentials = { accessKeyId: "test", secretAccessKey: "test" };
+    }
+    this.client = new SQSClient(config);
     this.queueName = queueName;
     this.queueUrl = null;
   }
@@ -35,6 +43,19 @@ class QueueGateway {
       QueueUrl: this.queueUrl,
       MessageBody: JSON.stringify(payload),
     }));
+  }
+
+  async sendBatch(payloads) {
+    for (let offset = 0; offset < payloads.length; offset += BATCH_LIMIT) {
+      const chunk = payloads.slice(offset, offset + BATCH_LIMIT);
+      await this.client.send(new SendMessageBatchCommand({
+        QueueUrl: this.queueUrl,
+        Entries: chunk.map((payload, i) => ({
+          Id: String(offset + i),
+          MessageBody: JSON.stringify(payload),
+        })),
+      }));
+    }
   }
 }
 

@@ -156,9 +156,7 @@ async function flushOnce(buffer, unitTracker) {
   const windowStart = new Date(Date.now() - WINDOW_SECONDS * 1000).toISOString();
   const groups = takeSnapshot(buffer);
   const messages = groups.map((group) => sealGroup(group, unitTracker.get(group.sensorType), windowStart, windowEnd));
-  for (const message of messages) {
-    await publisher.publish(message);
-  }
+  await publisher.publishBatch(messages);
   return messages;
 }
 

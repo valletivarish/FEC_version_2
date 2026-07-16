@@ -134,4 +134,19 @@ def lambda_active():
 
 
 def items_in_table():
-    return table().scan(Select="COUNT")["Count"]
+    """A single Scan(Select=COUNT) call silently undercounts once a table's
+    scanned page exceeds DynamoDB's 1MB response limit -- LastEvaluatedKey
+    signals there's another page, and it must be followed until exhausted.
+    Expressed here as a plain summing loop over successive scan() calls,
+    reusing whatever ExclusiveStartKey the prior page handed back."""
+    total = 0
+    start_key = None
+    while True:
+        kwargs = {"Select": "COUNT"}
+        if start_key is not None:
+            kwargs["ExclusiveStartKey"] = start_key
+        resp = table().scan(**kwargs)
+        total += resp["Count"]
+        start_key = resp.get("LastEvaluatedKey")
+        if start_key is None:
+            return total

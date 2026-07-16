@@ -2,8 +2,9 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createApp, validateIngestBody, drainWindow, sealGroup } = require("./app");
+const { createApp, validateIngestBody, drainWindow, sealGroup, flushOnce } = require("./app");
 const { createLedger, appendEntry } = require("./ledger");
+const gateway = require("./publisher");
 
 function withServer(app, fn) {
   return new Promise((resolve, reject) => {
@@ -147,6 +148,36 @@ test("drainWindow handles multiple sensor/site groups independently and drains t
   const plant2 = messages.find((m) => m.site_id === "plant-2");
   assert.deepEqual(plant2.alerts, ["low_pressure_fault"]);
   assert.equal(ledger.entries.length, 0, "ledger should be empty after drainWindow");
+});
+
+test("flushOnce dispatches a whole window's messages via one publishBatch call, not one publish per message", async () => {
+  gateway.reset();
+  const sent = [];
+  gateway.useClient({
+    send: async (command) => {
+      if (command.constructor.name === "GetQueueUrlCommand") return { QueueUrl: "http://q/wtu-plant-agg" };
+      sent.push(command);
+      return {};
+    },
+  });
+  const ledger = createLedger();
+  appendEntry(ledger, { sensorType: "ph_level", siteId: "plant-1", unit: "pH", ts: "t0", value: 7.0 });
+  appendEntry(ledger, { sensorType: "turbidity_ntu", siteId: "plant-2", unit: "NTU", ts: "t0", value: 1.0 });
+  const messages = await flushOnce(ledger);
+  assert.equal(messages.length, 2);
+  assert.equal(sent.length, 1, "one SendMessageBatchCommand, not two individual SendMessageCommand calls");
+  assert.equal(sent[0].input.Entries.length, 2);
+  gateway.reset();
+});
+
+test("flushOnce sends nothing when the window has no messages", async () => {
+  gateway.reset();
+  let sends = 0;
+  gateway.useClient({ send: async () => { sends += 1; return {}; } });
+  const messages = await flushOnce(createLedger());
+  assert.equal(messages.length, 0);
+  assert.equal(sends, 0);
+  gateway.reset();
 });
 
 test("sealGroup carries sensor_type/site_id/unit through to the summary", () => {

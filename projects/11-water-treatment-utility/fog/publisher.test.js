@@ -82,6 +82,50 @@ test("gateway.queueUrl is null before any successful lookup and cannot be reassi
   });
 });
 
+test("publishBatch sends every payload in a single SendMessageBatchCommand when under the 10-entry limit", async () => {
+  const sent = [];
+  const client = {
+    send: async (command) => {
+      if (command.constructor.name === "GetQueueUrlCommand") return { QueueUrl: "http://q/wtu-plant-agg" };
+      sent.push(command);
+      return {};
+    },
+  };
+  gateway.useClient(client);
+  const payloads = [{ sensor_type: "ph_level" }, { sensor_type: "turbidity_ntu" }, { sensor_type: "chlorine_ppm" }];
+  const calls = await gateway.publishBatch("wtu-plant-agg", payloads, 3, 0);
+  assert.equal(calls, 1);
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].input.Entries.length, 3);
+  assert.deepEqual(sent[0].input.Entries.map((e) => JSON.parse(e.MessageBody)), payloads);
+});
+
+test("publishBatch chunks more than 10 payloads into multiple SendMessageBatchCommand calls", async () => {
+  const sent = [];
+  const client = {
+    send: async (command) => {
+      if (command.constructor.name === "GetQueueUrlCommand") return { QueueUrl: "http://q/wtu-plant-agg" };
+      sent.push(command);
+      return {};
+    },
+  };
+  gateway.useClient(client);
+  const payloads = Array.from({ length: 23 }, (_, i) => ({ i }));
+  const calls = await gateway.publishBatch("wtu-plant-agg", payloads, 3, 0);
+  assert.equal(calls, 3);
+  assert.equal(sent.length, 3);
+  assert.deepEqual(sent.map((c) => c.input.Entries.length), [10, 10, 3]);
+});
+
+test("publishBatch resolves with 0 and sends nothing for an empty payload list", async () => {
+  let sends = 0;
+  const client = { send: async () => { sends += 1; return {}; } };
+  gateway.useClient(client);
+  const calls = await gateway.publishBatch("wtu-plant-agg", [], 3, 0);
+  assert.equal(calls, 0);
+  assert.equal(sends, 0);
+});
+
 test("concurrent publishes for the same queue share one in-flight lookup", async () => {
   let calls = 0;
   const client = {

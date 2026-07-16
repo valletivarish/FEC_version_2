@@ -1,7 +1,9 @@
 package com.fec.industrial.dashboard;
 
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
+import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 import software.amazon.awssdk.services.dynamodb.model.Select;
 import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.lambda.model.GetFunctionRequest;
@@ -58,7 +60,20 @@ public class HealthChecks {
     // the items themselves -- a full-table scan is otherwise wasteful for a
     // dashboard stat, and at this CA's data volumes a scan is acceptable
     // (a GSI/count-shadow-item would be the fix at real production scale).
+    // A single scan() call only ever counts one ~1MB page, so a table larger
+    // than that would be silently undercounted; this keeps re-issuing the
+    // scan with exclusiveStartKey(lastEvaluatedKey) until DynamoDB stops
+    // handing back a continuation key, summing every page along the way.
     public static int scanCount(DynamoDbClient dynamo, String tableName) {
-        return dynamo.scan(ScanRequest.builder().tableName(tableName).select(Select.COUNT).build()).count();
+        int total = 0;
+        Map<String, AttributeValue> lastKey = null;
+        do {
+            ScanRequest.Builder req = ScanRequest.builder().tableName(tableName).select(Select.COUNT);
+            if (lastKey != null) req.exclusiveStartKey(lastKey);
+            ScanResponse page = dynamo.scan(req.build());
+            total += page.count();
+            lastKey = page.lastEvaluatedKey();
+        } while (lastKey != null && !lastKey.isEmpty());
+        return total;
     }
 }

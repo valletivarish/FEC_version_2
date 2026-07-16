@@ -24,7 +24,7 @@ fog_app = load_module("fog_app", "fog/app.py")
 def running_server(monkeypatch):
     fog_app._buffer.clear()
     fog_app._units.clear()
-    monkeypatch.setattr(fog_app, "publish", lambda message: None)
+    monkeypatch.setattr(fog_app, "publish_batch", lambda messages: None)
 
     server = make_server("127.0.0.1", 0, fog_app.app)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -125,8 +125,8 @@ class TestIngestValidation:
 
 class TestFlushOnce:
     def test_flush_once_aggregates_and_publishes_one_message_per_group(self, running_server):
-        published = []
-        fog_app.publish = published.append
+        batches = []
+        fog_app.publish_batch = batches.append
 
         request(running_server, "POST", "/ingest", {
             "sensor_type": "grid_load_kw", "site_id": "hub-1", "unit": "kW",
@@ -134,8 +134,9 @@ class TestFlushOnce:
         })
         fog_app.flush_once()
 
-        assert len(published) == 1
-        message = published[0]
+        assert len(batches) == 1
+        assert len(batches[0]) == 1
+        message = batches[0][0]
         assert message["sensor_type"] == "grid_load_kw"
         assert message["site_id"] == "hub-1"
         assert message["count"] == 2
@@ -143,8 +144,8 @@ class TestFlushOnce:
         assert fog_app._buffer == {}
 
     def test_flush_once_evaluates_real_alert_rules(self, running_server):
-        published = []
-        fog_app.publish = published.append
+        batches = []
+        fog_app.publish_batch = batches.append
 
         request(running_server, "POST", "/ingest", {
             "sensor_type": "station_temp_c", "site_id": "hub-1", "unit": "C",
@@ -152,4 +153,24 @@ class TestFlushOnce:
         })
         fog_app.flush_once()
 
-        assert published[0]["alerts"] == ["overheat_risk"]
+        assert batches[0][0]["alerts"] == ["overheat_risk"]
+
+    def test_flush_once_publishes_every_group_in_one_batch_call_not_one_send_per_group(self, running_server):
+        """The bug this guards against: looping publish() once per group
+        instead of collecting the whole window into a single
+        publish_batch() call."""
+        batches = []
+        fog_app.publish_batch = batches.append
+
+        request(running_server, "POST", "/ingest", {
+            "sensor_type": "grid_load_kw", "site_id": "hub-1", "unit": "kW",
+            "readings": [{"ts": "t0", "value": 40.0}],
+        })
+        request(running_server, "POST", "/ingest", {
+            "sensor_type": "battery_soc_pct", "site_id": "hub-2", "unit": "%",
+            "readings": [{"ts": "t0", "value": 55.0}],
+        })
+        fog_app.flush_once()
+
+        assert len(batches) == 1
+        assert {m["sensor_type"] for m in batches[0]} == {"grid_load_kw", "battery_soc_pct"}

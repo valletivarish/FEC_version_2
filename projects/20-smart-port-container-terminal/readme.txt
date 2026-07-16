@@ -102,13 +102,13 @@ Each Maven project has its own JUnit 5 test suite:
   cd sensors && mvn test                  (6 tests)
   cd fog && mvn test                      (48 tests)
   cd backend/processor && mvn test        (8 tests)
-  cd backend/dashboard && mvn test        (23 tests)
+  cd backend/dashboard && mvn test        (24 tests)
 
 Or without local Maven/JDK:
   docker run --rm -v "$PWD/fog":/app -w /app maven:3.9-eclipse-temurin-17 mvn test
   (repeat for sensors/, backend/processor/, backend/dashboard/)
 
-All 85 tests pass. Notable coverage: TerminalGatewayHttpTest and
+All 86 tests pass. Notable coverage: TerminalGatewayHttpTest and
 TerminalRouterTest exercise /ingest and the Filter chain-of-responsibility
 over a REAL com.sun.net.httpserver.HttpServer bound to an ephemeral port
 (not a unit test of validation logic in isolation); ThresholdsGatewayTest

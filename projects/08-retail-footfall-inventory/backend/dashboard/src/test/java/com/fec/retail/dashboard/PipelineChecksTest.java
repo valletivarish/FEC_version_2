@@ -1,8 +1,11 @@
 package com.fec.retail.dashboard;
 
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 import software.amazon.awssdk.services.lambda.model.State;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -57,5 +60,23 @@ class PipelineChecksTest {
     void itemCountReturnsFakeScanCount() {
         var fake = new FakeDynamoDbClient(Map.of(), 42);
         assertEquals(42, new PipelineChecks().itemCount(fake, "rfi-readings"));
+    }
+
+    @Test
+    void itemCountSumsEveryPageInsteadOfStoppingAtTheFirst() {
+        AttributeValue key = AttributeValue.builder().s("store-1").build();
+        var fake = new FakeDynamoDbClient(List.of(
+            ScanResponse.builder().count(430).lastEvaluatedKey(Map.of("site_id", key)).build(),
+            ScanResponse.builder().count(260).lastEvaluatedKey(Map.of("site_id", key)).build(),
+            ScanResponse.builder().count(97).build()));
+
+        assertEquals(787, new PipelineChecks().itemCount(fake, "rfi-readings"),
+            "all three pages must be summed, not just the first page's 430");
+    }
+
+    @Test
+    void itemCountStopsAfterASinglePageWithNoLastEvaluatedKey() {
+        var fake = new FakeDynamoDbClient(List.of(ScanResponse.builder().count(15).build()));
+        assertEquals(15, new PipelineChecks().itemCount(fake, "rfi-readings"));
     }
 }

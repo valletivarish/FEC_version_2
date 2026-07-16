@@ -3,6 +3,7 @@ import random
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
+from itertools import islice
 
 import boto3
 
@@ -10,6 +11,15 @@ INITIAL_BACKOFF_SECONDS = 0.25
 MAX_BACKOFF_SECONDS = 4.0
 BACKOFF_BUDGET_SECONDS = 60.0
 JITTER_MAX_SECONDS = 0.1
+
+# SendMessageBatch accepts at most this many entries per call.
+SQS_BATCH_LIMIT = 10
+
+
+def _chunked(items, size):
+    it = iter(items)
+    while chunk := list(islice(it, size)):
+        yield chunk
 
 
 def retry_ticks(budget_seconds):
@@ -60,6 +70,17 @@ class ShipmentLink:
 
     def ship(self, payload):
         self._client.send_message(QueueUrl=self._queue_url, MessageBody=json.dumps(payload))
+
+    def ship_batch(self, payloads):
+        """Ships a whole window's worth of aggregates in as few round-trips
+        as possible: one SendMessageBatch call per SQS_BATCH_LIMIT-sized
+        chunk, instead of one send_message call per payload."""
+        for chunk in _chunked(payloads, SQS_BATCH_LIMIT):
+            entries = [
+                {"Id": str(index), "MessageBody": json.dumps(payload)}
+                for index, payload in enumerate(chunk)
+            ]
+            self._client.send_message_batch(QueueUrl=self._queue_url, Entries=entries)
 
     def __enter__(self):
         return self

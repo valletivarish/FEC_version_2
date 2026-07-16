@@ -44,6 +44,25 @@ class DdbStubCount:
         return {"Count": 42}
 
 
+class DdbStubCountPaginated:
+    """Splits the count across three Scan pages, requiring the caller to
+    follow LastEvaluatedKey to see the true total rather than just the
+    first page's Count."""
+
+    def __init__(self):
+        self.seen_start_keys = []
+
+    def scan(self, TableName, Select, ExclusiveStartKey=None):
+        self.seen_start_keys.append(ExclusiveStartKey)
+        pages = {
+            None: {"Count": 20, "LastEvaluatedKey": {"sort_key": "a"}},
+            "a": {"Count": 15, "LastEvaluatedKey": {"sort_key": "b"}},
+            "b": {"Count": 7},
+        }
+        key = ExclusiveStartKey["sort_key"] if ExclusiveStartKey else None
+        return pages[key]
+
+
 @pytest.fixture
 def routes_app():
     from fastapi import FastAPI
@@ -110,6 +129,14 @@ class TestBackendStatsRoute:
         body = routes_app.get("/api/backend-stats").json()
         assert body["queue"] is None
         assert body["items_in_table"] == 42
+
+    def test_item_count_sums_every_scan_page_not_just_the_first(self, sqs_stub, monkeypatch, routes_app):
+        sqs_stub(SqsStubUnreachable())
+        stub = DdbStubCountPaginated()
+        monkeypatch.setattr(routes, "table", lambda: stub)
+        body = routes_app.get("/api/backend-stats").json()
+        assert body["items_in_table"] == 20 + 15 + 7
+        assert stub.seen_start_keys == [None, {"sort_key": "a"}, {"sort_key": "b"}]
 
 
 class TestThresholdsRoute:

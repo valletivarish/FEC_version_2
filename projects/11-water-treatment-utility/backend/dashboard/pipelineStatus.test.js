@@ -54,6 +54,26 @@ test("countTableItems returns the Scan COUNT result", async () => {
   assert.equal(await countTableItems(doc, "wtu-readings"), 42);
 });
 
+test("countTableItems follows LastEvaluatedKey and sums Count across every page", async () => {
+  const pages = [
+    { Count: 40, LastEvaluatedKey: { sort_key: "a" } },
+    { Count: 40, LastEvaluatedKey: { sort_key: "b" } },
+    { Count: 15 },
+  ];
+  let calls = 0;
+  const seenStartKeys = [];
+  const doc = {
+    send: async (command) => {
+      seenStartKeys.push(command.input.ExclusiveStartKey);
+      return pages[calls++];
+    },
+  };
+  const total = await countTableItems(doc, "wtu-readings");
+  assert.equal(total, 95, "count should be summed across all three pages, not just the first");
+  assert.equal(calls, 3);
+  assert.deepEqual(seenStartKeys, [undefined, { sort_key: "a" }, { sort_key: "b" }]);
+});
+
 test("isPipelineFlowing is false when freshestAge is null or stale, true when recent", () => {
   assert.equal(isPipelineFlowing(null), false);
   assert.equal(isPipelineFlowing(31), false);

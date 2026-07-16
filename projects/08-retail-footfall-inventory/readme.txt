@@ -180,7 +180,11 @@ Test coverage highlights:
   - StoreRepositoryTest: chronological ordering, per-store grouping with
     distinct per-store values, sensor types with no data omitted
   - PipelineChecksTest: queue/lambda reachability, queue depth parsing,
-    item count
+    item count summed correctly across multiple Scan pages (not just the
+    first)
+  - QueuePublisherTest: single-message publish, and publishBatch's chunking
+    at the 10-entry SendMessageBatch limit (23 payloads -> 10/10/3, an
+    exact-10 payload -> a single call, an empty window -> no call)
   - StoreDashboardAppTest: query-string parsing, content-type resolution
   - ThresholdsGatewayTest: the dashboard's /api/thresholds proxy fetch
     against a real local HttpServer, covering both a successful upstream

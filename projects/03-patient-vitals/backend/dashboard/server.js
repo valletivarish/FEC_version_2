@@ -21,10 +21,10 @@ const PIPELINE_FRESH_SECONDS = 30;
 
 function awsClientConfig() {
   const config = { region: process.env.AWS_REGION || "eu-west-1" };
-  if (process.env.AWS_ENDPOINT_URL) config.endpoint = process.env.AWS_ENDPOINT_URL;
-  if (process.env.AWS_ACCESS_KEY_ID) {
+  if (process.env.AWS_ENDPOINT_URL) {
+    config.endpoint = process.env.AWS_ENDPOINT_URL;
     config.credentials = {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID || "test",
       secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "test",
     };
   }

@@ -41,9 +41,19 @@ async function readQueueCounters(sqs, queueName) {
   }
 }
 
+// A single Scan(Select=COUNT) call only reports the items visible on its
+// first ~1MB page -- DynamoDB requires following LastEvaluatedKey until a
+// page comes back without one, so every page's Count is summed here rather
+// than trusting the first response alone.
 async function countTableItems(doc, tableName) {
-  const resp = await doc.send(new ScanCommand({ TableName: tableName, Select: "COUNT" }));
-  return resp.Count;
+  let total = 0;
+  let ExclusiveStartKey;
+  do {
+    const resp = await doc.send(new ScanCommand({ TableName: tableName, Select: "COUNT", ExclusiveStartKey }));
+    total += resp.Count;
+    ExclusiveStartKey = resp.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+  return total;
 }
 
 async function checkGateway(healthUrl) {

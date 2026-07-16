@@ -132,4 +132,15 @@ def lambda_active():
 
 
 def items_in_table():
-    return table().scan(Select="COUNT")["Count"]
+    """A single Scan(Select=COUNT) call only counts one ~1MB page -- once
+    the table grows past that, the true count needs every page visited via
+    ExclusiveStartKey/LastEvaluatedKey, not just the first."""
+    total = 0
+    kwargs = {"Select": "COUNT"}
+    while True:
+        resp = table().scan(**kwargs)
+        total += resp["Count"]
+        last_key = resp.get("LastEvaluatedKey")
+        if not last_key:
+            return total
+        kwargs["ExclusiveStartKey"] = last_key

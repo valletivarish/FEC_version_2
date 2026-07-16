@@ -47,6 +47,28 @@ def publish(message):
     raise RuntimeError(f"failed to publish to queue {QUEUE_NAME}") from last_error
 
 
+def publish_batch(messages):
+    """Send a list of window-aggregate messages via as few
+    SendMessageBatch calls as the 10-entry API limit allows, instead of
+    one send_message() round trip per message. Each chunk gets the same
+    fixed-backoff retry publish() uses while LocalStack finishes starting
+    up; an empty list is a no-op."""
+    for start in range(0, len(messages), 10):
+        chunk = messages[start:start + 10]
+        entries = [{"Id": str(i), "MessageBody": json.dumps(m)} for i, m in enumerate(chunk)]
+        last_error = None
+        for _ in range(30):
+            try:
+                url = get_queue_url()
+                get_client().send_message_batch(QueueUrl=url, Entries=entries)
+                break
+            except Exception as exc:
+                last_error = exc
+                time.sleep(2)
+        else:
+            raise RuntimeError(f"failed to publish batch to queue {QUEUE_NAME}") from last_error
+
+
 def reset_client():
     """Test-only escape hatch: clears both manually-memoized globals so
     tests that install different fake clients don't leak state between

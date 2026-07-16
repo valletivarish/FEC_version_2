@@ -71,9 +71,15 @@ public class TerminalDashboardApp {
     }
 
     private static <B extends software.amazon.awssdk.awscore.client.builder.AwsClientBuilder<B, T>, T> T awsClient(B builder) {
-        builder.region(Region.of(REGION))
-            .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
-        if (ENDPOINT != null) builder.endpointOverride(URI.create(ENDPOINT));
+        builder.region(Region.of(REGION));
+        // Static test/test credentials are LocalStack-only. Gating this on
+        // ENDPOINT rather than always applying it lets a real deployment
+        // (no endpoint override) fall through to the SDK default chain
+        // instead of misauthenticating against real AWS with a fake pair.
+        if (ENDPOINT != null) {
+            builder.endpointOverride(URI.create(ENDPOINT))
+                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
+        }
         return builder.build();
     }
 

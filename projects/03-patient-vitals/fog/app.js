@@ -60,9 +60,8 @@ async function flushWindow(app, gateway) {
   app.locals.pending.clear();
   const units = new Map(app.locals.units);
 
-  for (const message of buildWindowMessages(snapshot, units, windowStart, windowEnd)) {
-    await gateway.send(message);
-  }
+  const messages = buildWindowMessages(snapshot, units, windowStart, windowEnd);
+  if (messages.length > 0) await gateway.sendBatch(messages);
 }
 
 async function start() {

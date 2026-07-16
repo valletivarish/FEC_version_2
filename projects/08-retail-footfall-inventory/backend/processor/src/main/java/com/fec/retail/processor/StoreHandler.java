@@ -32,10 +32,16 @@ public class StoreHandler implements RequestHandler<SQSEvent, Map<String, Object
         if (client == null) {
             String endpoint = System.getenv("AWS_ENDPOINT_URL");
             String region = System.getenv().getOrDefault("AWS_REGION", "eu-west-1");
-            var builder = DynamoDbClient.builder()
-                .region(Region.of(region))
-                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
-            if (endpoint != null) builder.endpointOverride(URI.create(endpoint));
+            var builder = DynamoDbClient.builder().region(Region.of(region));
+            // The static test/test pair only authenticates against
+            // LocalStack; a real Lambda always has its own execution-role
+            // credentials injected, so both this and the endpoint override
+            // stay gated on the LocalStack-only endpoint variable rather
+            // than applied unconditionally.
+            if (endpoint != null) {
+                builder.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
+                builder.endpointOverride(URI.create(endpoint));
+            }
             client = builder.build();
         }
         return client;

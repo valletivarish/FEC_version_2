@@ -75,9 +75,15 @@ public class StoreDashboardApp {
     }
 
     private static <B extends software.amazon.awssdk.awscore.client.builder.AwsClientBuilder<B, T>, T> T awsClient(B builder) {
-        builder.region(Region.of(REGION))
-            .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
-        if (ENDPOINT != null) builder.endpointOverride(URI.create(ENDPOINT));
+        builder.region(Region.of(REGION));
+        // The static test/test pair only authenticates against LocalStack; a
+        // real Lambda's execution-role credentials must not be shadowed by
+        // it, so both this and the endpoint override stay gated on ENDPOINT
+        // actually being set.
+        if (ENDPOINT != null) {
+            builder.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
+            builder.endpointOverride(URI.create(ENDPOINT));
+        }
         return builder.build();
     }
 

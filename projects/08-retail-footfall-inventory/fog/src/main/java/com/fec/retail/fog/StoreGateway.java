@@ -81,11 +81,12 @@ public class StoreGateway {
 
     static void runWindowCycle() {
         try {
+            List<String> payloads = new ArrayList<>();
             for (WindowAggregate window : flushWindow()) {
                 List<String> alerts = AlertRule.evaluate(window);
-                String payload = JSON.writeValueAsString(new AggregatePayload(window, alerts));
-                publisher.publish(payload);
+                payloads.add(JSON.writeValueAsString(new AggregatePayload(window, alerts)));
             }
+            publisher.publishBatch(payloads);
         } catch (Exception exc) {
             System.out.println("window flush failed: " + exc.getMessage());
         }

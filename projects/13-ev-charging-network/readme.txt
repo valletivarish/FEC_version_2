@@ -123,25 +123,30 @@ Or without a local Python 3.12+:
   docker run --rm -v "$PWD":/app -w /app python:3.12-slim \
     bash -c "pip install -r requirements-dev.txt && pytest"
 
-111 tests currently pass covering: window aggregation math
+118 tests currently pass covering: window aggregation math
 (test_aggregation.py, 5 tests), evaluate_rules()/thresholds_payload()
 against the real threshold list and a generic ad-hoc rule list
 (test_alerts.py, 11 tests), the manual-singleton SQS publisher including
-that a failed queue-url lookup is retried rather than permanently cached
-(test_publisher.py, 6 tests), POST /ingest input validation
-(test_validation.py, 18 tests), a real HTTP-level test suite driven with
-http.client against a live werkzeug server on an ephemeral port for both
-the fog node (test_fog_http.py, 15 tests, including the real 400
-validation path and a live flush_once()-then-published-message assertion)
-and the dashboard (test_dashboard_http.py, 12 tests, including a live
-502-on-unreachable-upstream and 200-on-reachable-upstream round trip
-through the real /api/thresholds route), the sensor random walk and
-ThreadPoolExecutor-backed sample/dispatch tick logic
+that a failed queue-url lookup is retried rather than permanently cached,
+plus publish_batch()'s 10-entry SendMessageBatch chunking and its own
+retry-then-give-up behaviour (test_publisher.py, 11 tests), POST /ingest
+input validation (test_validation.py, 18 tests), a real HTTP-level test
+suite driven with http.client against a live werkzeug server on an
+ephemeral port for both the fog node (test_fog_http.py, 16 tests,
+including the real 400 validation path and a live flush_once()-then-
+published-batch assertion covering both the per-group summary contents
+and that multiple groups land in one publish_batch() call rather than one
+send per group) and the dashboard (test_dashboard_http.py, 12 tests,
+including a live 502-on-unreachable-upstream and 200-on-reachable-upstream
+round trip through the real /api/thresholds route), the sensor random walk
+and ThreadPoolExecutor-backed sample/dispatch tick logic
 (test_sensor.py, 21 tests), the Lambda transform/handler with a
 hand-written fake DynamoDB table (test_transform.py + test_handler.py, 10
 tests combined, no real AWS/LocalStack touched), the dashboard's
 DynamoDB/SQS/Lambda data-access functions against hand-written fake boto3
-objects (test_data_access.py, 11 tests), and the thresholds-proxy
+objects, including that items_in_table() sums Scan(Select=COUNT) across
+every LastEvaluatedKey page rather than stopping at the first
+(test_data_access.py, 12 tests), and the thresholds-proxy
 function against both a real local success server and a real closed TCP
 port (test_thresholds_proxy.py, 2 tests, genuine unreachable-upstream
 failure, not a mocked urlopen).
@@ -223,7 +228,11 @@ one:
     first call and returns the same cached object on every call after
     that (no decorator at all), and get_queue_url() does the identical
     manual-global caching for the resolved queue URL. reset_client() is
-    the test-only escape hatch that clears both globals.
+    the test-only escape hatch that clears both globals. flush_once() in
+    fog/app.py collects every (sensor_type, site_id) group's summary for
+    the closed window into one list and hands it to publish_batch() once,
+    which chunks at the 10-entry SendMessageBatch limit, rather than
+    looping a single-message publish() call once per group.
 
   HTTP routing/framework (fog/app.py, backend/dashboard/app.py):
     01 and 05 both use FastAPI (05 split into app.py/ingest_routes.py/

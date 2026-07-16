@@ -9,6 +9,7 @@ class FakeSqsClient:
     def __init__(self, url_results):
         self.url_results = list(url_results)
         self.sent = []
+        self.batch_calls = []
 
     def get_queue_url(self, QueueName):
         result = self.url_results.pop(0)
@@ -18,6 +19,9 @@ class FakeSqsClient:
 
     def send_message(self, QueueUrl, MessageBody):
         self.sent.append((QueueUrl, MessageBody))
+
+    def send_message_batch(self, QueueUrl, Entries):
+        self.batch_calls.append((QueueUrl, Entries))
 
 
 class ManualClock:
@@ -162,6 +166,45 @@ class TestShip:
 
         assert [json.loads(body) for _, body in fake_client.sent] == payloads
         assert all(queue_url == "http://queue-url" for queue_url, _ in fake_client.sent)
+
+
+class TestShipBatch:
+    def test_ship_batch_sends_all_payloads_in_a_single_call_under_the_limit(self, monkeypatch, no_jitter):
+        monkeypatch.setattr(publisher.time, "sleep", lambda *_: None)
+        fake_client = FakeSqsClient(["http://queue-url"])
+        link = build_link(monkeypatch, fake_client)
+
+        payloads = [{"seq": i} for i in range(4)]
+        link.ship_batch(payloads)
+
+        assert len(fake_client.batch_calls) == 1
+        queue_url, entries = fake_client.batch_calls[0]
+        assert queue_url == "http://queue-url"
+        assert [json.loads(entry["MessageBody"]) for entry in entries] == payloads
+        assert [entry["Id"] for entry in entries] == ["0", "1", "2", "3"]
+
+    def test_ship_batch_chunks_at_ten_entries_per_call(self, monkeypatch, no_jitter):
+        monkeypatch.setattr(publisher.time, "sleep", lambda *_: None)
+        fake_client = FakeSqsClient(["http://queue-url"])
+        link = build_link(monkeypatch, fake_client)
+
+        payloads = [{"seq": i} for i in range(23)]
+        link.ship_batch(payloads)
+
+        assert len(fake_client.batch_calls) == 3
+        sizes = [len(entries) for _, entries in fake_client.batch_calls]
+        assert sizes == [10, 10, 3]
+        all_sent = [json.loads(entry["MessageBody"]) for _, entries in fake_client.batch_calls for entry in entries]
+        assert all_sent == payloads
+
+    def test_ship_batch_with_no_payloads_makes_no_call(self, monkeypatch, no_jitter):
+        monkeypatch.setattr(publisher.time, "sleep", lambda *_: None)
+        fake_client = FakeSqsClient(["http://queue-url"])
+        link = build_link(monkeypatch, fake_client)
+
+        link.ship_batch([])
+
+        assert fake_client.batch_calls == []
 
 
 class TestContextManagerUsage:

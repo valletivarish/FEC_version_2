@@ -1,3 +1,13 @@
+"""End-to-end pipeline check against the LocalStack profile.
+
+Polls DynamoDB directly for at least one item per sensor type, on the
+assumption that if every type has landed a row the whole chain -- sensors,
+fog node, SQS, and the ingestion Lambda -- is working. The default endpoint
+and region below are LocalStack's; the live AWS deployment is confirmed
+separately, by hitting the deployed dashboard API's own /api/health route
+rather than querying DynamoDB directly (see readme.txt).
+"""
+
 import os
 import sys
 import time

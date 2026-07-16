@@ -53,9 +53,15 @@ public class CityDashboardApp {
     }
 
     static <B extends software.amazon.awssdk.awscore.client.builder.AwsClientBuilder<B, T>, T> T buildAwsClient(B builder) {
-        builder.region(Region.of(REGION))
-            .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
-        if (ENDPOINT != null) builder.endpointOverride(URI.create(ENDPOINT));
+        builder.region(Region.of(REGION));
+        // ENDPOINT is only set for LocalStack. Outside it (real Lambda), the
+        // static test/test credentials must not be applied -- they would
+        // shadow the execution role's real credentials and every AWS call
+        // would fail authentication.
+        if (ENDPOINT != null) {
+            builder.endpointOverride(URI.create(ENDPOINT))
+                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
+        }
         return builder.build();
     }
 

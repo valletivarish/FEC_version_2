@@ -1,7 +1,9 @@
 package com.fec.smartcity.dashboard;
 
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
+import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 import software.amazon.awssdk.services.dynamodb.model.Select;
 import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.lambda.model.GetFunctionRequest;
@@ -93,7 +95,24 @@ public class PipelineHealth {
             }, Optional.empty()));
     }
 
+    /**
+     * A single Scan(Select.COUNT) call only counts one page (DynamoDB caps a
+     * Scan response around 1MB), so a table past that size would be silently
+     * undercounted. This follows exclusiveStartKey/lastEvaluatedKey across as
+     * many pages as it takes, summing the count from each.
+     */
     public static int itemCount(DynamoDbClient dynamo, String tableName) {
-        return dynamo.scan(ScanRequest.builder().tableName(tableName).select(Select.COUNT).build()).count();
+        int total = 0;
+        Map<String, AttributeValue> exclusiveStartKey = null;
+        for (;;) {
+            ScanRequest.Builder request = ScanRequest.builder().tableName(tableName).select(Select.COUNT);
+            if (exclusiveStartKey != null) request.exclusiveStartKey(exclusiveStartKey);
+            ScanResponse response = dynamo.scan(request.build());
+            total += response.count();
+            exclusiveStartKey = response.lastEvaluatedKey();
+            if (exclusiveStartKey == null || exclusiveStartKey.isEmpty()) {
+                return total;
+            }
+        }
     }
 }

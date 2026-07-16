@@ -29,8 +29,27 @@ class FakeTable:
             rows = list(reversed(rows))
         return {"Items": rows[:Limit]}
 
-    def scan(self, Select):
+    def scan(self, Select, ExclusiveStartKey=None):
         return {"Count": sum(len(v) for v in self.rows_by_sensor_type.values())}
+
+
+class PagedCountTable:
+    """Splits a fixed total count across `page_counts`, requiring the caller
+    to follow LastEvaluatedKey to see anything past the first page -- proves
+    items_in_table() doesn't stop after one Scan response."""
+
+    def __init__(self, page_counts):
+        self.page_counts = page_counts
+        self.calls = []
+
+    def scan(self, Select, ExclusiveStartKey=None):
+        page = ExclusiveStartKey["page"] if ExclusiveStartKey else 0
+        self.calls.append(ExclusiveStartKey)
+        count = self.page_counts[page]
+        resp = {"Count": count}
+        if page + 1 < len(self.page_counts):
+            resp["LastEvaluatedKey"] = {"page": page + 1}
+        return resp
 
 
 class FakeSqsHealthy:
@@ -160,3 +179,10 @@ def test_items_in_table_scans_with_count_select(monkeypatch):
     fake = FakeTable({"irradiance_wm2": [row("irradiance_wm2", "array-1", "t0", 1.0)]})
     monkeypatch.setattr(data_access, "table", lambda: fake)
     assert data_access.items_in_table() == 1
+
+
+def test_items_in_table_follows_pagination_across_multiple_scan_pages(monkeypatch):
+    paged = PagedCountTable(page_counts=[400, 400, 137])
+    monkeypatch.setattr(data_access, "table", lambda: paged)
+    assert data_access.items_in_table() == 937
+    assert paged.calls == [None, {"page": 1}, {"page": 2}]

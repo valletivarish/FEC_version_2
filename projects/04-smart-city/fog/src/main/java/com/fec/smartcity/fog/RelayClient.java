@@ -5,9 +5,12 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.sqs.model.GetQueueUrlRequest;
-import software.amazon.awssdk.services.sqs.model.SendMessageRequest;
+import software.amazon.awssdk.services.sqs.model.SendMessageBatchRequest;
+import software.amazon.awssdk.services.sqs.model.SendMessageBatchRequestEntry;
 
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Supplier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -17,6 +20,7 @@ public class RelayClient {
     private static final long INITIAL_DELAY_MS = 250;
     private static final long MAX_DELAY_MS = 4000;
     private static final long GIVE_UP_AFTER_NANOS = TimeUnit.SECONDS.toNanos(60);
+    private static final int BATCH_ENTRY_LIMIT = 10;
 
     private record RelayConfig(String endpointUrl, String region, String queueName) {}
 
@@ -60,11 +64,16 @@ public class RelayClient {
     }
 
     private SqsClient buildClient() {
-        return SqsClient.builder()
-            .endpointOverride(URI.create(config.endpointUrl()))
-            .region(Region.of(config.region()))
-            .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")))
-            .build();
+        var builder = SqsClient.builder().region(Region.of(config.region()));
+        // config.endpointUrl() is only set for LocalStack; on a real deployment
+        // it's null, so calling endpointOverride(URI.create(null)) would throw
+        // and the static test/test credentials would shadow the real execution
+        // role's credentials. Gate both on the LocalStack endpoint signal.
+        if (config.endpointUrl() != null) {
+            builder.endpointOverride(URI.create(config.endpointUrl()))
+                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
+        }
+        return builder.build();
     }
 
     private String queueUrl() throws InterruptedException {
@@ -85,6 +94,23 @@ public class RelayClient {
     }
 
     public void emit(String jsonPayload) throws InterruptedException {
-        sqs().sendMessage(SendMessageRequest.builder().queueUrl(queueUrl()).messageBody(jsonPayload).build());
+        emitBatch(List.of(jsonPayload));
+    }
+
+    /**
+     * Publishes every payload via SendMessageBatch, chunked at the API's
+     * 10-entry limit, instead of one SendMessage call per payload.
+     */
+    public void emitBatch(List<String> jsonPayloads) throws InterruptedException {
+        if (jsonPayloads.isEmpty()) return;
+        String url = queueUrl();
+        for (int offset = 0; offset < jsonPayloads.size(); offset += BATCH_ENTRY_LIMIT) {
+            List<String> chunk = jsonPayloads.subList(offset, Math.min(offset + BATCH_ENTRY_LIMIT, jsonPayloads.size()));
+            List<SendMessageBatchRequestEntry> entries = new ArrayList<>();
+            for (int i = 0; i < chunk.size(); i++) {
+                entries.add(SendMessageBatchRequestEntry.builder().id(Integer.toString(i)).messageBody(chunk.get(i)).build());
+            }
+            sqs().sendMessageBatch(SendMessageBatchRequest.builder().queueUrl(url).entries(entries).build());
+        }
     }
 }

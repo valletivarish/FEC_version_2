@@ -110,8 +110,7 @@ async def window_publisher(app):
             continue
         messages = accumulator.drain_messages(window_start.isoformat(), window_end.isoformat())
         try:
-            for message in messages:
-                await asyncio.to_thread(app.state.link.ship, message)
+            await asyncio.to_thread(app.state.link.ship_batch, messages)
         except Exception as exc:
             print(f"window publish failed: {exc}", flush=True)
 

@@ -1,6 +1,9 @@
 package com.fec.port.dashboard;
 
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
+import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 import software.amazon.awssdk.services.dynamodb.model.Select;
 import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.lambda.model.GetFunctionRequest;
@@ -49,7 +52,21 @@ class PipelineStatus {
         }
     }
 
+    // A single Scan(Select=COUNT) call only reports the count within its
+    // own ~1MB response page, silently undercounting once the table grows
+    // past that -- so this keeps re-issuing the scan with the previous
+    // response's LastEvaluatedKey as the new ExclusiveStartKey, summing
+    // count across every page, until a page comes back with no key left.
     int itemCount(DynamoDbClient dynamo, String tableName) {
-        return dynamo.scan(b -> b.tableName(tableName).select(Select.COUNT)).count();
+        int total = 0;
+        Map<String, AttributeValue> exclusiveStartKey = null;
+        do {
+            ScanRequest.Builder request = ScanRequest.builder().tableName(tableName).select(Select.COUNT);
+            if (exclusiveStartKey != null) request.exclusiveStartKey(exclusiveStartKey);
+            ScanResponse response = dynamo.scan(request.build());
+            total += response.count();
+            exclusiveStartKey = response.hasLastEvaluatedKey() ? response.lastEvaluatedKey() : null;
+        } while (exclusiveStartKey != null);
+        return total;
     }
 }

@@ -1,6 +1,7 @@
 package com.fec.transit.dashboard;
 
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 import software.amazon.awssdk.services.dynamodb.model.Select;
 import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.lambda.model.GetFunctionRequest;
@@ -49,7 +50,15 @@ class PipelineChecks {
         }
     }
 
+    // A single Scan(Select=COUNT) call only ever reports one ~1MB page, so a
+    // table past that size would be silently undercounted. scanPaginator()
+    // walks every page via LastEvaluatedKey until DynamoDB stops returning
+    // one, summing each page's count as it goes.
     int itemCount(DynamoDbClient dynamo, String tableName) {
-        return dynamo.scan(b -> b.tableName(tableName).select(Select.COUNT)).count();
+        int total = 0;
+        for (ScanResponse page : dynamo.scanPaginator(b -> b.tableName(tableName).select(Select.COUNT))) {
+            total += page.count();
+        }
+        return total;
     }
 }

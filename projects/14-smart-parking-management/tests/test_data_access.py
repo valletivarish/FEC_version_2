@@ -23,9 +23,28 @@ class FakeTable:
             items = list(reversed(items))
         return {"Items": items[:Limit]}
 
-    def scan(self, Select):
+    def scan(self, Select, ExclusiveStartKey=None):
         total = sum(len(v) for v in self.items_by_sensor_type.values())
         return {"Count": total}
+
+
+class PagedCountTable:
+    """A scan(Select="COUNT") stand-in that splits its total across several
+    pages, handing back LastEvaluatedKey until the final page -- exercises
+    that items_in_table() actually follows pagination instead of trusting
+    the first page's Count alone."""
+
+    def __init__(self, page_counts):
+        self.page_counts = page_counts
+        self.calls = []
+
+    def scan(self, Select, ExclusiveStartKey=None):
+        self.calls.append(ExclusiveStartKey)
+        index = ExclusiveStartKey["page"] if ExclusiveStartKey else 0
+        resp = {"Count": self.page_counts[index]}
+        if index + 1 < len(self.page_counts):
+            resp["LastEvaluatedKey"] = {"page": index + 1}
+        return resp
 
 
 class FakeSqsHealthy:
@@ -160,3 +179,15 @@ class TestQueueAndLambdaChecks:
         fixture = {"occupied_spaces": [item("occupied_spaces", "lot-a", "e1", 80.0)]}
         monkeypatch.setattr(data_access, "table", lambda: FakeTable(fixture))
         assert data_access.items_in_table() == 1
+
+    def test_items_in_table_sums_every_page_when_scan_is_paginated(self, monkeypatch):
+        paged = PagedCountTable([400, 400, 137])
+        monkeypatch.setattr(data_access, "table", lambda: paged)
+        assert data_access.items_in_table() == 937
+        assert len(paged.calls) == 3
+
+    def test_items_in_table_stops_once_last_evaluated_key_is_absent(self, monkeypatch):
+        paged = PagedCountTable([50])
+        monkeypatch.setattr(data_access, "table", lambda: paged)
+        assert data_access.items_in_table() == 50
+        assert paged.calls == [None]

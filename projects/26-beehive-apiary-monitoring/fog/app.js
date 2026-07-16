@@ -117,14 +117,17 @@ function drainWindow(station, windowStart, windowEnd) {
   return snapshotAndClear(station).map((group) => sealGroup(group, windowStart, windowEnd));
 }
 
-// Consumes gateway.publishBatches() with a real for-await loop, so the
+// Consumes gateway.publishBatch() with a real for-await loop, so the
 // async-generator's own suspended state provides backpressure between
-// sends -- see publisher.js for why no separate queue/pump is needed here.
+// SendMessageBatch calls -- see publisher.js for why no separate
+// queue/pump is needed here. A window's messages (at most one per
+// sensor_type/site_id pair) are dispatched as real SQS batches instead of
+// one SendMessage call per message.
 async function flushOnce(station) {
   const windowEnd = new Date().toISOString();
   const windowStart = new Date(Date.now() - WINDOW_SECONDS * 1000).toISOString();
   const messages = drainWindow(station, windowStart, windowEnd);
-  for await (const result of gateway.publishBatches(QUEUE_NAME, messages)) {
+  for await (const result of gateway.publishBatch(QUEUE_NAME, messages)) {
     // result.sent is true for every yielded item; a failed send throws out
     // of the generator and is caught by start()'s flush error handler.
     void result;

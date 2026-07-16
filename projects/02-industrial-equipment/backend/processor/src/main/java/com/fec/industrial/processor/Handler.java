@@ -27,10 +27,14 @@ public class Handler implements RequestHandler<SQSEvent, Map<String, Object>> {
         if (client == null) {
             String endpoint = System.getenv("AWS_ENDPOINT_URL");
             String region = System.getenv().getOrDefault("AWS_REGION", "eu-west-1");
-            var builder = DynamoDbClient.builder()
-                .region(Region.of(region))
-                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
-            if (endpoint != null) builder.endpointOverride(URI.create(endpoint));
+            var builder = DynamoDbClient.builder().region(Region.of(region));
+            // endpoint is only non-null under LocalStack; a real Lambda
+            // invocation always has this unset and must fall through to its
+            // own execution-role credentials instead of the static test pair.
+            if (endpoint != null) {
+                builder.endpointOverride(URI.create(endpoint))
+                    .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
+            }
             client = builder.build();
         }
         return client;

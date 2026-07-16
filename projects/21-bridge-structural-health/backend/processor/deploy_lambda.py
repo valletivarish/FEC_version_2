@@ -1,3 +1,14 @@
+"""LocalStack-only Lambda packaging/deployment helper.
+
+This script assumes a LocalStack endpoint: it zips handler.py/transform.py
+straight from the working directory (no dependency vendoring), waits on
+resources by polling instead of using waiter configs meant for a real
+account's throttling behaviour, and creates the function against a fake
+lambda-role ARN that only resolves inside LocalStack. It is never invoked
+against the real AWS deployment -- that path uses its own Terraform-driven
+apply (see readme.txt) with a real IAM role and a proper build artifact.
+"""
+
 import io
 import os
 import time

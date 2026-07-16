@@ -143,10 +143,12 @@ public class CityFogNode {
 
     void runWindowCycle() {
         try {
+            List<String> payloads = new ArrayList<>();
             for (WindowSummary.Digest digest : flushWindow()) {
                 List<String> incidents = IncidentRules.assess(digest.sensorType(), digest);
-                relay.emit(digestToJson(digest, incidents));
+                payloads.add(digestToJson(digest, incidents));
             }
+            relay.emitBatch(payloads);
         } catch (Exception exc) {
             System.out.println("window flush failed: " + exc.getMessage());
         } finally {

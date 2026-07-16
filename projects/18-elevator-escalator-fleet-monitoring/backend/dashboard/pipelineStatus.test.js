@@ -52,6 +52,26 @@ test("countTableItems returns the scan Count", async () => {
   assert.equal(await countTableItems(doc, "eef-readings"), 42);
 });
 
+test("countTableItems follows LastEvaluatedKey and sums Count across every page", async () => {
+  const pages = [
+    { Count: 400, LastEvaluatedKey: { sensor_type: "motor_temp_c" } },
+    { Count: 400, LastEvaluatedKey: { sensor_type: "cab_vibration_mm" } },
+    { Count: 117 },
+  ];
+  let call = 0;
+  const seenStartKeys = [];
+  const doc = {
+    send: async (command) => {
+      seenStartKeys.push(command.input.ExclusiveStartKey);
+      return pages[call++];
+    },
+  };
+  const total = await countTableItems(doc, "eef-readings");
+  assert.equal(total, 917, "a single-page Count would undercount a table spanning more than one ~1MB scan page");
+  assert.equal(call, 3);
+  assert.deepEqual(seenStartKeys, [undefined, { sensor_type: "motor_temp_c" }, { sensor_type: "cab_vibration_mm" }]);
+});
+
 test("isPipelineFlowing is true only within PIPELINE_FRESH_SECONDS and not null", () => {
   assert.equal(isPipelineFlowing(null), false);
   assert.equal(isPipelineFlowing(PIPELINE_FRESH_SECONDS), true);

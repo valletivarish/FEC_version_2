@@ -134,8 +134,8 @@ async function flushOnce(ledger) {
   const windowEnd = new Date().toISOString();
   const windowStart = new Date(Date.now() - WINDOW_SECONDS * 1000).toISOString();
   const messages = drainWindow(ledger, windowStart, windowEnd);
-  for (const message of messages) {
-    await gateway.publish(QUEUE_NAME, message);
+  if (messages.length > 0) {
+    await gateway.publishBatch(QUEUE_NAME, messages);
   }
   return messages;
 }

@@ -96,10 +96,12 @@ public class FogApp {
 
     void runWindowCycle() {
         try {
+            List<String> payloads = new ArrayList<>();
             for (Aggregation.Summary summary : flushWindow()) {
                 List<String> fired = Alerts.evaluate(summary.sensorType(), summary);
-                relay.emit(summaryToJson(summary, fired));
+                payloads.add(summaryToJson(summary, fired));
             }
+            relay.emitBatch(payloads);
         } catch (Exception exc) {
             System.out.println("window flush failed: " + exc.getMessage());
         }

@@ -1,7 +1,9 @@
 "use strict";
 
 const { Transform, Writable } = require("node:stream");
-const { SQSClient, GetQueueUrlCommand, SendMessageCommand } = require("@aws-sdk/client-sqs");
+const { SQSClient, GetQueueUrlCommand, SendMessageCommand, SendMessageBatchCommand } = require("@aws-sdk/client-sqs");
+
+const BATCH_LIMIT = 10;
 
 // A real Node stream pipeline (Transform piped into a Writable SQS sink, publish() outcomes correlated via a Map<id,{resolve,reject}>) -- the 5th distinct fog-publisher idiom, after 03's class, 06's closure factory, 10's stateless function, and 11's frozen object literal.
 class PassThroughGroup extends Transform {
@@ -87,11 +89,17 @@ function _wireClient(client, queueName) {
   return module.exports;
 }
 
+// Static test/test credentials only make sense against LocalStack -- gating
+// them on the presence of an explicit endpoint (rather than building them
+// unconditionally) leaves the AWS SDK's own default credential chain
+// (execution-role creds, session token included) in charge everywhere else.
 function configure(endpoint, region, queueName) {
-  return _wireClient(
-    new SQSClient({ endpoint, region, credentials: { accessKeyId: "test", secretAccessKey: "test" } }),
-    queueName
-  );
+  const config = { region };
+  if (endpoint) {
+    config.endpoint = endpoint;
+    config.credentials = { accessKeyId: "test", secretAccessKey: "test" };
+  }
+  return _wireClient(new SQSClient(config), queueName);
 }
 
 // Test seam: inject a hand-written fake client ({ send: async (cmd) => ... })
@@ -123,6 +131,28 @@ function publish(group) {
   });
 }
 
+// Flush-time counterpart to publish(): a window close can seal several
+// (sensor_type, site_id) groups at once, and sending each through its own
+// SendMessageCommand wastes an API call per group. This chunks the whole
+// batch at SendMessageBatch's 10-entry limit and issues one call per chunk,
+// bypassing the single-item Transform/Writable pipeline entirely since that
+// plumbing exists to correlate one publish() caller with one send outcome,
+// not to shape a many-groups-per-call request.
+async function publishBatch(groups) {
+  if (groups.length === 0) return;
+  if (!_client) {
+    throw new Error("publisher pipeline not configured -- call configure() or useClient() first");
+  }
+  const queueUrl = await resolveQueueUrl();
+  for (let offset = 0; offset < groups.length; offset += BATCH_LIMIT) {
+    const chunk = groups.slice(offset, offset + BATCH_LIMIT);
+    await _client.send(new SendMessageBatchCommand({
+      QueueUrl: queueUrl,
+      Entries: chunk.map((group, i) => ({ Id: String(offset + i), MessageBody: JSON.stringify(group) })),
+    }));
+  }
+}
+
 function reset() {
   _client = null;
   _queueName = null;
@@ -136,6 +166,7 @@ module.exports = {
   configure,
   useClient,
   publish,
+  publishBatch,
   reset,
   get queueUrl() {
     return _resolvedQueueUrl;

@@ -1,8 +1,11 @@
 package com.fec.industrial.dashboard;
 
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 import software.amazon.awssdk.services.lambda.model.State;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -60,5 +63,17 @@ class HealthChecksTest {
     void scanCountReturnsFakeCount() {
         var dynamo = new FakeDynamoDbClient(Map.of(), 42);
         assertEquals(42, HealthChecks.scanCount(dynamo, "fei-readings"));
+    }
+
+    @Test
+    void scanCountFollowsPaginationInsteadOfStoppingAtTheFirstPage() {
+        AttributeValue key = AttributeValue.builder().s("power_draw").build();
+        List<ScanResponse> pages = List.of(
+            ScanResponse.builder().count(700).lastEvaluatedKey(Map.of("sensor_type", key)).build(),
+            ScanResponse.builder().count(340).lastEvaluatedKey(Map.of("sensor_type", key)).build(),
+            ScanResponse.builder().count(65).build());
+        var dynamo = new FakeDynamoDbClient(pages);
+        assertEquals(1105, HealthChecks.scanCount(dynamo, "fei-readings"),
+            "every page must be summed, not just the first page's 700");
     }
 }

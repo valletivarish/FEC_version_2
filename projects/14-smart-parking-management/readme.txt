@@ -117,12 +117,14 @@ Or without a local Python 3.12:
   docker run --rm -v "$PWD":/app -w /app python:3.12-slim \
     bash -c "pip install -r requirements-dev.txt && pytest"
 
-120 tests currently pass covering: window aggregation math, the AlertKey
+127 tests currently pass covering: window aggregation math, the AlertKey
 enum/RULES dict-of-dicts evaluate() logic (plus a cross-check that
 THRESHOLD_DESCRIPTIONS never drifts from the real predicates), the
 closure-based SQS publisher (including retry-until-success and
-exhausted-attempts-raises paths), the collections.deque ring buffer
-(including that it silently evicts the oldest reading once
+exhausted-attempts-raises paths, plus its publish.batch() sibling closure:
+chunking at the 10-entry SendMessageBatch limit, unique-per-chunk entry
+Ids, queue-url reuse, and the empty-batch no-op case), the collections.deque
+ring buffer (including that it silently evicts the oldest reading once
 MAX_READINGS_PER_KEY is exceeded), /ingest input validation, a real
 HTTP-level test suite against a live wsgiref.simple_server for both the fog
 node and the dashboard (ephemeral port, http.client requests, no mocked
@@ -131,7 +133,9 @@ logic (including a real asyncio.gather concurrency check that both loops
 fire within a bounded run), the Lambda transform/handler (with a
 hand-written fake DynamoDB table, no real AWS/LocalStack touched), the
 occupancy status formula, the dashboard's DynamoDB/SQS/Lambda data-access
-functions (fake boto3 objects), and the thresholds-proxy function against
+functions (fake boto3 objects, including that items_in_table() follows
+LastEvaluatedKey across multiple scan() pages rather than trusting the
+first page's Count alone), and the thresholds-proxy function against
 both a real local success server and a real closed TCP port (genuine
 unreachable-upstream failure).
 

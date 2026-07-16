@@ -25,9 +25,28 @@ class FakeTable:
             items = list(reversed(items))
         return {"Items": items[:Limit]}
 
-    def scan(self, Select):
+    def scan(self, Select, **kwargs):
         total = sum(len(v) for v in self.items_by_sensor_type.values())
         return {"Count": total}
+
+
+class FakeTablePaginatedCount:
+    """Splits a table's count across several Scan pages, each page's
+    response carrying a LastEvaluatedKey that chains to the next page
+    until the final one omits it -- mimics a table too large for a single
+    Scan(Select=COUNT) response to cover in one ~1MB page."""
+
+    def __init__(self, page_counts):
+        self.page_counts = page_counts
+        self.calls = []
+
+    def scan(self, Select, **kwargs):
+        page = kwargs.get("ExclusiveStartKey", 0)
+        self.calls.append(kwargs.get("ExclusiveStartKey"))
+        resp = {"Count": self.page_counts[page]}
+        if page + 1 < len(self.page_counts):
+            resp["LastEvaluatedKey"] = page + 1
+        return resp
 
 
 class FakeSqsHealthy:
@@ -161,3 +180,10 @@ class TestQueueAndLambdaChecks:
         fixture = {"energy_consumption_kw": [item("energy_consumption_kw", "floor-1", "e1", 30.0)]}
         monkeypatch.setattr(data_access, "table", lambda: FakeTable(fixture))
         assert data_access.items_in_table() == 1
+
+    def test_items_in_table_sums_every_scan_page_not_just_the_first(self, monkeypatch):
+        fake_table = FakeTablePaginatedCount([400, 400, 137])
+        monkeypatch.setattr(data_access, "table", lambda: fake_table)
+
+        assert data_access.items_in_table() == 937
+        assert fake_table.calls == [None, 1, 2]

@@ -28,10 +28,15 @@ public class TerminalHandler implements RequestHandler<SQSEvent, Map<String, Obj
         if (client == null) {
             String endpoint = System.getenv("AWS_ENDPOINT_URL");
             String region = System.getenv().getOrDefault("AWS_REGION", "eu-west-1");
-            var builder = DynamoDbClient.builder()
-                .region(Region.of(region))
-                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
-            if (endpoint != null) builder.endpointOverride(URI.create(endpoint));
+            var builder = DynamoDbClient.builder().region(Region.of(region));
+            // Static test/test credentials are LocalStack-only. A real
+            // Lambda invocation always has AWS_ENDPOINT_URL unset and must
+            // fall through to the SDK default chain (its own execution
+            // role), which this hardcoded pair would otherwise shadow.
+            if (endpoint != null) {
+                builder.endpointOverride(URI.create(endpoint))
+                    .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
+            }
             client = builder.build();
         }
         return client;

@@ -9,13 +9,16 @@ const TABLE_NAME = process.env.TABLE_NAME || "eef-readings";
 let client;
 function documentClient() {
   if (client) return client;
+  // Gated on the LocalStack-only AWS_ENDPOINT_URL signal, not on
+  // AWS_ACCESS_KEY_ID's presence -- a real Lambda's execution role always
+  // injects that variable (plus a session token) for its own temporary
+  // credentials, so branching on it alone would rebuild an incomplete
+  // credential object in production instead of deferring to the SDK's
+  // default provider chain.
   const config = { region: process.env.AWS_REGION || "eu-west-1" };
-  if (process.env.AWS_ENDPOINT_URL) config.endpoint = process.env.AWS_ENDPOINT_URL;
-  if (process.env.AWS_ACCESS_KEY_ID) {
-    config.credentials = {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "test",
-    };
+  if (process.env.AWS_ENDPOINT_URL) {
+    config.endpoint = process.env.AWS_ENDPOINT_URL;
+    config.credentials = { accessKeyId: "test", secretAccessKey: "test" };
   }
   client = DynamoDBDocumentClient.from(new DynamoDBClient(config));
   return client;

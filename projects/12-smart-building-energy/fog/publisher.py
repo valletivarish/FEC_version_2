@@ -29,6 +29,21 @@ def publish(endpoint_url, region, queue_name, message):
     _client(endpoint_url, region).send_message(QueueUrl=url, MessageBody=json.dumps(message))
 
 
+def publish_batch(endpoint_url, region, queue_name, messages):
+    """Ship every message from one flush window in as few SendMessageBatch
+    calls as possible instead of one send_message() round trip per message
+    -- chunked at 10 entries since that's the hard limit SendMessageBatch
+    itself imposes per call."""
+    if not messages:
+        return
+    url = _queue_url(endpoint_url, region, queue_name)
+    client = _client(endpoint_url, region)
+    for offset in range(0, len(messages), 10):
+        chunk = messages[offset:offset + 10]
+        entries = [{"Id": str(i), "MessageBody": json.dumps(msg)} for i, msg in enumerate(chunk)]
+        client.send_message_batch(QueueUrl=url, Entries=entries)
+
+
 def reset_cache():
     """Test-only escape hatch: lru_cache state would otherwise leak a stale
     boto3 client/queue url between tests that point at different fake

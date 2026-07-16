@@ -18,6 +18,7 @@ class FakeSqsClient:
     def __init__(self, fail_first_lookup=False):
         self.get_queue_url_calls = 0
         self.sent = []
+        self.batches = []
         self._fail_first_lookup = fail_first_lookup
 
     def get_queue_url(self, QueueName):
@@ -28,6 +29,9 @@ class FakeSqsClient:
 
     def send_message(self, QueueUrl, MessageBody):
         self.sent.append((QueueUrl, MessageBody))
+
+    def send_message_batch(self, QueueUrl, Entries):
+        self.batches.append((QueueUrl, Entries))
 
 
 @pytest.fixture(autouse=True)
@@ -102,6 +106,71 @@ class TestPublish:
 
         with pytest.raises(RuntimeError):
             publisher.publish({"a": 1})
+
+
+class TestPublishBatch:
+    def test_sends_all_messages_in_one_call_under_the_ten_entry_limit(self, monkeypatch):
+        fake_client = FakeSqsClient()
+        install_fake_boto3(monkeypatch, fake_client, [])
+
+        publisher.publish_batch([{"a": 1}, {"a": 2}, {"a": 3}])
+
+        assert len(fake_client.batches) == 1
+        url, entries = fake_client.batches[0]
+        assert url == f"http://queue/{publisher.QUEUE_NAME}"
+        assert [json.loads(e["MessageBody"]) for e in entries] == [{"a": 1}, {"a": 2}, {"a": 3}]
+        assert [e["Id"] for e in entries] == ["0", "1", "2"]
+
+    def test_chunks_at_the_ten_entry_send_message_batch_limit(self, monkeypatch):
+        fake_client = FakeSqsClient()
+        install_fake_boto3(monkeypatch, fake_client, [])
+
+        publisher.publish_batch([{"n": i} for i in range(23)])
+
+        assert [len(entries) for _, entries in fake_client.batches] == [10, 10, 3]
+
+    def test_empty_list_is_a_no_op(self, monkeypatch):
+        fake_client = FakeSqsClient()
+        install_fake_boto3(monkeypatch, fake_client, [])
+
+        publisher.publish_batch([])
+
+        assert fake_client.batches == []
+
+    def test_a_failed_chunk_send_is_retried(self, monkeypatch):
+        monkeypatch.setattr(publisher.time, "sleep", lambda seconds: None)
+
+        class FlakyOnFirstBatch(FakeSqsClient):
+            def __init__(self):
+                super().__init__()
+                self.batch_attempts = 0
+
+            def send_message_batch(self, QueueUrl, Entries):
+                self.batch_attempts += 1
+                if self.batch_attempts == 1:
+                    raise RuntimeError("throttled")
+                super().send_message_batch(QueueUrl, Entries)
+
+        fake_client = FlakyOnFirstBatch()
+        install_fake_boto3(monkeypatch, fake_client, [])
+
+        publisher.publish_batch([{"a": 1}])
+
+        assert fake_client.batch_attempts == 2
+        assert len(fake_client.batches) == 1
+
+    def test_gives_up_after_the_retry_budget_is_exhausted(self, monkeypatch):
+        monkeypatch.setattr(publisher.time, "sleep", lambda seconds: None)
+
+        class AlwaysFailingBatchClient(FakeSqsClient):
+            def send_message_batch(self, QueueUrl, Entries):
+                raise RuntimeError("queue never provisioned")
+
+        fake_client = AlwaysFailingBatchClient()
+        install_fake_boto3(monkeypatch, fake_client, [])
+
+        with pytest.raises(RuntimeError):
+            publisher.publish_batch([{"a": 1}])
 
 
 class TestResetClient:

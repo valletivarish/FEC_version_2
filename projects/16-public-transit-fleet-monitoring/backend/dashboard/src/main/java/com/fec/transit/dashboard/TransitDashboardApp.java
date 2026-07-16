@@ -69,9 +69,16 @@ public class TransitDashboardApp {
     }
 
     private static <B extends software.amazon.awssdk.awscore.client.builder.AwsClientBuilder<B, T>, T> T awsClient(B builder) {
-        builder.region(Region.of(REGION))
-            .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
-        if (ENDPOINT != null) builder.endpointOverride(URI.create(ENDPOINT));
+        builder.region(Region.of(REGION));
+        // The static test/test credentials only make sense against
+        // LocalStack. Gating them on ENDPOINT (rather than always applying
+        // them) leaves a real deployment to fall back to the SDK's default
+        // credential provider chain -- the execution-role credentials a real
+        // Lambda/EC2 host actually has.
+        if (ENDPOINT != null) {
+            builder.endpointOverride(URI.create(ENDPOINT))
+                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
+        }
         return builder.build();
     }
 

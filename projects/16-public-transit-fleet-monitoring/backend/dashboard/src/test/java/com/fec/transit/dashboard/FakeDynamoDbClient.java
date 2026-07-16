@@ -13,11 +13,19 @@ import java.util.Map;
 class FakeDynamoDbClient implements DynamoDbClient {
 
     private final Map<String, List<Map<String, AttributeValue>>> itemsBySensorType;
-    private final int scanCount;
+    private final List<Integer> scanCountPages;
+    private int scanPageIndex = 0;
 
     FakeDynamoDbClient(Map<String, List<Map<String, AttributeValue>>> itemsBySensorType, int scanCount) {
+        this(itemsBySensorType, List.of(scanCount));
+    }
+
+    // Simulates a table whose Scan(Select=COUNT) is split across several
+    // ~1MB pages, each page's count only reachable by following
+    // LastEvaluatedKey -- what itemCount()'s scanPaginator() fix is for.
+    FakeDynamoDbClient(Map<String, List<Map<String, AttributeValue>>> itemsBySensorType, List<Integer> scanCountPages) {
         this.itemsBySensorType = itemsBySensorType;
-        this.scanCount = scanCount;
+        this.scanCountPages = scanCountPages;
     }
 
     @Override
@@ -29,7 +37,14 @@ class FakeDynamoDbClient implements DynamoDbClient {
 
     @Override
     public ScanResponse scan(ScanRequest request) {
-        return ScanResponse.builder().count(scanCount).build();
+        int count = scanCountPages.get(scanPageIndex);
+        boolean isLastPage = scanPageIndex == scanCountPages.size() - 1;
+        scanPageIndex++;
+        var response = ScanResponse.builder().count(count);
+        if (!isLastPage) {
+            response.lastEvaluatedKey(Map.of("id", AttributeValue.fromS("page-" + scanPageIndex)));
+        }
+        return response.build();
     }
 
     @Override

@@ -40,8 +40,18 @@ async function queueDepth(sqs, queueName) {
 }
 
 async function scanCount(doc, tableName) {
-  const resp = await doc.send(new ScanCommand({ TableName: tableName, Select: "COUNT" }));
-  return resp.Count;
+  let total = 0;
+  let exclusiveStartKey;
+  do {
+    const resp = await doc.send(new ScanCommand({
+      TableName: tableName,
+      Select: "COUNT",
+      ExclusiveStartKey: exclusiveStartKey,
+    }));
+    total += resp.Count;
+    exclusiveStartKey = resp.LastEvaluatedKey;
+  } while (exclusiveStartKey);
+  return total;
 }
 
 module.exports = { queueReachable, lambdaActive, queueDepth, scanCount };

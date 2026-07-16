@@ -30,6 +30,28 @@ class FakeTable:
         return {"Count": total}
 
 
+class FakePaginatedCountTable:
+    """A Scan(Select=COUNT) that splits its result across pages of
+    `page_size`, signalling more pages via LastEvaluatedKey the same way
+    a real DynamoDB table does once scanned data crosses ~1MB -- distinct
+    from FakeTable's single-page scan() so a pagination-undercount
+    regression (stopping after the first page) gets caught."""
+
+    def __init__(self, total_items, page_size):
+        self.total_items = total_items
+        self.page_size = page_size
+        self.scan_calls = 0
+
+    def scan(self, Select, ExclusiveStartKey=None):
+        self.scan_calls += 1
+        start = ExclusiveStartKey or 0
+        end = min(start + self.page_size, self.total_items)
+        resp = {"Count": end - start}
+        if end < self.total_items:
+            resp["LastEvaluatedKey"] = end
+        return resp
+
+
 class FakeSqsHealthy:
     def get_queue_url(self, QueueName):
         return {"QueueUrl": f"http://queue/{QueueName}"}
@@ -161,3 +183,9 @@ class TestQueueAndLambdaChecks:
         fixture = {"charging_current_a": [item("charging_current_a", "hub-1", "e1", 20.0)]}
         monkeypatch.setattr(data_access, "table", lambda: FakeTable(fixture))
         assert data_access.items_in_table() == 1
+
+    def test_items_in_table_sums_the_count_across_every_page(self, monkeypatch):
+        fake_table = FakePaginatedCountTable(total_items=25, page_size=10)
+        monkeypatch.setattr(data_access, "table", lambda: fake_table)
+        assert data_access.items_in_table() == 25
+        assert fake_table.scan_calls == 3

@@ -27,10 +27,16 @@ public class TransitHandler implements RequestHandler<SQSEvent, Map<String, Obje
         if (client == null) {
             String endpoint = System.getenv("AWS_ENDPOINT_URL");
             String region = System.getenv().getOrDefault("AWS_REGION", "eu-west-1");
-            var builder = DynamoDbClient.builder()
-                .region(Region.of(region))
-                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
-            if (endpoint != null) builder.endpointOverride(URI.create(endpoint));
+            var builder = DynamoDbClient.builder().region(Region.of(region));
+            // Static test/test credentials are only valid for LocalStack. A
+            // real Lambda always has AWS_ACCESS_KEY_ID set (its own
+            // execution-role credentials), so gating on that variable would
+            // still misauthenticate in production -- AWS_ENDPOINT_URL is the
+            // actual LocalStack-only signal.
+            if (endpoint != null) {
+                builder.endpointOverride(URI.create(endpoint))
+                    .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
+            }
             client = builder.build();
         }
         return client;

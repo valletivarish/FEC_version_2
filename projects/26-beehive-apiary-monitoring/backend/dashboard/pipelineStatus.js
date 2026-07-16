@@ -41,9 +41,26 @@ async function readQueueCounters(sqs, queueName) {
   }
 }
 
+// Scan(Select=COUNT) only counts the items on one ~1MB response page; a
+// table past that size needs every page followed via LastEvaluatedKey. This
+// walks pages as an async generator (the same idiom fog/publisher.js uses
+// for its SQS dispatch), yielding each page's own Count, summed by the
+// for-await loop below.
+async function* scanCountPages(doc, tableName) {
+  let ExclusiveStartKey;
+  do {
+    const resp = await doc.send(new ScanCommand({ TableName: tableName, Select: "COUNT", ExclusiveStartKey }));
+    yield resp.Count;
+    ExclusiveStartKey = resp.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+}
+
 async function countTableItems(doc, tableName) {
-  const resp = await doc.send(new ScanCommand({ TableName: tableName, Select: "COUNT" }));
-  return resp.Count;
+  let total = 0;
+  for await (const pageCount of scanCountPages(doc, tableName)) {
+    total += pageCount;
+  }
+  return total;
 }
 
 async function checkGateway(healthUrl) {

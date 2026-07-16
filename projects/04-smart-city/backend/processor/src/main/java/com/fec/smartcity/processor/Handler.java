@@ -32,10 +32,16 @@ public class Handler implements RequestHandler<SQSEvent, Map<String, Object>> {
     private static final ClientConfig CLIENT_CONFIG = ClientConfig.fromEnv();
 
     private static DynamoDbClient buildClient() {
-        var builder = DynamoDbClient.builder()
-            .region(Region.of(CLIENT_CONFIG.region()))
-            .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
-        if (CLIENT_CONFIG.endpoint() != null) builder.endpointOverride(URI.create(CLIENT_CONFIG.endpoint()));
+        var builder = DynamoDbClient.builder().region(Region.of(CLIENT_CONFIG.region()));
+        // CLIENT_CONFIG.endpoint() is only set for LocalStack. In a real Lambda
+        // invocation it's null, and AWS always injects an AWS_ACCESS_KEY_ID for
+        // the function's execution role -- so the static test/test credentials
+        // must only be applied against the LocalStack endpoint, never always-on,
+        // or every DynamoDB call in production would misauthenticate.
+        if (CLIENT_CONFIG.endpoint() != null) {
+            builder.endpointOverride(URI.create(CLIENT_CONFIG.endpoint()))
+                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
+        }
         return builder.build();
     }
 

@@ -61,10 +61,13 @@ public class TransitGateway {
 
     void runWindowCycle() {
         try {
-            for (WindowAggregate window : flushWindow()) {
+            List<WindowAggregate> windows = flushWindow();
+            List<String> payloads = new ArrayList<>(windows.size());
+            for (WindowAggregate window : windows) {
                 List<String> alerts = TransitAlerts.evaluate(window.sensorType(), window);
-                publisher.publish(toPayload(window, alerts));
+                payloads.add(toPayload(window, alerts));
             }
+            if (!payloads.isEmpty()) publisher.publishBatch(payloads);
         } catch (Exception exc) {
             System.out.println("window flush failed: " + exc.getMessage());
         }

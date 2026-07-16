@@ -80,8 +80,11 @@ choice on every axis where 03, 06 and 10 already differ from each other:
     a class you instantiate, not a factory you call for a fresh instance) --
     the client and the resolved queue url are private variables closed over
     by the module, and callers do gateway.configure(endpoint, region) once,
-    then gateway.publish(queueName, payload) repeatedly with no client
-    parameter at all. The frozen object exposes a `queueUrl` property as a
+    then gateway.publishBatch(queueName, payloads) once per flush window
+    (chunked at the 10-entry SendMessageBatch limit; the single-message
+    gateway.publish(queueName, payload) remains for callers that only ever
+    have one message) with no client parameter at all. The frozen object
+    exposes a `queueUrl` property as a
     getter rather than a stored value, because Object.freeze() only locks a
     property's descriptor, not what a getter computes -- so reads always
     reflect the current private cache even though the object itself cannot
@@ -205,10 +208,10 @@ Example curl commands against the live REST API:
 
 RUN THE TESTS
 -------------
-Each module has its own package.json and test script. All 101 tests below
+Each module has its own package.json and test script. All 107 tests below
 were run and confirmed passing (node --test, exit 0) at the time this
-readme was written: 11 in sensors/, 46 in fog/, 10 in backend/processor/,
-34 in backend/dashboard/.
+readme was written: 11 in sensors/, 51 in fog/, 10 in backend/processor/,
+35 in backend/dashboard/.
   cd sensors && npm install && npm test
   cd fog && npm install && npm test
   cd backend/processor && npm install && npm test

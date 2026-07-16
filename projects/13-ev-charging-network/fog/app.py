@@ -9,7 +9,7 @@ from flask import Flask, jsonify, request
 
 from aggregation import aggregate
 from alerts import RULES, evaluate_rules, thresholds_payload
-from publisher import publish
+from publisher import publish_batch
 from validation import validate_batch
 
 WINDOW_SECONDS = float(os.getenv("WINDOW_SECONDS", "10"))
@@ -66,7 +66,9 @@ def flush_once():
     """Snapshot + clear the buffer under the lock, then aggregate and
     evaluate alerts for every non-empty (sensor_type, site_id) group
     outside the lock, so a slow SQS publish never blocks incoming /ingest
-    requests."""
+    requests. Every group's summary for this window is collected first and
+    handed to publish_batch() in one call, rather than round-tripping to
+    SQS once per group."""
     window_end = utcnow()
     window_start = window_end - timedelta(seconds=WINDOW_SECONDS)
     with _lock:
@@ -74,13 +76,15 @@ def flush_once():
         _buffer.clear()
         units = dict(_units)
 
+    summaries = []
     for (sensor_type, site_id), readings in snapshot.items():
         summary = aggregate(
             sensor_type, site_id, units.get(sensor_type, ""),
             readings, window_start.isoformat(), window_end.isoformat(),
         )
         summary["alerts"] = evaluate_rules(RULES, sensor_type, summary)
-        publish(summary)
+        summaries.append(summary)
+    publish_batch(summaries)
 
 
 def flush_loop():

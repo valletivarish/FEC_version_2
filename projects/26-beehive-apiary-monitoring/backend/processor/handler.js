@@ -10,10 +10,15 @@ let client;
 function documentClient() {
   if (client) return client;
   const config = { region: process.env.AWS_REGION || "eu-west-1" };
-  if (process.env.AWS_ENDPOINT_URL) config.endpoint = process.env.AWS_ENDPOINT_URL;
-  if (process.env.AWS_ACCESS_KEY_ID) {
+  // Gate on the LocalStack-only endpoint override, not on AWS_ACCESS_KEY_ID:
+  // real Lambda always injects that variable for its own execution-role
+  // credentials, so branching on its presence would rebuild an incomplete
+  // static credentials object (no session token) and break auth in
+  // production instead of letting the SDK's default chain handle it.
+  if (process.env.AWS_ENDPOINT_URL) {
+    config.endpoint = process.env.AWS_ENDPOINT_URL;
     config.credentials = {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID || "test",
       secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "test",
     };
   }

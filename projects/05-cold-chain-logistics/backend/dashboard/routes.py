@@ -67,9 +67,6 @@ class DataAccess:
     def function_state(self):
         return self.lambda_client_.get_function(FunctionName=FUNCTION_NAME)["Configuration"]["State"]
 
-    def table_row_count(self):
-        return self.ddb.scan(TableName=TABLE_NAME, Select="COUNT")["Count"]
-
 
 _repo = DataAccess(ENDPOINT, REGION)
 
@@ -210,6 +207,23 @@ def thresholds():
 ops_router = APIRouter(prefix="/api")
 
 
+def _table_page_counts():
+    # A single Scan(Select=COUNT) call only covers the ~1MB page DynamoDB
+    # returns per request; a table larger than that would silently
+    # undercount unless every subsequent page is walked via
+    # LastEvaluatedKey too. Mirrors the generator style already used above
+    # for _site_reading_pairs/_build_manifest, consumed the same way (sum()
+    # here instead of groupby) rather than a hand-rolled loop.
+    scan_kwargs = {"TableName": TABLE_NAME, "Select": "COUNT"}
+    while True:
+        page = table().scan(**scan_kwargs)
+        yield page["Count"]
+        cursor = page.get("LastEvaluatedKey")
+        if not cursor:
+            return
+        scan_kwargs["ExclusiveStartKey"] = cursor
+
+
 @ops_router.get("/backend-stats")
 def backend_stats():
     # Best-effort operational stats for the dashboard's status strip; queue
@@ -230,5 +244,5 @@ def backend_stats():
     except Exception:
         queue_depth = None
 
-    items_in_table = table().scan(TableName=TABLE_NAME, Select="COUNT")["Count"]
+    items_in_table = sum(_table_page_counts())
     return {"queue": queue_depth, "items_in_table": items_in_table}

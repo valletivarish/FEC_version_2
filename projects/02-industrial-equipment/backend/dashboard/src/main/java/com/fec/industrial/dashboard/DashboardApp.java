@@ -45,11 +45,18 @@ public class DashboardApp {
     static String thresholdsCache;
     static final HttpClient httpClient = HttpClient.newHttpClient();
 
+    // ENDPOINT is only ever set to point this at LocalStack; real AWS Lambda
+    // supplies its own execution-role credentials via the default provider
+    // chain, so the static "test"/"test" pair must not be attached unless
+    // ENDPOINT is actually present -- attaching it unconditionally would
+    // make every real deployment authenticate as a LocalStack-only identity.
     static synchronized DynamoDbClient dynamo() {
         if (dynamo == null) {
-            var builder = DynamoDbClient.builder().region(Region.of(REGION))
-                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
-            if (ENDPOINT != null) builder.endpointOverride(URI.create(ENDPOINT));
+            var builder = DynamoDbClient.builder().region(Region.of(REGION));
+            if (ENDPOINT != null) {
+                builder.endpointOverride(URI.create(ENDPOINT))
+                    .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
+            }
             dynamo = builder.build();
         }
         return dynamo;
@@ -57,9 +64,11 @@ public class DashboardApp {
 
     static synchronized SqsClient sqs() {
         if (sqs == null) {
-            var builder = SqsClient.builder().region(Region.of(REGION))
-                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
-            if (ENDPOINT != null) builder.endpointOverride(URI.create(ENDPOINT));
+            var builder = SqsClient.builder().region(Region.of(REGION));
+            if (ENDPOINT != null) {
+                builder.endpointOverride(URI.create(ENDPOINT))
+                    .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
+            }
             sqs = builder.build();
         }
         return sqs;
@@ -67,9 +76,11 @@ public class DashboardApp {
 
     static synchronized LambdaClient lambdaClient() {
         if (lambdaClient == null) {
-            var builder = LambdaClient.builder().region(Region.of(REGION))
-                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
-            if (ENDPOINT != null) builder.endpointOverride(URI.create(ENDPOINT));
+            var builder = LambdaClient.builder().region(Region.of(REGION));
+            if (ENDPOINT != null) {
+                builder.endpointOverride(URI.create(ENDPOINT))
+                    .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
+            }
             lambdaClient = builder.build();
         }
         return lambdaClient;

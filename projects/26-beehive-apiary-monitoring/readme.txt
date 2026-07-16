@@ -124,10 +124,10 @@ Example curl commands against the live REST API:
 
 RUN THE TESTS
 -------------
-Each module has its own package.json and test script. All 122 tests below
+Each module has its own package.json and test script. All 133 tests below
 were run and confirmed passing (node --test, exit 0) at the time this
-readme was written: 14 in sensors/, 57 in fog/, 12 in backend/processor/,
-39 in backend/dashboard/.
+readme was written: 14 in sensors/, 64 in fog/, 12 in backend/processor/,
+43 in backend/dashboard/.
   cd sensors && npm install && npm test
   cd fog && npm install && npm test
   cd backend/processor && npm install && npm test

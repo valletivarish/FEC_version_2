@@ -83,4 +83,10 @@ class PipelineHealthTest {
         var dynamo = FakeDynamoDbClient.withScanCount(77);
         assertThat(PipelineHealth.itemCount(dynamo, "fsc-readings")).isEqualTo(77);
     }
+
+    @Test
+    void itemCountSumsAcrossPaginatedScanPages() {
+        var dynamo = FakeDynamoDbClient.withScanPages(400, 400, 137);
+        assertThat(PipelineHealth.itemCount(dynamo, "fsc-readings")).isEqualTo(937);
+    }
 }
