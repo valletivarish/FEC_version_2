@@ -230,24 +230,17 @@ Third-party open-source components used as standard libraries/tools:
 
 REAL AWS DEPLOYMENT
 --------------------
-The account was redeployed once, 2026-07-15, when a new Learner Lab
-session issued a different sandbox account instead of refreshing the
-original one; both deployments are listed below since the original
-account's resources are orphaned rather than deleted.
+ARCHITECTURE: the dashboard API runs as an AWS Lambda function behind an
+API Gateway REST API. EC2 runs the fog node and the ten sensor
+containers.
 
-CURRENT: DynamoDB table ska-readings,
-SQS queue ska-slope-agg, Lambda ska-processor and Lambda
-ska-dashboard-api (API Gateway REST API fl6fe76mlf), EC2 instance
-i-02485962a872245d9 (security group sg-043d59fbae6bca08f, inbound TCP
-8000 only), Elastic IP 52.86.31.136, S3 buckets
-ska-frontend-475393590440 (dashboard) and ska-deploy-475393590440
-(staging). Dashboard: https://ska-frontend-475393590440.s3.us-east-1.amazonaws.com/index.html
-API: https://fl6fe76mlf.execute-api.us-east-1.amazonaws.com/prod
+LIVE RESOURCES: DynamoDB table ska-readings, SQS queue ska-slope-agg,
+Lambda ska-processor and Lambda ska-dashboard-api (API Gateway REST API
+fl6fe76mlf), EC2 instance i-02485962a872245d9 (security group
+sg-043d59fbae6bca08f, inbound TCP 8000 only), Elastic IP 52.86.31.136,
+S3 buckets ska-frontend-475393590440 (dashboard) and
+ska-deploy-475393590440 (staging).
 
-ORIGINAL, now orphaned (first deployed 2026-07-15): DynamoDB table
-ska-readings, SQS queue ska-slope-agg, Lambda
-ska-processor and Lambda ska-dashboard-api (API Gateway REST API
-se2853uk5d), EC2 instance i-0fddea02b8aafbc11, Elastic IP 54.81.144.80,
-S3 buckets ska-frontend-596691181085 and ska-deploy-596691181085.
-Dashboard: https://ska-frontend-596691181085.s3.us-east-1.amazonaws.com/index.html
-API: https://se2853uk5d.execute-api.us-east-1.amazonaws.com/prod
+Live URLs: dashboard at
+https://ska-frontend-475393590440.s3.us-east-1.amazonaws.com/index.html,
+API at https://fl6fe76mlf.execute-api.us-east-1.amazonaws.com/prod.

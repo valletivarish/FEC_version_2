@@ -32,9 +32,8 @@ LocalStack emulating AWS SQS, DynamoDB, and Lambda. The AWS SDK for
 JavaScript v3 is used throughout, so the same code runs against LocalStack
 locally and against real AWS in production (an endpoint/credential
 resolution difference only, not a rewrite). This project has also been
-deployed and tested on a real AWS account -- see DEPLOYMENT (AWS) below for
-the live architecture, resources, and URLs; see the project report's
-evaluation section for the defects found and fixed during that deployment.
+deployed and tested on a real AWS account -- see DEPLOYMENT (AWS) below
+for the live architecture, resources, and URLs.
 
 TECH STACK
 ----------
