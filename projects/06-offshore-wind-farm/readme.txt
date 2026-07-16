@@ -172,3 +172,19 @@ but the current frontend (dashboard.js) does not call it -- alert names are
 rendered from a small local display-text map (ALERT_TEXT) instead. The
 endpoint is kept for API completeness and possible future use, and is
 covered by its own test, but is not claimed as a frontend feature.
+
+REAL AWS DEPLOYMENT
+--------------------
+ARCHITECTURE: the dashboard API runs as an AWS Lambda function behind an
+API Gateway REST API. EC2 runs the fog node and the ten sensor containers.
+
+LIVE RESOURCES: DynamoDB table owf-readings, SQS queue owf-turbine-agg,
+Lambda owf-processor and Lambda owf-dashboard-api (API Gateway REST API
+zwwf3aohya), EC2 instance i-0a808bebdd67990f5 (security group
+sg-025099662fc91f9c9, inbound TCP 8000 only), Elastic IP 54.227.202.229,
+S3 buckets owf-frontend-015611713565 (dashboard) and
+owf-deploy-015611713565 (staging).
+
+Live URLs: dashboard at
+https://owf-frontend-015611713565.s3.us-east-1.amazonaws.com/index.html,
+API at https://zwwf3aohya.execute-api.us-east-1.amazonaws.com/prod.
