@@ -62,12 +62,9 @@ ALERT THRESHOLDS (evaluated on the window aggregate)
 
 DEPLOYMENT (AWS)
 -----------------
-Account 573065484152, us-east-1.
-
-ARCHITECTURE: EC2 runs infra/docker-compose.aws.yml (fog + the ten
-sensors only, no LocalStack). The dashboard API runs as an AWS Lambda
-function behind API Gateway, answering /api/* and reusing
-data_access.py directly.
+ARCHITECTURE: EC2 runs the fog node and the ten sensor containers. The
+dashboard API runs as an AWS Lambda function behind API Gateway,
+answering /api/* and reusing data_access.py directly.
 
   DynamoDB:      mvs-readings (PAY_PER_REQUEST, partition key sensor_type,
                  sort key sort_key)

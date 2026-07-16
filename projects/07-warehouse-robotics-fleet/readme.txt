@@ -146,11 +146,9 @@ Third-party open-source components used as standard libraries/tools:
 
 REAL AWS DEPLOYMENT
 --------------------
-Account 789399341650, us-east-1.
-
 ARCHITECTURE: the dashboard API runs as an AWS Lambda function behind an
 API Gateway REST API. EC2 runs the fog gateway and the ten sensor
-containers (no LocalStack).
+containers.
 
 LIVE RESOURCES: DynamoDB table wrf-readings, SQS queue wrf-fleet-agg,
 Lambda wrf-processor and Lambda wrf-dashboard-api (API Gateway

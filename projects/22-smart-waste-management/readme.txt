@@ -241,11 +241,8 @@ directly to more collection points without any structural change.
 
 DEPLOYMENT (AWS)
 ----------------
-Account 548539235319, region us-east-1.
-
-ARCHITECTURE: EC2 runs fog + the 10 sensor containers via
-infra/docker-compose.aws.yml. The dashboard API runs as an AWS Lambda
-function behind API Gateway.
+ARCHITECTURE: EC2 runs the fog node and the 10 sensor containers. The
+dashboard API runs as an AWS Lambda function behind API Gateway.
 
 Live resources:
   DynamoDB table  swm-readings

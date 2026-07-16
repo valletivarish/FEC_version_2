@@ -235,7 +235,7 @@ session issued a different sandbox account instead of refreshing the
 original one; both deployments are listed below since the original
 account's resources are orphaned rather than deleted.
 
-CURRENT (account 475393590440, us-east-1): DynamoDB table ska-readings,
+CURRENT: DynamoDB table ska-readings,
 SQS queue ska-slope-agg, Lambda ska-processor and Lambda
 ska-dashboard-api (API Gateway REST API fl6fe76mlf), EC2 instance
 i-02485962a872245d9 (security group sg-043d59fbae6bca08f, inbound TCP
@@ -244,8 +244,8 @@ ska-frontend-475393590440 (dashboard) and ska-deploy-475393590440
 (staging). Dashboard: https://ska-frontend-475393590440.s3.us-east-1.amazonaws.com/index.html
 API: https://fl6fe76mlf.execute-api.us-east-1.amazonaws.com/prod
 
-ORIGINAL, now orphaned (account 596691181085, us-east-1, first deployed
-2026-07-15): DynamoDB table ska-readings, SQS queue ska-slope-agg, Lambda
+ORIGINAL, now orphaned (first deployed 2026-07-15): DynamoDB table
+ska-readings, SQS queue ska-slope-agg, Lambda
 ska-processor and Lambda ska-dashboard-api (API Gateway REST API
 se2853uk5d), EC2 instance i-0fddea02b8aafbc11, Elastic IP 54.81.144.80,
 S3 buckets ska-frontend-596691181085 and ska-deploy-596691181085.

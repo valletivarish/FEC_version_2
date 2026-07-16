@@ -105,11 +105,9 @@ source:
 
 DEPLOYMENT (AWS)
 -----------------
-Account:  733939924597 (AWS Academy Learner Lab, region us-east-1).
-
-ARCHITECTURE: EC2 runs infra/docker-compose.aws.yml (fog + six sensors
-only, no LocalStack). The dashboard API runs as an AWS Lambda function
-(Mangum-wrapped FastAPI app) behind API Gateway.
+ARCHITECTURE: EC2 runs the fog node and six sensor containers. The
+dashboard API runs as an AWS Lambda function (Mangum-wrapped FastAPI
+app) behind API Gateway.
 
 Live resources:
   DynamoDB table  fec-agri-readings (partition key sensor_type, sort key sort_key)

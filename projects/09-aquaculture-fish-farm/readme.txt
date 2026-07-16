@@ -279,11 +279,9 @@ unreachable-upstream paths.
 
 REAL AWS DEPLOYMENT
 --------------------
-Account 713939620116, us-east-1.
-
 ARCHITECTURE: the dashboard API runs as an AWS Lambda function behind an
 API Gateway REST API. EC2 runs the fog node and the ten sensor
-containers (no LocalStack).
+containers.
 
 LIVE RESOURCES: DynamoDB table aff-readings, SQS queue aff-pond-agg,
 Lambda aff-processor (SQS-triggered ingestion) and Lambda

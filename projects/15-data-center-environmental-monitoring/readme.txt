@@ -191,11 +191,9 @@ rather than being stalled or broken.
 
 DEPLOYMENT (AWS)
 -----------------
-Account 373241496019, region us-east-1.
-
-ARCHITECTURE: EC2 runs infra/docker-compose.aws.yml (fog + the ten
-sensors only, no LocalStack). The dashboard API runs as a separate AWS
-Lambda function (dce-api) behind API Gateway.
+ARCHITECTURE: EC2 runs the fog node and the ten sensor containers. The
+dashboard API runs as a separate AWS Lambda function (dce-api) behind
+API Gateway.
 
 Live resources: DynamoDB table dce-readings; SQS queue dce-hall-agg;
 Lambda dce-processor (SQS event-source-triggered ingestion); Lambda dce-api

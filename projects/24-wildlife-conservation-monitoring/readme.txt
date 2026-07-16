@@ -221,12 +221,10 @@ Third-party open-source components used as standard libraries/tools:
 
 DEPLOYMENT (AWS)
 -----------------
-Account 670139527491, region us-east-1.
-
 ARCHITECTURE: the dashboard API runs as an AWS Lambda function behind an
 API Gateway REST API. EC2 runs the fog node and the ten sensor
-containers (no LocalStack), administered exclusively through AWS
-Systems Manager Session Manager (no SSH/key pair).
+containers, administered exclusively through AWS Systems Manager
+Session Manager (no SSH/key pair).
 
 Live resources: DynamoDB table wcm-readings, SQS queue wcm-reserve-agg,
 Lambda wcm-processor (SQS-triggered ingestion) and Lambda

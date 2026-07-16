@@ -202,13 +202,11 @@ Third-party open-source components used as standard libraries/tools:
 
 REAL AWS DEPLOYMENT
 --------------------
-Account 639210843493, us-east-1.
-
 ARCHITECTURE: the dashboard API runs as an AWS Lambda function behind an
 API Gateway REST API. EC2 runs the fog gateway and the ten sensor
-containers (no LocalStack).
+containers.
 
-LIVE RESOURCES (account 639210843493, us-east-1): DynamoDB table
+LIVE RESOURCES: DynamoDB table
 msm-readings, SQS queue msm-shaft-agg, Lambda msm-processor
 (SQS-triggered ingestion) and Lambda msm-dashboard-api (behind API
 Gateway REST API abkr6m4y99), EC2 instance i-0375e6d48f131629c (tagged
