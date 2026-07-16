@@ -230,15 +230,10 @@ Third-party open-source components used as standard libraries/tools:
 
 REAL AWS DEPLOYMENT
 --------------------
-This project is deployed to a real AWS Academy Learner Lab account
-(Ebin Joseph's own, X25142224), not just run against LocalStack. The
-account was redeployed once, 2026-07-15, when a new Learner Lab session
-issued a different sandbox account instead of refreshing the original
-one; both deployments are listed below since the original account's
-resources are orphaned rather than deleted. A full account of the
-defects found and fixed while deploying (pagination, batching,
-credential-gating, CORS) is in the project report's evaluation section,
-not repeated here.
+The account was redeployed once, 2026-07-15, when a new Learner Lab
+session issued a different sandbox account instead of refreshing the
+original one; both deployments are listed below since the original
+account's resources are orphaned rather than deleted.
 
 CURRENT (account 475393590440, us-east-1): DynamoDB table ska-readings,
 SQS queue ska-slope-agg, Lambda ska-processor and Lambda

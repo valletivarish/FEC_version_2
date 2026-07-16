@@ -146,17 +146,17 @@ Third-party open-source components used as standard libraries/tools:
 
 REAL AWS DEPLOYMENT
 --------------------
-Deployed to a real AWS Academy Learner Lab account (Goutham Uppu's own,
-X25167936), provisioned via the portfolio's shared Terraform module
-(terraform/) in a single apply. DynamoDB table wrf-readings, SQS queue
-wrf-fleet-agg, Lambda wrf-processor and Lambda wrf-dashboard-api (API
-Gateway iodllqqk3m), EC2 instance i-00c6537b8a41e9750, Elastic IP
+Account 789399341650, us-east-1.
+
+ARCHITECTURE: the dashboard API runs as an AWS Lambda function behind an
+API Gateway REST API. EC2 runs the fog gateway and the ten sensor
+containers (no LocalStack).
+
+LIVE RESOURCES: DynamoDB table wrf-readings, SQS queue wrf-fleet-agg,
+Lambda wrf-processor and Lambda wrf-dashboard-api (API Gateway
+iodllqqk3m), EC2 instance i-00c6537b8a41e9750, Elastic IP
 3.211.126.248, S3 buckets wrf-frontend-789399341650 (dashboard) and
 wrf-deploy-789399341650 (staging).
 
 Dashboard: https://wrf-frontend-789399341650.s3.us-east-1.amazonaws.com/index.html
 API: https://iodllqqk3m.execute-api.us-east-1.amazonaws.com/prod
-
-Verified live: /api/health reports all four fields true, DynamoDB item
-count climbing, dashboard rendering real data in a real browser with
-zero console errors.

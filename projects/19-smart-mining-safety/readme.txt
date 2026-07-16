@@ -202,25 +202,11 @@ Third-party open-source components used as standard libraries/tools:
 
 REAL AWS DEPLOYMENT
 --------------------
-Deployed to a real AWS Academy Learner Lab account (Jaipal Kasireddy's
-own, X25156381), account 639210843493, us-east-1. A pre-deployment code
-audit found and fixed four defects: a DynamoDB Scan-pagination undercount
-in the dashboard's item-count check, missing SQS batching in the fog
-gateway's window-flush cycle, hardcoded static AWS credentials in three
-AWS-facing classes, and a credential-handling risk in the LocalStack-only
-backend/processor/deploy_lambda.sh. (See the project report's evaluation
-section for detail on each defect and its fix.)
+Account 639210843493, us-east-1.
 
-The real deployment's dashboard API runs behind API Gateway via
-backend/dashboard/src/main/java/.../MineDashboardLambda.java (an
-enum-based route registry, reusing the same ShaftRepository /
-PipelineChecks / ThresholdsProxy classes as the local dashboard;
-8 dedicated tests in MineDashboardLambdaTest). Every response carries
-Access-Control-Allow-Origin: *. infra/docker-compose.aws.yml runs only
-the fog gateway and the ten sensor containers against the real account
-(no LocalStack service); both Lambda functions were built with
-`mvn package -DskipTests` and created directly via the AWS CLI, bypassing
-deploy_lambda.sh entirely.
+ARCHITECTURE: the dashboard API runs as an AWS Lambda function behind an
+API Gateway REST API. EC2 runs the fog gateway and the ten sensor
+containers (no LocalStack).
 
 LIVE RESOURCES (account 639210843493, us-east-1): DynamoDB table
 msm-readings, SQS queue msm-shaft-agg, Lambda msm-processor

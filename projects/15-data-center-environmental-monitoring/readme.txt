@@ -191,10 +191,11 @@ rather than being stalled or broken.
 
 DEPLOYMENT (AWS)
 -----------------
-Beyond the LocalStack-backed stack above, this project is also deployed to
-a real AWS account (AWS Academy Learner Lab, account 373241496019, region
-us-east-1, Nithin's own login -- see CLAUDE.md at the repository root for
-the account-ID guardrail).
+Account 373241496019, region us-east-1.
+
+ARCHITECTURE: EC2 runs infra/docker-compose.aws.yml (fog + the ten
+sensors only, no LocalStack). The dashboard API runs as a separate AWS
+Lambda function (dce-api) behind API Gateway.
 
 Live resources: DynamoDB table dce-readings; SQS queue dce-hall-agg;
 Lambda dce-processor (SQS event-source-triggered ingestion); Lambda dce-api
@@ -209,24 +210,6 @@ Live URLs:
   Dashboard: https://dce-frontend-373241496019.s3.us-east-1.amazonaws.com/index.html
   API:       https://nke958yhid.execute-api.us-east-1.amazonaws.com/prod
 
-Two configuration-only differences from the LocalStack stack, no code
-fork: (1) the EC2 instance runs infra/docker-compose.aws.yml (fog and the
-ten sensors only) with no AWS_ACCESS_KEY_ID or AWS_ENDPOINT_URL set, so the
-AWS SDK's default credential chain picks up the EC2 instance profile
-(LabInstanceProfile) automatically; (2) the dashboard's static assets are
-served directly from S3, so index.html's <meta name="api-base"> is set to
-the real API Gateway invoke URL above and dashboard.js reads it from there
-instead of using relative /api/* paths, with the dce-api Lambda adding an
-Access-Control-Allow-Origin header for that cross-origin case.
-
-The full pipeline was independently verified live after deployment:
-/api/health reports gateway, queue, lambda, and pipeline all true with a
-sub-second freshest_age_seconds; /api/halls and /api/backend-stats return
-real, continuously updating sensor data for both halls; the S3-hosted
-dashboard renders all five per-hall readings and all five trend charts
-with zero browser console errors. For the credential-handling and
-DynamoDB-pagination defects found and fixed before/during this
-deployment, see the project report's evaluation section.
 
 REUSE / THIRD-PARTY COMPONENTS
 -------------------------------

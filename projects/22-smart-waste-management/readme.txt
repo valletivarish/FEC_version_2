@@ -241,9 +241,11 @@ directly to more collection points without any structural change.
 
 DEPLOYMENT (AWS)
 ----------------
-Deployed to a real AWS account: AWS Academy Learner Lab, account
-548539235319, region us-east-1, under Gundeti Sachin Reddy's (X23432721)
-own AWS Academy credentials.
+Account 548539235319, region us-east-1.
+
+ARCHITECTURE: EC2 runs fog + the 10 sensor containers via
+infra/docker-compose.aws.yml. The dashboard API runs as an AWS Lambda
+function behind API Gateway.
 
 Live resources:
   DynamoDB table  swm-readings
@@ -252,10 +254,7 @@ Live resources:
                                        source mapping -- the fog-dispatch
                                        consumer)
   Lambda function swm-dashboard-api   (nodejs20.x, LabRole, behind API
-                                       Gateway; reuses server.js's existing
-                                       router/handlers via
-                                       lambdaHandler.js's fake-
-                                       ServerResponse shim)
+                                       Gateway)
   API Gateway     f721o30kd5          (HTTP API, AWS_PROXY integration to
                                        swm-dashboard-api, public, HTTPS/443)
   S3 bucket       swm-frontend-548539235319 (static frontend: index.html,
@@ -284,12 +283,9 @@ Live URLs:
   Dashboard (open this):  https://swm-frontend-548539235319.s3.us-east-1.amazonaws.com/index.html
   Dashboard API:          https://f721o30kd5.execute-api.us-east-1.amazonaws.com
 
-Historical note: the dashboard was originally a 4th container on the EC2
-instance itself (port 8101); it was migrated to the S3 + Lambda + API
-Gateway layout above because CloudFront and public/unauthenticated Lambda
-Function URLs are both blocked in this Learner Lab account (API Gateway is
-not). See the project report's evaluation section for the defects found
-during deployment and this migration.
+Note: CloudFront and public/unauthenticated Lambda Function URLs are both
+blocked in this Learner Lab account; API Gateway is not, which is why the
+dashboard API is served through API Gateway rather than either of those.
 
 Because this is a time-limited AWS Academy Learner Lab session, session/lab
 expiry may eventually reclaim the EC2 instance and/or its public IP;

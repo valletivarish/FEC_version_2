@@ -62,9 +62,13 @@ ALERT THRESHOLDS (evaluated on the window aggregate)
 
 DEPLOYMENT (AWS)
 -----------------
-Deployed live to a real AWS account (AWS Academy Learner Lab, account
-573065484152, us-east-1, under Gopi Krishnan's own AWS Academy
-credentials):
+Account 573065484152, us-east-1.
+
+ARCHITECTURE: EC2 runs infra/docker-compose.aws.yml (fog + the ten
+sensors only, no LocalStack). The dashboard API runs as an AWS Lambda
+function behind API Gateway, answering /api/* and reusing
+data_access.py directly.
+
   DynamoDB:      mvs-readings (PAY_PER_REQUEST, partition key sensor_type,
                  sort key sort_key)
   SQS queue:     mvs-vessel-agg
@@ -87,20 +91,6 @@ Live URLs:
   Dashboard: http://mvs-frontend-573065484152.s3-website-us-east-1.amazonaws.com/
   API:       https://3crovrzml6.execute-api.us-east-1.amazonaws.com/prod
 
-Configuration differences from the LocalStack stack (same code, no fork):
-  - EC2 runs infra/docker-compose.aws.yml (fog + the ten sensors only, no
-    LocalStack/dashboard/processor-deploy containers). No AWS_ACCESS_KEY_ID
-    or AWS_ENDPOINT_URL is set there, so fog/publisher.py's boto3 client
-    falls through to the SDK's default credential chain and picks up the
-    instance's attached LabInstanceProfile automatically.
-  - dashboard.js's API_BASE constant is a %%API_BASE%% token, sed-replaced
-    with the real API Gateway URL at deploy time, so fetch() calls target
-    the API Gateway host instead of same-origin relative paths.
-  - The dashboard Lambda answers /api/* through
-    backend/dashboard/lambda_handler.py, a flat dict[(method, path)]
-    lookup table, reusing data_access.py directly (the same module the
-    local Tornado handlers call).
-
 index.html requests its assets at /static/style.css, /static/dashboard.js,
 and /static/vendor/chart.umd.min.js (matching how the local Tornado server
 mounts StaticFileHandler), so any re-upload to S3 MUST preserve that path
@@ -111,9 +101,8 @@ static/ prefix:
   aws s3 cp backend/dashboard/static/dashboard.js s3://<bucket>/static/dashboard.js
   aws s3 cp backend/dashboard/static/vendor/chart.umd.min.js s3://<bucket>/static/vendor/chart.umd.min.js
 A flat `aws s3 sync backend/dashboard/static/ s3://<bucket>/` uploads
-everything to the bucket root instead, breaking every asset reference with
-a 404 -- see the project report's evaluation section for the defect this
-caused and how it was found and fixed.
+everything to the bucket root instead, breaking every asset reference
+with a 404.
 
 Health check: curl https://3crovrzml6.execute-api.us-east-1.amazonaws.com/prod/api/health
 should return {"gateway":true,"queue":true,"lambda":true,"pipeline":true}.

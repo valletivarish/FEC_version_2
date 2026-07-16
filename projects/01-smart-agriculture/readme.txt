@@ -105,9 +105,11 @@ source:
 
 DEPLOYMENT (AWS)
 -----------------
-Account:  733939924597 (AWS Academy Learner Lab, region us-east-1,
-          Chaitanya's own login -- see CLAUDE.md at the repository root for
-          the account-ID guardrail).
+Account:  733939924597 (AWS Academy Learner Lab, region us-east-1).
+
+ARCHITECTURE: EC2 runs infra/docker-compose.aws.yml (fog + six sensors
+only, no LocalStack). The dashboard API runs as an AWS Lambda function
+(Mangum-wrapped FastAPI app) behind API Gateway.
 
 Live resources:
   DynamoDB table  fec-agri-readings (partition key sensor_type, sort key sort_key)
@@ -128,19 +130,6 @@ Live resources:
 Live URLs:
   Dashboard: https://fec-agri-frontend-733939924597.s3.us-east-1.amazonaws.com/index.html
   API:       https://fjdi0s1wed.execute-api.us-east-1.amazonaws.com
-
-Configuration (no code fork from the LocalStack stack): EC2 runs
-infra/docker-compose.aws.yml (fog + six sensors only, no LocalStack/dashboard
-container) with no AWS_ACCESS_KEY_ID or AWS_ENDPOINT_URL set, so
-fog/publisher.py's boto3 client falls through to the SDK's default
-credential chain and picks up the EC2 instance profile (LabInstanceProfile)
-automatically. The dashboard's static assets are served directly from S3;
-index.html loads static/runtime-config.js before dashboard.js, which sets
-window.RUNTIME_CONFIG.apiBase to the API Gateway URL above (left blank for
-local dev, where the same origin serves both the API and the static files).
-
-See the project report's evaluation section for the defects found and fixed
-during this deployment.
 
 REPORT
 ------

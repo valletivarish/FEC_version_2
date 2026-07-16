@@ -221,20 +221,20 @@ Third-party open-source components used as standard libraries/tools:
 
 DEPLOYMENT (AWS)
 -----------------
-Deployed to a real AWS account: AWS Academy Learner Lab under Hrishikesh
-Sajeev's own student login, account 670139527491, region us-east-1.
+Account 670139527491, region us-east-1.
+
+ARCHITECTURE: the dashboard API runs as an AWS Lambda function behind an
+API Gateway REST API. EC2 runs the fog node and the ten sensor
+containers (no LocalStack), administered exclusively through AWS
+Systems Manager Session Manager (no SSH/key pair).
 
 Live resources: DynamoDB table wcm-readings, SQS queue wcm-reserve-agg,
-Lambda wcm-processor (SQS-triggered ingestion, java17 runtime) and Lambda
-wcm-dashboard-api (WildlifeDashboardLambda, behind API Gateway REST API
-oz61bjskyj, stage prod), EC2 instance (tag wcm-fog-host, security group
-allowing only inbound TCP 8000, no SSH/key pair -- administered exclusively
-through AWS Systems Manager Session Manager) behind Elastic IP
-44.216.37.203, S3 bucket wcm-frontend-670139527491 (static dashboard
-frontend, public read, static website hosting) and S3 staging bucket
-wcm-deploy-670139527491 (used to ship source to the EC2 instance since this
-repo is private and can't be git cloned from there without embedding a
-token).
+Lambda wcm-processor (SQS-triggered ingestion) and Lambda
+wcm-dashboard-api (behind API Gateway REST API oz61bjskyj, stage prod),
+EC2 instance (tag wcm-fog-host, security group allowing only inbound TCP
+8000) behind Elastic IP 44.216.37.203, S3 bucket wcm-frontend-670139527491
+(static dashboard frontend, public read, static website hosting) and S3
+staging bucket wcm-deploy-670139527491.
 
 Live URLs: dashboard at
 https://wcm-frontend-670139527491.s3.us-east-1.amazonaws.com/index.html,
@@ -242,15 +242,3 @@ its API at https://oz61bjskyj.execute-api.us-east-1.amazonaws.com/prod. The
 dashboard and its API are fully serverless (S3 + Lambda + API Gateway) and
 do not depend on the EC2 instance being up; only /api/health's "gateway"
 field and fresh sensor data depend on the fog node running on EC2.
-
-The dashboard-facing Lambda's FOG_HEALTH_URL/FOG_THRESHOLDS_URL env vars
-point at the Elastic IP above; if it is ever released and reallocated,
-they need updating. The frontend's static/api-config.json is generated at
-deploy time with the real API Gateway URL -- the committed version in this
-repo is a placeholder with an empty apiBase, used only for local
-development.
-
-End-to-end pipeline independently verified live (/api/health all fields
-true, dashboard loaded in a real browser with zero console errors and all
-four alert rules firing correctly) -- see the project report's evaluation
-section for full verification detail.
