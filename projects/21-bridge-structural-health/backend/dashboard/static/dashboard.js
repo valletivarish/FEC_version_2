@@ -1,3 +1,14 @@
+// Read once from the --api-base custom property on :root, set inline in
+// index.html and sed-substituted at S3 upload time. Falls back to
+// same-origin ("") for local dev, where the value is left as __API_BASE__.
+const API_BASE = (() => {
+  const raw = getComputedStyle(document.documentElement)
+    .getPropertyValue("--api-base")
+    .trim()
+    .replace(/^["']|["']$/g, "");
+  return !raw || raw.includes("__API_BASE__") ? "" : raw.replace(/\/$/, "");
+})();
+
 const POLL_INTERVAL_MS = 2500;
 
 const SENSOR_META = {
@@ -142,8 +153,8 @@ function ensureTrendChart() {
 async function refreshTrendChart() {
   try {
     const [respA, respB] = await Promise.all([
-      fetch("/api/readings?sensor_type=strain_microstrain&site_id=span-a&limit=20"),
-      fetch("/api/readings?sensor_type=strain_microstrain&site_id=span-b&limit=20"),
+      fetch(`${API_BASE}/api/readings?sensor_type=strain_microstrain&site_id=span-a&limit=20`),
+      fetch(`${API_BASE}/api/readings?sensor_type=strain_microstrain&site_id=span-b&limit=20`),
     ]);
     const [dataA, dataB] = await Promise.all([respA.json(), respB.json()]);
     const chart = ensureTrendChart();
@@ -159,7 +170,7 @@ async function refreshTrendChart() {
 async function loadRulesOnce() {
   if (rulesLoaded) return;
   try {
-    const resp = await fetch("/api/thresholds");
+    const resp = await fetch(`${API_BASE}/api/thresholds`);
     if (resp.ok) {
       rulesByType = await resp.json();
       rulesLoaded = true;
@@ -172,9 +183,9 @@ async function loadRulesOnce() {
 async function pollOnce() {
   try {
     const [spansResp, healthResp, statsResp] = await Promise.all([
-      fetch("/api/spans"),
-      fetch("/api/health"),
-      fetch("/api/backend-stats"),
+      fetch(`${API_BASE}/api/spans`),
+      fetch(`${API_BASE}/api/health`),
+      fetch(`${API_BASE}/api/backend-stats`),
     ]);
     const [spans, health, stats] = await Promise.all([spansResp.json(), healthResp.json(), statsResp.json()]);
     await loadRulesOnce();

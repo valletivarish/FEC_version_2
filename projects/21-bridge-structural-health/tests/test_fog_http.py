@@ -111,12 +111,18 @@ class TestIngestValidation:
         assert ("tilt_angle_deg", "span-b", 0.6, "t2") in fog_app.buffering.RAW
 
 
-class FakeSqsClient:
+class BatchQueueSpy:
     def __init__(self):
-        self.sent = []
+        self.batches = []
 
-    def send_message(self, QueueUrl, MessageBody):
-        self.sent.append((QueueUrl, json.loads(MessageBody)))
+    def send_message_batch(self, QueueUrl, Entries):
+        self.batches.append((QueueUrl, [json.loads(e["MessageBody"]) for e in Entries]))
+
+    @property
+    def sent(self):
+        """Flattened (queue_url, message) pairs across every batch call, so
+        existing per-message assertions read the same as before batching."""
+        return [(url, msg) for url, msgs in self.batches for msg in msgs]
 
 
 def test_flush_once_aggregates_and_publishes_one_message_per_group():
@@ -126,11 +132,12 @@ def test_flush_once_aggregates_and_publishes_one_message_per_group():
     fog_app.buffering.record("strain_microstrain", "span-a", 1300.0, "t2")
     fog_app.buffering.record("strain_microstrain", "span-b", 100.0, "t3")
 
-    client = FakeSqsClient()
+    client = BatchQueueSpy()
     messages = fog_app.flush_once(client, "http://queue-url")
 
     assert len(client.sent) == 2
     assert len(messages) == 2
+    assert len(client.batches) == 1, "both messages must go out in a single batch call"
 
     by_site = {m["site_id"]: m for m in messages}
     assert by_site["span-a"]["avg"] == 1300.0
@@ -140,7 +147,8 @@ def test_flush_once_aggregates_and_publishes_one_message_per_group():
 
 def test_flush_once_is_a_noop_on_empty_buffer():
     fog_app.buffering.snapshot_and_clear()
-    client = FakeSqsClient()
+    client = BatchQueueSpy()
     messages = fog_app.flush_once(client, "http://queue-url")
     assert messages == []
     assert client.sent == []
+    assert client.batches == []

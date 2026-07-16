@@ -6,7 +6,7 @@ from conftest import load_module
 handler = load_module("bshm_handler", "backend/processor/handler.py")
 
 
-class FakeTable:
+class PutItemLog:
     def __init__(self):
         self.items = []
 
@@ -38,7 +38,7 @@ def test_to_item_converts_floats_to_decimal():
 
 
 def test_lambda_handler_writes_one_item_per_record(monkeypatch):
-    fake_table = FakeTable()
+    fake_table = PutItemLog()
     monkeypatch.setattr(handler, "_table", fake_table)
 
     event = {"Records": [sqs_record()]}
@@ -52,7 +52,7 @@ def test_lambda_handler_writes_one_item_per_record(monkeypatch):
 
 
 def test_lambda_handler_handles_multi_record_batch(monkeypatch):
-    fake_table = FakeTable()
+    fake_table = PutItemLog()
     monkeypatch.setattr(handler, "_table", fake_table)
 
     event = {"Records": [

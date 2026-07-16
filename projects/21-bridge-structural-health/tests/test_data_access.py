@@ -3,7 +3,7 @@ from conftest import load_module
 data_access = load_module("bshm_data_access", "backend/dashboard/data_access.py")
 
 
-class FakeTable:
+class QueryScriptedTable:
     """Rows are stored oldest-first, mirroring real insertion order. query()
     honours ScanIndexForward/Limit the same way DynamoDB does, reading the
     sensor_type equality value straight out of the boto3 Key condition."""
@@ -20,7 +20,7 @@ class FakeTable:
             matching = matching[:Limit]
         return {"Items": matching}
 
-    def scan(self, Select=None):
+    def scan(self, Select=None, ExclusiveStartKey=None):
         return {"Count": len(self.rows)}
 
 
@@ -56,7 +56,7 @@ VIBRATION_ROWS = [
 
 
 def patched_table(monkeypatch, rows):
-    fake = FakeTable(rows)
+    fake = QueryScriptedTable(rows)
     monkeypatch.setattr(data_access, "table", lambda: fake)
     return fake
 
@@ -136,12 +136,47 @@ def test_items_in_table_counts_rows(monkeypatch):
     assert data_access.items_in_table() == len(STRAIN_ROWS)
 
 
-class FakeSqsUnreachable:
+class PagedQueryScriptedTable:
+    """A Scan(Select=COUNT) that reports LastEvaluatedKey across four pages
+    (620, 275, 190, 88), asserting each page resumes from the previous
+    page's key -- exactly the multi-page shape a single un-paginated Scan
+    call would silently undercount."""
+
+    def __init__(self):
+        self.pages = [
+            {"Count": 620, "LastEvaluatedKey": {"sensor_type": "a"}},
+            {"Count": 275, "LastEvaluatedKey": {"sensor_type": "b"}},
+            {"Count": 190, "LastEvaluatedKey": {"sensor_type": "c"}},
+            {"Count": 88},
+        ]
+        self.calls = 0
+        self.seen_start_keys = []
+
+    def scan(self, Select=None, ExclusiveStartKey=None):
+        self.seen_start_keys.append(ExclusiveStartKey)
+        page = self.pages[self.calls]
+        self.calls += 1
+        return page
+
+
+def test_items_in_table_sums_every_scan_page(monkeypatch):
+    fake = PagedQueryScriptedTable()
+    monkeypatch.setattr(data_access, "table", lambda: fake)
+
+    assert data_access.items_in_table() == 1173
+    assert fake.calls == 4
+    assert fake.seen_start_keys[0] is None
+    assert fake.seen_start_keys[1] == {"sensor_type": "a"}
+    assert fake.seen_start_keys[2] == {"sensor_type": "b"}
+    assert fake.seen_start_keys[3] == {"sensor_type": "c"}
+
+
+class QueueLookupFailingStub:
     def get_queue_url(self, QueueName):
         raise RuntimeError("queue not found")
 
 
-class FakeSqsReachable:
+class QueueAttributesStub:
     def get_queue_url(self, QueueName):
         return {"QueueUrl": "http://queue-url"}
 
@@ -152,37 +187,37 @@ class FakeSqsReachable:
 
 
 def test_queue_reachable_true_and_false(monkeypatch):
-    monkeypatch.setattr(data_access, "sqs", lambda: FakeSqsReachable())
+    monkeypatch.setattr(data_access, "sqs", lambda: QueueAttributesStub())
     assert data_access.queue_reachable() is True
 
-    monkeypatch.setattr(data_access, "sqs", lambda: FakeSqsUnreachable())
+    monkeypatch.setattr(data_access, "sqs", lambda: QueueLookupFailingStub())
     assert data_access.queue_reachable() is False
 
 
 def test_queue_depth_returns_waiting_and_in_flight(monkeypatch):
-    monkeypatch.setattr(data_access, "sqs", lambda: FakeSqsReachable())
+    monkeypatch.setattr(data_access, "sqs", lambda: QueueAttributesStub())
     depth = data_access.queue_depth()
     assert depth == {"waiting": 3, "in_flight": 1}
 
 
 def test_queue_depth_none_when_unreachable(monkeypatch):
-    monkeypatch.setattr(data_access, "sqs", lambda: FakeSqsUnreachable())
+    monkeypatch.setattr(data_access, "sqs", lambda: QueueLookupFailingStub())
     assert data_access.queue_depth() is None
 
 
-class FakeLambdaActive:
+class LambdaActiveStub:
     def get_function(self, FunctionName):
         return {"Configuration": {"State": "Active"}}
 
 
-class FakeLambdaMissing:
+class LambdaLookupFailingStub:
     def get_function(self, FunctionName):
         raise RuntimeError("not found")
 
 
 def test_lambda_active_true_and_false(monkeypatch):
-    monkeypatch.setattr(data_access, "lambda_client", lambda: FakeLambdaActive())
+    monkeypatch.setattr(data_access, "lambda_client", lambda: LambdaActiveStub())
     assert data_access.lambda_active() is True
 
-    monkeypatch.setattr(data_access, "lambda_client", lambda: FakeLambdaMissing())
+    monkeypatch.setattr(data_access, "lambda_client", lambda: LambdaLookupFailingStub())
     assert data_access.lambda_active() is False

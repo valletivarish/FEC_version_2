@@ -1,0 +1,121 @@
+name: bshm
+
+# Real-AWS variant of docker-compose.yml: runs the fog node and every sensor
+# container against the live account instead of LocalStack. No
+# AWS_ACCESS_KEY_ID or AWS_ENDPOINT_URL is set anywhere in this file, so
+# fog/publisher.py's boto3.client(...) call falls through to the SDK's
+# default credential provider chain and picks up this EC2 instance's
+# attached instance profile automatically. Neither localstack, dashboard,
+# nor the one-shot processor job appear here: the DynamoDB table and both
+# Lambdas are provisioned directly against the account instead.
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  fog:
+    build:
+      context: ../fog
+    ports:
+      - "8000:8000"
+    environment:
+      AWS_REGION: us-east-1
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: bshm-span-agg
+    restart: unless-stopped
+
+  sensor-strain-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: strain_microstrain
+      SITE_ID: span-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  sensor-strain-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: strain_microstrain
+      SITE_ID: span-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-vibration-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: deck_vibration_mms
+      SITE_ID: span-a
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "6"
+
+  sensor-vibration-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: deck_vibration_mms
+      SITE_ID: span-b
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "7"
+
+  sensor-tilt-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: tilt_angle_deg
+      SITE_ID: span-a
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-tilt-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: tilt_angle_deg
+      SITE_ID: span-b
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  sensor-traffic-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: traffic_load_tonnes
+      SITE_ID: span-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "12"
+
+  sensor-traffic-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: traffic_load_tonnes
+      SITE_ID: span-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-expansion-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: expansion_joint_mm
+      SITE_ID: span-a
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "14"
+
+  sensor-expansion-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: expansion_joint_mm
+      SITE_ID: span-b
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "15"

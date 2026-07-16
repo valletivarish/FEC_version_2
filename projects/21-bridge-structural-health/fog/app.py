@@ -89,8 +89,7 @@ def flush_once(client, queue_url):
     if not raw:
         return []
     messages = build_messages(raw, units, window_start.isoformat(), window_end.isoformat())
-    for message in messages:
-        publisher.publish(client, queue_url, message)
+    publisher.publish_batch(client, queue_url, messages)
     return messages
 
 

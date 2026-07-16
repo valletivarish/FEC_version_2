@@ -178,5 +178,32 @@ def lambda_active():
         return False
 
 
+class _ScanCountPages:
+    """Manual Python iterator over a table's Scan(Select=COUNT) pages,
+    following LastEvaluatedKey until DynamoDB stops returning one. Implemented
+    with the classic __iter__/__next__ protocol rather than a generator
+    function, a recursive helper, or the SDK's own paginator -- the 10th
+    distinct pagination shape in this portfolio."""
+
+    def __init__(self, tbl):
+        self._table = tbl
+        self._cursor = None
+        self._done = False
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self._done:
+            raise StopIteration
+        kwargs = {"Select": "COUNT"}
+        if self._cursor is not None:
+            kwargs["ExclusiveStartKey"] = self._cursor
+        page = self._table.scan(**kwargs)
+        self._cursor = page.get("LastEvaluatedKey")
+        self._done = self._cursor is None
+        return page["Count"]
+
+
 def items_in_table():
-    return table().scan(Select="COUNT")["Count"]
+    return sum(_ScanCountPages(table()))
