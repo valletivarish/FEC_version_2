@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { publish, resolveQueueUrl, clearQueueUrlCache } = require("./publisher");
+const { publish, publishBatch, resolveQueueUrl, clearQueueUrlCache } = require("./publisher");
 
 test.beforeEach(() => clearQueueUrlCache());
 
@@ -47,6 +47,32 @@ test("resolveQueueUrl memoizes concurrent lookups for the same queue name", asyn
   assert.equal(a, "http://q/shared");
   assert.equal(b, "http://q/shared");
   assert.equal(calls, 1, "the second concurrent call should reuse the in-flight lookup, not re-invoke send");
+});
+
+test("publishBatch chunks a window at the ten-entry SendMessageBatch limit", async () => {
+  const batches = [];
+  const client = {
+    send: async (command) => {
+      if (command.constructor.name === "GetQueueUrlCommand") return { QueueUrl: "http://q/agg" };
+      batches.push(command.input.Entries);
+      return {};
+    },
+  };
+  const payloads = Array.from({ length: 23 }, (_, i) => ({ seq: i }));
+  const calls = await publishBatch(client, "batch-target", payloads, 3, 0);
+  assert.equal(calls, 3, "23 payloads must go out as exactly three batch calls");
+  assert.deepEqual(batches.map((entries) => entries.length), [10, 10, 3]);
+  assert.equal(JSON.parse(batches[2][2].MessageBody).seq, 22, "the final entry carries the final payload");
+  const ids = batches.flat().map((entry) => entry.Id);
+  assert.equal(new Set(ids).size, 23, "entry ids stay unique across chunks");
+});
+
+test("publishBatch with an empty window sends nothing at all", async () => {
+  let sends = 0;
+  const client = { send: async () => { sends += 1; return { QueueUrl: "http://q" }; } };
+  const calls = await publishBatch(client, "idle-queue", [], 3, 0);
+  assert.equal(calls, 0);
+  assert.equal(sends, 0, "not even a queue-url lookup should happen for an empty window");
 });
 
 test("publish sends a SendMessageCommand to the resolved queue url", async () => {

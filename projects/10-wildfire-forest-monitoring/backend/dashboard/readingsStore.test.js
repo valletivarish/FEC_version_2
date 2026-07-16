@@ -4,7 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { latestWindowsFor, buildStationSummaries, freshestAgeSeconds } = require("./readingsStore");
 
-class FakeDoc {
+class QueryScriptedTable {
   constructor(itemsBySensorType) {
     this.itemsBySensorType = itemsBySensorType;
   }
@@ -16,7 +16,7 @@ class FakeDoc {
 }
 
 test("latestWindowsFor returns items oldest-to-newest", async () => {
-  const doc = new FakeDoc({
+  const doc = new QueryScriptedTable({
     temperature_c: [
       { sensor_type: "temperature_c", site_id: "station-1", window_end: "t0", latest: 20 },
       { sensor_type: "temperature_c", site_id: "station-1", window_end: "t1", latest: 25 },
@@ -27,7 +27,7 @@ test("latestWindowsFor returns items oldest-to-newest", async () => {
 });
 
 test("buildStationSummaries produces distinct per-station metrics and a computed fire_risk_index", async () => {
-  const doc = new FakeDoc({
+  const doc = new QueryScriptedTable({
     temperature_c: [
       { sensor_type: "temperature_c", site_id: "station-1", window_end: "t0", latest: 20, min: 18, max: 22, avg: 20, unit: "C", alerts: [] },
       { sensor_type: "temperature_c", site_id: "station-2", window_end: "t0", latest: 44, min: 40, max: 46, avg: 44, unit: "C", alerts: ["extreme_heat"] },
@@ -63,21 +63,21 @@ test("buildStationSummaries produces distinct per-station metrics and a computed
 });
 
 test("buildStationSummaries seeds both known stations even with no data at all", async () => {
-  const doc = new FakeDoc({});
+  const doc = new QueryScriptedTable({});
   const stations = await buildStationSummaries(doc, "table");
   assert.deepEqual(stations.map((s) => s.site_id), ["station-1", "station-2"]);
   assert.equal(stations[0].fire_risk_index, 0);
 });
 
 test("freshestAgeSeconds returns null when the table is empty", async () => {
-  const doc = new FakeDoc({});
+  const doc = new QueryScriptedTable({});
   assert.equal(await freshestAgeSeconds(doc, "table"), null);
 });
 
 test("freshestAgeSeconds returns the smallest age across sensor types", async () => {
   const recent = new Date(Date.now() - 2000).toISOString();
   const stale = new Date(Date.now() - 500000).toISOString();
-  const doc = new FakeDoc({
+  const doc = new QueryScriptedTable({
     temperature_c: [{ sensor_type: "temperature_c", site_id: "station-1", window_end: stale }],
     humidity_pct: [{ sensor_type: "humidity_pct", site_id: "station-1", window_end: recent }],
   });

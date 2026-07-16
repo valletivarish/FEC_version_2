@@ -1,6 +1,6 @@
 "use strict";
 
-const { SQSClient, GetQueueUrlCommand, SendMessageCommand } = require("@aws-sdk/client-sqs");
+const { SQSClient, GetQueueUrlCommand, SendMessageCommand, SendMessageBatchCommand } = require("@aws-sdk/client-sqs");
 
 // No class (03's QueueGateway) and no closure-factory holding client/queueUrl
 // in a returned object (06's createPublisher). Just a plain function that
@@ -35,11 +35,16 @@ function resolveQueueUrl(client, queueName, retries = 30, delayMs = 2000) {
 }
 
 function buildClient(endpoint, region) {
-  return new SQSClient({
-    endpoint,
-    region,
-    credentials: { accessKeyId: "test", secretAccessKey: "test" },
-  });
+  // The static test/test pair is a LocalStack convention, so it is only
+  // attached when an explicit emulator endpoint is configured. Without one
+  // (a real deployment) the SDK's default chain supplies the EC2 instance
+  // profile's credentials instead.
+  const config = { region };
+  if (endpoint) {
+    config.endpoint = endpoint;
+    config.credentials = { accessKeyId: "test", secretAccessKey: "test" };
+  }
+  return new SQSClient(config);
 }
 
 // The single exported operation: publish one message. Every call receives
@@ -54,8 +59,29 @@ async function publish(sqsClient, queueName, payload, retries, delayMs) {
   }));
 }
 
+// SendMessageBatch accepts at most ten entries per call, so a whole flush
+// window's aggregates go out in ceil(n/10) batch calls rather than n
+// individual SendMessage calls. Same plain-function style as publish():
+// the client arrives as a parameter, nothing is wrapped in an object.
+const BATCH_LIMIT = 10;
+
+async function publishBatch(sqsClient, queueName, payloads, retries, delayMs) {
+  if (!payloads.length) return 0;
+  const queueUrl = await resolveQueueUrl(sqsClient, queueName, retries, delayMs);
+  let calls = 0;
+  for (let start = 0; start < payloads.length; start += BATCH_LIMIT) {
+    const entries = payloads.slice(start, start + BATCH_LIMIT).map((payload, offset) => ({
+      Id: String(start + offset),
+      MessageBody: JSON.stringify(payload),
+    }));
+    await sqsClient.send(new SendMessageBatchCommand({ QueueUrl: queueUrl, Entries: entries }));
+    calls += 1;
+  }
+  return calls;
+}
+
 function clearQueueUrlCache() {
   queueUrlCache.clear();
 }
 
-module.exports = { publish, resolveQueueUrl, buildClient, clearQueueUrlCache };
+module.exports = { publish, publishBatch, resolveQueueUrl, buildClient, clearQueueUrlCache };

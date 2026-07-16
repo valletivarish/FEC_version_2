@@ -4,7 +4,7 @@ const http = require("node:http");
 const { createStation } = require("./buffer");
 const { summarizeWindow } = require("./aggregation");
 const { evaluateAlerts, THRESHOLD_TABLE } = require("./alerts");
-const { publish, buildClient } = require("./publisher");
+const { publishBatch, buildClient } = require("./publisher");
 
 const WINDOW_SECONDS = parseFloat(process.env.WINDOW_SECONDS || "10");
 const QUEUE_NAME = process.env.SQS_QUEUE_NAME || "wfm-station-agg";
@@ -125,9 +125,7 @@ async function flushOnce(station, sqsClient) {
   const windowEnd = new Date().toISOString();
   const windowStart = new Date(Date.now() - WINDOW_SECONDS * 1000).toISOString();
   const messages = drainWindow(station, windowStart, windowEnd);
-  for (const message of messages) {
-    await publish(sqsClient, QUEUE_NAME, message);
-  }
+  await publishBatch(sqsClient, QUEUE_NAME, messages);
   return messages;
 }
 

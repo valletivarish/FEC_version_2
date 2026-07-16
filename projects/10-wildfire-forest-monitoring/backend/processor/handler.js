@@ -10,10 +10,14 @@ let client;
 function documentClient() {
   if (client) return client;
   const config = { region: process.env.AWS_REGION || "eu-west-1" };
-  if (process.env.AWS_ENDPOINT_URL) config.endpoint = process.env.AWS_ENDPOINT_URL;
-  if (process.env.AWS_ACCESS_KEY_ID) {
+  // Static test credentials only make sense against LocalStack, and
+  // AWS_ENDPOINT_URL is what marks that profile. A real Lambda always has
+  // AWS_ACCESS_KEY_ID set (its execution role), so that variable must not
+  // be the trigger, or production would lose the role's session token.
+  if (process.env.AWS_ENDPOINT_URL) {
+    config.endpoint = process.env.AWS_ENDPOINT_URL;
     config.credentials = {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID || "test",
       secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "test",
     };
   }

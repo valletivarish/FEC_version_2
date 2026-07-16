@@ -1,3 +1,14 @@
+// The S3 deploy step sed-replaces __API_BASE__ in the data-api-base
+// attribute on this file's own <script> tag. document.currentScript only
+// points at that tag during this file's initial synchronous evaluation, so
+// the value is captured once here at the top, never inside a callback. An
+// unreplaced placeholder (the local Docker profile) means same-origin
+// requests, i.e. an empty prefix.
+const API_BASE = (() => {
+  const declared = document.currentScript && document.currentScript.dataset.apiBase;
+  return declared && !declared.startsWith("__") ? declared.replace(/\/$/, "") : "";
+})();
+
 const METRIC_META = {
   temperature_c: { label: "Temperature", unit: "C" },
   humidity_pct: { label: "Humidity", unit: "%" },
@@ -170,7 +181,7 @@ function ensureSmokeTrendChart() {
 async function refreshSmokeTrend(siteIds) {
   const chart = ensureSmokeTrendChart();
   const series = await Promise.all(siteIds.map(async (siteId) => {
-    const res = await fetch(`/api/readings?sensor_type=smoke_density_ppm&site_id=${siteId}&limit=30`);
+    const res = await fetch(`${API_BASE}/api/readings?sensor_type=smoke_density_ppm&site_id=${siteId}&limit=30`);
     const data = await res.json();
     return { siteId, items: data.items };
   }));
@@ -192,9 +203,9 @@ async function refreshSmokeTrend(siteIds) {
 async function poll() {
   try {
     const [stationData, health, backendStats] = await Promise.all([
-      fetch("/api/stations").then((r) => r.json()),
-      fetch("/api/health").then((r) => r.json()),
-      fetch("/api/backend-stats").then((r) => r.json()),
+      fetch(`${API_BASE}/api/stations`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/health`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/backend-stats`).then((r) => r.json()),
     ]);
 
     const stations = stationData.stations;

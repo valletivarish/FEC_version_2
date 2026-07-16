@@ -1,0 +1,116 @@
+name: wfm-aws
+
+# No AWS_ENDPOINT_URL and no credentials here: buildClient() only attaches
+# the static test/test pair when an emulator endpoint is configured, so on
+# EC2 the SDK's default chain picks up the instance profile (LabRole).
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  fog:
+    build:
+      context: ../fog
+    ports:
+      - "8000:8000"
+    environment:
+      AWS_REGION: us-east-1
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: wfm-station-agg
+    restart: unless-stopped
+
+  sensor-temp-s1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: temperature_c
+      SITE_ID: station-1
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  sensor-temp-s2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: temperature_c
+      SITE_ID: station-2
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-humidity-s1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: humidity_pct
+      SITE_ID: station-1
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-humidity-s2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: humidity_pct
+      SITE_ID: station-2
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  sensor-smoke-s1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: smoke_density_ppm
+      SITE_ID: station-1
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "7"
+
+  sensor-smoke-s2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: smoke_density_ppm
+      SITE_ID: station-2
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "6"
+
+  sensor-wind-s1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: wind_speed_kmh
+      SITE_ID: station-1
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-wind-s2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: wind_speed_kmh
+      SITE_ID: station-2
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-soil-s1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: soil_moisture_pct
+      SITE_ID: station-1
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "12"
+
+  sensor-soil-s2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: soil_moisture_pct
+      SITE_ID: station-2
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "13"

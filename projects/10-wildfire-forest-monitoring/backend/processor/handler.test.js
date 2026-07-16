@@ -4,7 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { writeBatch } = require("./handler");
 
-class FakeDoc {
+class PutCommandLog {
   constructor() {
     this.items = [];
   }
@@ -15,7 +15,7 @@ class FakeDoc {
 }
 
 test("writeBatch writes one PutCommand per SQS record", async () => {
-  const doc = new FakeDoc();
+  const doc = new PutCommandLog();
   const records = [
     { body: JSON.stringify({ sensor_type: "wind_speed_kmh", window_end: "e1", site_id: "station-1" }) },
     { body: JSON.stringify({ sensor_type: "wind_speed_kmh", window_end: "e1", site_id: "station-2" }) },
@@ -29,7 +29,7 @@ test("writeBatch writes one PutCommand per SQS record", async () => {
 });
 
 test("writeBatch is a no-op for an empty record list", async () => {
-  const doc = new FakeDoc();
+  const doc = new PutCommandLog();
   const written = await writeBatch([], doc, "wfm-readings");
   assert.equal(written, 0);
   assert.equal(doc.items.length, 0);

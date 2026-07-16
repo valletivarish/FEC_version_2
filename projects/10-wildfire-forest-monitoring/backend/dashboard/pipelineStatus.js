@@ -41,9 +41,37 @@ async function readQueueCounters(sqs, queueName) {
   }
 }
 
+// A COUNT Scan only covers ~1MB of scanned data per call; DynamoDB signals
+// a further page via LastEvaluatedKey, so a single call silently undercounts
+// once the table outgrows one page. scanCountPages() hand-implements the
+// async-iterator protocol (a plain object with [Symbol.asyncIterator], no
+// generator function) so the paging state lives in a closure and the
+// consumer is just a for-await sum.
+function scanCountPages(doc, tableName) {
+  let cursor;
+  let exhausted = false;
+  return {
+    [Symbol.asyncIterator]() {
+      return {
+        next: () => {
+          if (exhausted) return Promise.resolve({ done: true, value: undefined });
+          return doc
+            .send(new ScanCommand({ TableName: tableName, Select: "COUNT", ExclusiveStartKey: cursor }))
+            .then((page) => {
+              cursor = page.LastEvaluatedKey;
+              exhausted = cursor === undefined;
+              return { done: false, value: page.Count };
+            });
+        },
+      };
+    },
+  };
+}
+
 async function countTableItems(doc, tableName) {
-  const resp = await doc.send(new ScanCommand({ TableName: tableName, Select: "COUNT" }));
-  return resp.Count;
+  let total = 0;
+  for await (const pageCount of scanCountPages(doc, tableName)) total += pageCount;
+  return total;
 }
 
 async function checkGateway(healthUrl) {
