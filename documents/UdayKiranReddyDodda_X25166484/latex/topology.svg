@@ -1,90 +1,90 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 720" font-family="Helvetica, Arial, sans-serif">
   <rect x="0" y="0" width="1240" height="720" fill="#ffffff"/>
 
-  <!-- defs: arrowheads -->
   <defs>
-    <marker id="flow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
-      <path d="M0,0 L8,3 L0,6 Z" fill="#2b3944"/>
+    <marker id="flow" markerWidth="11" markerHeight="11" refX="8" refY="3.2" orient="auto">
+      <path d="M0,0 L8,3.2 L0,6.4 Z" fill="#2b3944"/>
     </marker>
-    <marker id="read" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
-      <path d="M0,0 L7,3 L0,6 Z" fill="#b06a3a"/>
+    <marker id="read" markerWidth="8" markerHeight="8" refX="6.5" refY="2.6" orient="auto">
+      <path d="M0,0 L6.5,2.6 L0,5.2 Z" fill="#3d5a73"/>
     </marker>
   </defs>
 
-  <!-- EC2 edge host container -->
-  <rect x="34" y="52" width="452" height="176" rx="8" fill="none" stroke="#3d5a73" stroke-width="2.5" stroke-dasharray="9 6"/>
-  <text x="50" y="44" font-size="17" fill="#3d5a73" font-weight="bold">EC2 edge host  (Docker Compose)</text>
+  <!-- EDGE HOST: solid container with a solid header bar (no dashed border) -->
+  <rect x="34" y="66" width="452" height="184" rx="9" fill="#eef3f7" stroke="#3d5a73" stroke-width="2"/>
+  <path d="M34,75 a9,9 0 0 1 9,-9 h434 a9,9 0 0 1 9,9 v27 h-452 z" fill="#17324d"/>
+  <text x="52" y="91" font-size="15.5" fill="#ffffff" font-weight="bold" letter-spacing="0.5">EDGE HOST ON THE QUAY &#183; Docker Compose</text>
 
   <!-- Sensor containers -->
-  <rect x="54" y="86" width="192" height="112" rx="7" fill="#eaf0f4" stroke="#3d5a73" stroke-width="2"/>
-  <text x="150" y="120" font-size="17" fill="#17324d" font-weight="bold" text-anchor="middle">10 Sensor Containers</text>
-  <text x="150" y="146" font-size="13.5" fill="#42586b" text-anchor="middle">5 types x 2 berths</text>
-  <text x="150" y="167" font-size="13.5" fill="#42586b" text-anchor="middle">bounded random walk,</text>
-  <text x="150" y="185" font-size="13.5" fill="#42586b" text-anchor="middle">dual-rate sample/dispatch</text>
+  <rect x="54" y="120" width="192" height="116" rx="7" fill="#ffffff" stroke="#3d5a73" stroke-width="1.8"/>
+  <text x="150" y="152" font-size="16.5" fill="#17324d" font-weight="bold" text-anchor="middle">10 Sensor Containers</text>
+  <text x="150" y="177" font-size="13" fill="#42586b" text-anchor="middle">5 types x 2 berths</text>
+  <text x="150" y="197" font-size="13" fill="#42586b" text-anchor="middle">bounded random walk,</text>
+  <text x="150" y="215" font-size="13" fill="#42586b" text-anchor="middle">dual-rate sample/dispatch</text>
 
   <!-- Fog gateway -->
-  <rect x="278" y="86" width="192" height="112" rx="7" fill="#17324d" stroke="#0f2438" stroke-width="2"/>
-  <text x="374" y="120" font-size="17" fill="#ffffff" font-weight="bold" text-anchor="middle">Fog Gateway</text>
-  <text x="374" y="146" font-size="13.5" fill="#c7d6e2" text-anchor="middle">Java HTTP server</text>
-  <text x="374" y="167" font-size="13.5" fill="#c7d6e2" text-anchor="middle">window / aggregate /</text>
-  <text x="374" y="185" font-size="13.5" fill="#c7d6e2" text-anchor="middle">threshold rules</text>
+  <rect x="278" y="120" width="190" height="116" rx="7" fill="#17324d" stroke="#0f2438" stroke-width="1.8"/>
+  <text x="373" y="152" font-size="16.5" fill="#ffffff" font-weight="bold" text-anchor="middle">Fog Gateway</text>
+  <text x="373" y="177" font-size="13" fill="#c7d6e2" text-anchor="middle">Java HTTP server</text>
+  <text x="373" y="197" font-size="13" fill="#c7d6e2" text-anchor="middle">window / aggregate /</text>
+  <text x="373" y="215" font-size="13" fill="#c7d6e2" text-anchor="middle">threshold rules</text>
 
   <!-- Amazon SQS -->
-  <rect x="560" y="98" width="150" height="90" rx="7" fill="#d1622f" stroke="#a94c22" stroke-width="2"/>
-  <text x="635" y="134" font-size="16.5" fill="#ffffff" font-weight="bold" text-anchor="middle">Amazon SQS</text>
-  <text x="635" y="158" font-size="13.5" fill="#ffe7d8" text-anchor="middle">spc-berth-agg</text>
+  <rect x="560" y="132" width="150" height="90" rx="7" fill="#d1622f" stroke="#a94c22" stroke-width="1.8"/>
+  <text x="635" y="168" font-size="16.5" fill="#ffffff" font-weight="bold" text-anchor="middle">Amazon SQS</text>
+  <text x="635" y="192" font-size="13" fill="#ffe7d8" text-anchor="middle">spc-berth-agg</text>
 
   <!-- Processor Lambda -->
-  <rect x="782" y="98" width="176" height="90" rx="7" fill="#2e7d6b" stroke="#22604f" stroke-width="2"/>
-  <text x="870" y="128" font-size="16.5" fill="#ffffff" font-weight="bold" text-anchor="middle">AWS Lambda</text>
-  <text x="870" y="150" font-size="13.5" fill="#d4ede5" text-anchor="middle">spc-processor</text>
-  <text x="870" y="170" font-size="12.5" fill="#d4ede5" text-anchor="middle">SQS-triggered ingest</text>
+  <rect x="782" y="132" width="176" height="90" rx="7" fill="#2e7d6b" stroke="#22604f" stroke-width="1.8"/>
+  <text x="870" y="162" font-size="16.5" fill="#ffffff" font-weight="bold" text-anchor="middle">AWS Lambda</text>
+  <text x="870" y="184" font-size="13" fill="#d4ede5" text-anchor="middle">spc-processor</text>
+  <text x="870" y="204" font-size="12.5" fill="#d4ede5" text-anchor="middle">SQS-triggered ingest</text>
 
   <!-- DynamoDB -->
-  <rect x="1030" y="98" width="176" height="90" rx="7" fill="#17324d" stroke="#0f2438" stroke-width="2"/>
-  <text x="1118" y="134" font-size="16.5" fill="#ffffff" font-weight="bold" text-anchor="middle">Amazon DynamoDB</text>
-  <text x="1118" y="158" font-size="13.5" fill="#c7d6e2" text-anchor="middle">spc-readings</text>
+  <rect x="1030" y="132" width="176" height="90" rx="7" fill="#17324d" stroke="#0f2438" stroke-width="1.8"/>
+  <text x="1118" y="168" font-size="16" fill="#ffffff" font-weight="bold" text-anchor="middle">Amazon DynamoDB</text>
+  <text x="1118" y="192" font-size="13" fill="#c7d6e2" text-anchor="middle">spc-readings</text>
 
-  <!-- ingest flow arrows -->
-  <line x1="470" y1="142" x2="556" y2="142" stroke="#2b3944" stroke-width="2.5" marker-end="url(#flow)"/>
-  <line x1="710" y1="142" x2="778" y2="142" stroke="#2b3944" stroke-width="2.5" marker-end="url(#flow)"/>
-  <line x1="958" y1="142" x2="1026" y2="142" stroke="#2b3944" stroke-width="2.5" marker-end="url(#flow)"/>
+  <!-- ingest flow arrows (thick, solid) -->
+  <line x1="468" y1="177" x2="556" y2="177" stroke="#2b3944" stroke-width="2.6" marker-end="url(#flow)"/>
+  <line x1="710" y1="177" x2="778" y2="177" stroke="#2b3944" stroke-width="2.6" marker-end="url(#flow)"/>
+  <line x1="958" y1="177" x2="1026" y2="177" stroke="#2b3944" stroke-width="2.6" marker-end="url(#flow)"/>
 
   <!-- query tier -->
-  <rect x="782" y="452" width="176" height="96" rx="7" fill="#2e7d6b" stroke="#22604f" stroke-width="2"/>
-  <text x="870" y="486" font-size="16.5" fill="#ffffff" font-weight="bold" text-anchor="middle">AWS Lambda</text>
-  <text x="870" y="508" font-size="13.5" fill="#d4ede5" text-anchor="middle">spc-dashboard-api</text>
-  <text x="870" y="528" font-size="12.5" fill="#d4ede5" text-anchor="middle">record-keyed route map</text>
+  <rect x="782" y="470" width="176" height="98" rx="7" fill="#2e7d6b" stroke="#22604f" stroke-width="1.8"/>
+  <text x="870" y="504" font-size="16" fill="#ffffff" font-weight="bold" text-anchor="middle">AWS Lambda</text>
+  <text x="870" y="526" font-size="13" fill="#d4ede5" text-anchor="middle">spc-dashboard-api</text>
+  <text x="870" y="546" font-size="12.5" fill="#d4ede5" text-anchor="middle">record-keyed route map</text>
 
-  <rect x="556" y="457" width="160" height="86" rx="7" fill="#d1622f" stroke="#a94c22" stroke-width="2"/>
-  <text x="636" y="493" font-size="16" fill="#ffffff" font-weight="bold" text-anchor="middle">API Gateway</text>
-  <text x="636" y="516" font-size="13.5" fill="#ffe7d8" text-anchor="middle">REST API</text>
+  <rect x="556" y="475" width="160" height="88" rx="7" fill="#d1622f" stroke="#a94c22" stroke-width="1.8"/>
+  <text x="636" y="511" font-size="16" fill="#ffffff" font-weight="bold" text-anchor="middle">API Gateway</text>
+  <text x="636" y="534" font-size="13" fill="#ffe7d8" text-anchor="middle">REST API</text>
 
-  <rect x="330" y="457" width="150" height="86" rx="7" fill="#8a9ba8" stroke="#6d7d8a" stroke-width="2"/>
-  <text x="405" y="493" font-size="16" fill="#ffffff" font-weight="bold" text-anchor="middle">Amazon S3</text>
-  <text x="405" y="516" font-size="13.5" fill="#eef2f5" text-anchor="middle">spc-frontend</text>
+  <rect x="330" y="475" width="150" height="88" rx="7" fill="#8a9ba8" stroke="#6d7d8a" stroke-width="1.8"/>
+  <text x="405" y="511" font-size="16" fill="#ffffff" font-weight="bold" text-anchor="middle">Amazon S3</text>
+  <text x="405" y="534" font-size="13" fill="#eef2f5" text-anchor="middle">spc-frontend</text>
 
-  <rect x="96" y="457" width="164" height="86" rx="7" fill="#eaf0f4" stroke="#6d7d8a" stroke-width="2"/>
-  <text x="178" y="493" font-size="16" fill="#17324d" font-weight="bold" text-anchor="middle">Browser</text>
-  <text x="178" y="516" font-size="13.5" fill="#42586b" text-anchor="middle">terminal dashboard</text>
+  <rect x="96" y="475" width="164" height="88" rx="7" fill="#eef3f7" stroke="#6d7d8a" stroke-width="1.8"/>
+  <text x="178" y="511" font-size="16" fill="#17324d" font-weight="bold" text-anchor="middle">Browser</text>
+  <text x="178" y="534" font-size="13" fill="#42586b" text-anchor="middle">terminal dashboard</text>
 
-  <!-- query flow arrows (request/response) -->
-  <line x1="782" y1="500" x2="718" y2="500" stroke="#2b3944" stroke-width="2.5" marker-end="url(#flow)"/>
-  <line x1="556" y1="500" x2="482" y2="500" stroke="#2b3944" stroke-width="2.5" marker-end="url(#flow)"/>
-  <line x1="330" y1="500" x2="262" y2="500" stroke="#2b3944" stroke-width="2.5" marker-end="url(#flow)"/>
+  <!-- query flow arrows (thick, solid, right to left) -->
+  <line x1="782" y1="519" x2="718" y2="519" stroke="#2b3944" stroke-width="2.6" marker-end="url(#flow)"/>
+  <line x1="556" y1="519" x2="482" y2="519" stroke="#2b3944" stroke-width="2.6" marker-end="url(#flow)"/>
+  <line x1="330" y1="519" x2="262" y2="519" stroke="#2b3944" stroke-width="2.6" marker-end="url(#flow)"/>
 
-  <!-- dashed read-dependency edges from dashboard lambda up to its 4 sources -->
-  <path d="M840,452 C700,360 470,250 374,200" fill="none" stroke="#b06a3a" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#read)"/>
-  <path d="M858,452 C740,360 660,240 635,190" fill="none" stroke="#b06a3a" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#read)"/>
-  <path d="M872,452 L872,190" fill="none" stroke="#b06a3a" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#read)"/>
-  <path d="M905,452 C1010,360 1090,250 1118,190" fill="none" stroke="#b06a3a" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#read)"/>
+  <!-- READ dependencies: thin SOLID lines (no dashes), arrowheads INTO the dashboard lambda -->
+  <path d="M400,236 C520,330 700,420 828,470" fill="none" stroke="#3d5a73" stroke-width="1.5" marker-end="url(#read)"/>
+  <path d="M636,222 C700,320 800,410 852,470" fill="none" stroke="#3d5a73" stroke-width="1.5" marker-end="url(#read)"/>
+  <path d="M872,222 L872,470" fill="none" stroke="#3d5a73" stroke-width="1.5" marker-end="url(#read)"/>
+  <path d="M1100,222 C1040,320 940,410 912,470" fill="none" stroke="#3d5a73" stroke-width="1.5" marker-end="url(#read)"/>
 
-  <text x="632" y="330" font-size="13" fill="#b06a3a" text-anchor="middle" font-style="italic">spc-dashboard-api reads four sources: fog health/thresholds,</text>
-  <text x="632" y="349" font-size="13" fill="#b06a3a" text-anchor="middle" font-style="italic">queue depth, spc-processor state, and DynamoDB windows</text>
+  <text x="628" y="352" font-size="13" fill="#3d5a73" text-anchor="middle">spc-dashboard-api reads four sources on each request:</text>
+  <text x="628" y="371" font-size="13" fill="#3d5a73" text-anchor="middle">fog health/thresholds, queue depth, spc-processor state, DynamoDB</text>
 
   <!-- legend -->
-  <line x1="96" y1="600" x2="140" y2="600" stroke="#2b3944" stroke-width="2.5" marker-end="url(#flow)"/>
-  <text x="150" y="605" font-size="13.5" fill="#2b3944">data flow (ingest and query)</text>
-  <line x1="420" y1="600" x2="464" y2="600" stroke="#b06a3a" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#read)"/>
-  <text x="474" y="605" font-size="13.5" fill="#b06a3a">read dependency</text>
+  <line x1="96" y1="622" x2="140" y2="622" stroke="#2b3944" stroke-width="2.6" marker-end="url(#flow)"/>
+  <text x="150" y="627" font-size="13.5" fill="#2b3944">data flow (ingest and query)</text>
+  <line x1="426" y1="622" x2="470" y2="622" stroke="#3d5a73" stroke-width="1.5" marker-end="url(#read)"/>
+  <text x="480" y="627" font-size="13.5" fill="#3d5a73">read dependency</text>
 </svg>
