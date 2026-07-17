@@ -175,7 +175,7 @@ Fig.~\ref{fig:dashboard} is a screenshot of the deployed dashboard rendered in a
 
 \subsection{Cost}
 
-The design keeps continuous cost low. Every cloud service in the pipeline except the edge instance is billed per request and, at the volumes this deployment produces, stays within the provider's free tier: the queue, the two functions, the key-value store, the programming-interface gateway, and the object storage all bill on use. The edge instance is the only continuously billed resource, and because the serverless dashboard and interface do not depend on it being up (only fresh sensor data and the gateway's own health reading do), it can be stopped between demonstrations without taking the dashboard or the interface offline. This means the standing cost of the system when idle is essentially the cost of one small instance, and even that can be paused.
+The design keeps continuous cost low. Every cloud service in the pipeline except the edge instance is billed per request and, at the volumes this deployment produces, stays within the provider's free tier: the queue, the two functions, the key-value store, the programming-interface gateway, and the object storage all bill on use. The edge instance is the only continuously billed resource, and because the serverless dashboard and interface do not depend on it being up (only fresh sensor data and the gateway's own health reading do), it can be stopped while idle without taking the dashboard or the interface offline. This means the standing cost of the system when idle is essentially the cost of one small instance, and even that can be paused.
 
 \subsection{Limitations}
 
