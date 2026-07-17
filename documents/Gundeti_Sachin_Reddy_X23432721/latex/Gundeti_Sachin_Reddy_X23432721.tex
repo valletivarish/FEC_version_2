@@ -5,6 +5,7 @@
 \usepackage{textcomp}
 \usepackage{xcolor}
 \usepackage{url}
+\usepackage[hidelinks]{hyperref}
 
 \def\IEEEkeywordsname{Keywords}
 
@@ -132,7 +133,7 @@ First, three separate files across the fog, processor, and dashboard components 
 
 Second, the dashboard's Lambda adapter initially passed through a numeric Content-Length header value copied from the original Node.js response object. AWS Lambda's HTTP response format requires every header value to be a string, and a numeric value was silently rejected, producing a generic ``Internal Server Error'' with no corresponding error recorded in the function's own execution logs, since the function itself completed successfully and only its response shape was rejected downstream. Third, API Gateway's own ``quick create'' tooling, when pointed at an existing Lambda function, did not actually attach the resource-based invoke permission it documents as automatic, which was only discovered by comparing a successful direct, authenticated Lambda invocation against a failing request through the newly created API Gateway endpoint.
 
-All three defects were fixed and re-verified against the live deployment: each fix was redeployed to the real Lambda functions and confirmed via a genuine, successful end-to-end invocation (a real DynamoDB write following the credential fix, a real 200 response through API Gateway following the header and permission fixes), rather than trusted from the unit test suite alone. The source code, including the fixes described above, is available at [GitHub repository URL], together with a readme documenting installation, configuration, and the deployment history described in this section.
+All three defects were fixed and re-verified against the live deployment: each fix was redeployed to the real Lambda functions and confirmed via a genuine, successful end-to-end invocation (a real DynamoDB write following the credential fix, a real 200 response through API Gateway following the header and permission fixes), rather than trusted from the unit test suite alone. The complete implementation, including the fixes described above, is hosted at \href{[GitHub repository URL]}{[GitHub repository URL]}.
 
 \subsection{Automated Test Coverage}
 Table~\ref{tab:tests} summarises the automated test suite as of the final verified deployment. All 115 tests pass against both the LocalStack-backed development environment and, for the parts of the suite that exercise real client-construction logic, the fixes verified against the real AWS deployment described in Section III-D.
@@ -178,7 +179,7 @@ Three limitations of this evaluation are worth stating explicitly instead of lea
 \section{Conclusion}
 This project set out to build a complete fog and edge computing pipeline for smart waste management, with a configurable sensor and fog layer, a scalable cloud backend, and real-world deployment and testing on a public cloud platform, and to critically analyse the architectural decisions taken at each layer against the alternatives available. All three layers were implemented, tested, and deployed to a real AWS account rather than a local simulation alone.
 
-The most significant finding of this project is not architectural but methodological: local testing against a cloud emulator, however thorough, is not a substitute for testing against the real target platform. Three defects were discovered during the real AWS deployment: the credential-handling bug, the Lambda response-format bug, and the API Gateway permission gap. Each passed the full local test suite and a full LocalStack-backed integration test cleanly, and would have shipped undetected had the project stopped at the local-simulation stage. This directly reinforces the broader principle that development, testing, and deployment are three distinct activities, not a single combined one.
+Three defects were discovered only once the real AWS deployment was exercised: the credential-handling bug, the Lambda response-format bug, and the API Gateway permission gap. Each of these passed the full local test suite and a full LocalStack-backed integration test without complaint, and only surfaced when the code ran against genuine AWS infrastructure in place of the emulator standing in for it. This reinforces the broader principle that development, testing, and deployment are three distinct activities, not a single combined one.
 
 The most difficult part of this project was not writing application code but discovering the AWS Academy Learner Lab account's own platform restrictions, several of which (CloudFront being entirely blocked, and public Lambda Function URLs being blocked while API Gateway is not) are not documented anywhere and were only discoverable by attempting each service directly and reading the resulting access-denied errors. Future work would include converting the fog and sensor tier itself to a fully event-driven, scheduled-Lambda model rather than a continuously running EC2 instance, and, if the account restrictions were lifted, reintroducing a CloudFront distribution in front of the S3-hosted frontend for a custom domain and edge caching.
 

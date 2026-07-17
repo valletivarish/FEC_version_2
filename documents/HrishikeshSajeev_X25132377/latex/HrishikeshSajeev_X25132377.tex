@@ -5,6 +5,7 @@
 \usepackage{textcomp}
 \usepackage{xcolor}
 \usepackage{url}
+\usepackage[hidelinks]{hyperref}
 \def\IEEEkeywordsname{Keywords}
 
 \begin{document}
@@ -132,7 +133,7 @@ Second, the fog node's flush cycle originally sent one SQS message per closed se
 
 Third, a deploy script written specifically for deploying against LocalStack defaults to the LocalStack endpoint whenever the endpoint-override variable is unset, and unconditionally hardcodes a fixed test credential pair regardless of that variable's value. Left unguarded, this would have meant the script silently overwrote any real AWS credentials in the environment if it were ever pointed at a live account by mistake. This was not exercised in the actual deployment (the Lambda functions were created directly through the AWS CLI with their own explicit environment variables, entirely bypassing this script), but the risk was documented directly in the script with a comment clarifying it is LocalStack-only tooling, so a future reader does not assume it is safe to run against a live account.
 
-None of the three fixes were taken on faith from the unit test suite; each was checked again against the running deployment. For the pagination and batching fixes, that meant the specific assertions already described (the four-page sum and the ten/ten/three chunk split) passing against the fakes stand in for what the actual DynamoDB and SQS clients do. For the dashboard, it meant loading the deployed page in an actual browser and reading its network requests directly: every static asset resolved, and the live data climbed across repeated reloads instead of sitting on a cached, stale count. Setup steps and the deployment history summarised above are recorded in the project's readme; the source itself, fixes included, is hosted at [GitHub repository URL].
+None of the three fixes were taken on faith from the unit test suite; each was checked again against the running deployment. For the pagination and batching fixes, that meant the specific assertions already described (the four-page sum and the ten/ten/three chunk split) passing against the fakes stand in for what the actual DynamoDB and SQS clients do. For the dashboard, it meant loading the deployed page in an actual browser and reading its network requests directly: every static asset resolved, and the live data climbed across repeated reloads instead of sitting on a cached, stale count. Source: \href{[GitHub repository URL]}{[GitHub repository URL]}.
 
 \subsection{Automated Test Coverage}
 
