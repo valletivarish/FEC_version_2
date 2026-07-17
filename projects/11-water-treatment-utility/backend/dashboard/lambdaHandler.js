@@ -44,7 +44,11 @@ const CORS = {
 // invocations. A pre-built clients object may be injected for unit tests.
 let cached = null;
 function getDeps(injected) {
-  if (injected) return depsFrom(injected);
+  // Only a unit-test clients object (shaped {doc,sqs,lambda}) counts as injection.
+  // AWS Lambda invokes the handler as (event, context, callback), so the third
+  // arg is the runtime callback in production -- guard on the client shape so
+  // that callback is never mistaken for injected clients.
+  if (injected && injected.doc) return depsFrom(injected);
   if (!cached) cached = depsFrom(buildClients());
   return cached;
 }
