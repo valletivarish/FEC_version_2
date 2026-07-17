@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 800" font-family="Helvetica, Arial, sans-serif">
+  <rect x="0" y="0" width="1240" height="800" fill="#ffffff"/>
+
+  <defs>
+    <marker id="flow" markerWidth="12" markerHeight="12" refX="8.5" refY="3.4" orient="auto">
+      <path d="M0,0 L8.5,3.4 L0,6.8 Z" fill="#33404a"/>
+    </marker>
+    <marker id="read" markerWidth="9" markerHeight="9" refX="6.6" refY="2.7" orient="auto">
+      <path d="M0,0 L6.6,2.7 L0,5.4 Z" fill="#6f8aa2"/>
+    </marker>
+  </defs>
+
+  <!-- ===== TIER BANDS (three horizontal swim lanes) ===== -->
+  <rect x="30" y="56" width="1180" height="150" rx="6" fill="#eef4f1" stroke="#c4d6cd" stroke-width="1.4"/>
+  <rect x="30" y="250" width="1180" height="150" rx="6" fill="#edf1f7" stroke="#c9d3e0" stroke-width="1.4"/>
+  <rect x="30" y="456" width="1180" height="150" rx="6" fill="#f4eff6" stroke="#d9cede" stroke-width="1.4"/>
+
+  <!-- band label tabs -->
+  <rect x="30" y="56" width="248" height="26" rx="6" fill="#2d2a5e"/>
+  <text x="44" y="74" font-size="14" fill="#ffffff" font-weight="bold" letter-spacing="0.4">EDGE TIER &#183; charging site</text>
+  <rect x="30" y="250" width="266" height="26" rx="6" fill="#2d2a5e"/>
+  <text x="44" y="268" font-size="14" fill="#ffffff" font-weight="bold" letter-spacing="0.4">CLOUD INGEST PIPELINE</text>
+  <rect x="30" y="456" width="252" height="26" rx="6" fill="#2d2a5e"/>
+  <text x="44" y="474" font-size="14" fill="#ffffff" font-weight="bold" letter-spacing="0.4">CLOUD SERVING TIER</text>
+
+  <!-- ===== EDGE TIER contents ===== -->
+  <rect x="250" y="96" width="220" height="90" rx="7" fill="#ffffff" stroke="#6b7f93" stroke-width="1.8"/>
+  <text x="360" y="126" font-size="16.5" fill="#20303c" font-weight="bold" text-anchor="middle">10 Sensor Containers</text>
+  <text x="360" y="149" font-size="12.5" fill="#4a5c6a" text-anchor="middle">5 hub metrics x 2 charging hubs</text>
+  <text x="360" y="168" font-size="12.5" fill="#4a5c6a" text-anchor="middle">bounded walk, dual-rate sample/dispatch</text>
+
+  <rect x="560" y="96" width="230" height="90" rx="7" fill="#17a673" stroke="#0f7e56" stroke-width="1.8"/>
+  <text x="675" y="126" font-size="16.5" fill="#ffffff" font-weight="bold" text-anchor="middle">Fog Gateway</text>
+  <text x="675" y="149" font-size="12.5" fill="#e0f5ec" text-anchor="middle">Flask ingest, window + aggregate,</text>
+  <text x="675" y="168" font-size="12.5" fill="#e0f5ec" text-anchor="middle">threshold-rule evaluation</text>
+
+  <line x1="470" y1="141" x2="554" y2="141" stroke="#33404a" stroke-width="2.6" marker-end="url(#flow)"/>
+
+  <!-- ===== CLOUD INGEST contents ===== -->
+  <rect x="250" y="290" width="190" height="84" rx="7" fill="#e2a11f" stroke="#b47f13" stroke-width="1.8"/>
+  <text x="345" y="326" font-size="16.5" fill="#3a2b06" font-weight="bold" text-anchor="middle">Amazon SQS</text>
+  <text x="345" y="349" font-size="12.5" fill="#3a2b06" text-anchor="middle">ecn-hub-agg</text>
+
+  <rect x="540" y="290" width="220" height="84" rx="7" fill="#2d2a5e" stroke="#1e1c42" stroke-width="1.8"/>
+  <text x="650" y="320" font-size="16.5" fill="#ffffff" font-weight="bold" text-anchor="middle">AWS Lambda</text>
+  <text x="650" y="342" font-size="12.5" fill="#d5d3ec" text-anchor="middle">ecn-processor</text>
+  <text x="650" y="361" font-size="12" fill="#d5d3ec" text-anchor="middle">queue-triggered ingest</text>
+
+  <rect x="850" y="290" width="200" height="84" rx="7" fill="#2f6f8f" stroke="#20536b" stroke-width="1.8"/>
+  <text x="950" y="326" font-size="16" fill="#ffffff" font-weight="bold" text-anchor="middle">Amazon DynamoDB</text>
+  <text x="950" y="349" font-size="12.5" fill="#dceaf1" text-anchor="middle">ecn-readings</text>
+
+  <line x1="440" y1="332" x2="534" y2="332" stroke="#33404a" stroke-width="2.6" marker-end="url(#flow)"/>
+  <line x1="760" y1="332" x2="844" y2="332" stroke="#33404a" stroke-width="2.6" marker-end="url(#flow)"/>
+
+  <!-- ===== CLOUD SERVING contents ===== -->
+  <rect x="130" y="496" width="190" height="84" rx="7" fill="#9aa6b2" stroke="#78838f" stroke-width="1.8"/>
+  <text x="225" y="532" font-size="16" fill="#ffffff" font-weight="bold" text-anchor="middle">Amazon S3</text>
+  <text x="225" y="555" font-size="12.5" fill="#f2f4f6" text-anchor="middle">ecn-frontend</text>
+
+  <rect x="380" y="496" width="180" height="84" rx="7" fill="#ffffff" stroke="#6b7f93" stroke-width="1.8"/>
+  <text x="470" y="532" font-size="16" fill="#20303c" font-weight="bold" text-anchor="middle">Browser</text>
+  <text x="470" y="555" font-size="12.5" fill="#4a5c6a" text-anchor="middle">charging-hub dashboard</text>
+
+  <rect x="620" y="496" width="180" height="84" rx="7" fill="#e2a11f" stroke="#b47f13" stroke-width="1.8"/>
+  <text x="710" y="532" font-size="16" fill="#3a2b06" font-weight="bold" text-anchor="middle">API Gateway</text>
+  <text x="710" y="555" font-size="12.5" fill="#3a2b06" text-anchor="middle">REST API</text>
+
+  <rect x="850" y="496" width="220" height="84" rx="7" fill="#2d2a5e" stroke="#1e1c42" stroke-width="1.8"/>
+  <text x="960" y="526" font-size="16" fill="#ffffff" font-weight="bold" text-anchor="middle">AWS Lambda</text>
+  <text x="960" y="548" font-size="12.5" fill="#d5d3ec" text-anchor="middle">ecn-dashboard-api</text>
+  <text x="960" y="567" font-size="12" fill="#d5d3ec" text-anchor="middle">WSGI bridge to Flask</text>
+
+  <!-- serving flow: browser fed from both sides -->
+  <line x1="320" y1="538" x2="374" y2="538" stroke="#33404a" stroke-width="2.6" marker-end="url(#flow)"/>
+  <line x1="620" y1="538" x2="566" y2="538" stroke="#33404a" stroke-width="2.6" marker-end="url(#flow)"/>
+  <line x1="850" y1="538" x2="806" y2="538" stroke="#33404a" stroke-width="2.6" marker-end="url(#flow)"/>
+
+  <!-- ===== INGEST vertical connector: Fog -> SQS ===== -->
+  <path d="M620,186 V228 H345 V284" fill="none" stroke="#33404a" stroke-width="2.6" marker-end="url(#flow)"/>
+
+  <!-- ===== READ dependencies into ecn-dashboard-api (thin, orthogonal) ===== -->
+  <path d="M950,374 V490" fill="none" stroke="#6f8aa2" stroke-width="1.4" marker-end="url(#read)"/>
+  <path d="M650,374 V430 H1000 V490" fill="none" stroke="#6f8aa2" stroke-width="1.4" marker-end="url(#read)"/>
+  <path d="M345,374 V448 H1035 V490" fill="none" stroke="#6f8aa2" stroke-width="1.4" marker-end="url(#read)"/>
+  <path d="M790,120 H1165 V538 H1076" fill="none" stroke="#6f8aa2" stroke-width="1.4" marker-end="url(#read)"/>
+
+  <text x="620" y="648" font-size="13" fill="#5f7488" text-anchor="middle">ecn-dashboard-api assembles four reads per request: DynamoDB windows, queue depth, ecn-processor state, and fog health/thresholds.</text>
+
+  <!-- ===== legend ===== -->
+  <line x1="380" y1="700" x2="426" y2="700" stroke="#33404a" stroke-width="2.6" marker-end="url(#flow)"/>
+  <text x="436" y="705" font-size="13.5" fill="#33404a">data flow (ingest and serving)</text>
+  <line x1="700" y1="700" x2="746" y2="700" stroke="#6f8aa2" stroke-width="1.4" marker-end="url(#read)"/>
+  <text x="756" y="705" font-size="13.5" fill="#5f7488">read dependency</text>
+</svg>
