@@ -1,160 +1,168 @@
-Warehouse Robotics Fleet Monitoring Fog/Edge Pipeline
-Fog and Edge Computing (H9FECC) - CA Project
-Implementation language: Java 17
+Warehouse Robotics Fleet
 
-ATTRIBUTION
-------------
-This project is Goutham Uppu's individual CA submission, Student ID
-X25167936, National College of Ireland. It shares this portfolio
-repository with several other students' independently attributed projects
-as a convenience; it is not part of the main portfolio owner's own
-submission.
+1. PREREQUISITES
 
-All commands below assume your working directory is this folder
-(projects/07-warehouse-robotics-fleet/), not the repo root.
+- Docker and Docker Compose (to run the local stack)
+- Java 17 JDK (all four Maven modules build with maven.compiler.release=17;
+  Dockerfiles build on eclipse-temurin:17)
+- Maven 3.9 or later (Dockerfiles use maven:3.9-eclipse-temurin-17 to build)
+- For AWS deployment only: AWS CLI and Terraform >= 1.5
 
-OVERVIEW
---------
-A fleet of autonomous mobile robots (AMRs) works two warehouse zones
-(zone-a, zone-b). Five onboard sensors per robot -- battery level, payload
-weight, motor temperature, position drift, and task queue depth -- feed a
-fog gateway, which windows and aggregates readings per robot/zone,
-evaluates fleet-health thresholds, and batches aggregates to a queue. A
-Lambda function consumes the queue into DynamoDB; a dashboard renders a
-fleet roster (one row per robot/metric with a sparkline and status
-indicator) plus a detail panel for the selected or most-critical robot.
 
-A critical comparison of this project's internal design against its
-Java siblings in this portfolio is in the project report.
+2. INSTALLATION STEPS
 
-LAYOUT
-------
-  sensors/            RobotUnit.java (sensor simulator), one container per
-                       sensor type/zone, using a RandomWalk helper for the
-                       bounded drift
-  fog/                FleetGateway.java (plain JDK HTTP server): ingest,
-                       window, aggregate (WindowAggregate), alert
-                       (AlertRule/FleetAlerts), publish to SQS
-                       (RelayPublisher), plus a /thresholds endpoint
-  backend/processor/  RecordMapper.java (pure transform building the
-                       sort_key) + FleetHandler.java (Lambda entry point)
-                       + deploy_lambda.sh (packages the shaded JAR and
-                       registers an SQS event source mapping)
-  backend/dashboard/  local HTTP server plus its own REST API, serving a
-                       dark orange-and-black fleet-ops HUD: a roster table
-                       (one row per robot/metric, inline sparkline, LED
-                       indicator) as the primary view, and a detail panel
-                       below for the selected/most-critical robot showing
-                       all 5 metrics in full. A separate Lambda entry point
-                       answers the same API behind API Gateway for the
-                       real AWS deployment.
-  infra/              docker-compose stack, LocalStack bootstrap, pipeline
-                       verification, load test, and dashboard screenshots
+1. Clone the repository.
+2. cd into projects/07-warehouse-robotics-fleet
+3. There are four independent Maven modules: sensors, fog, backend/processor,
+   and backend/dashboard. Each resolves its own dependencies from its pom.xml
+   the first time it is built or tested; no separate manual install step is
+   required beyond having Maven and a JDK 17 on PATH. To pre-fetch dependencies
+   for a module without building it, run, from inside that module's directory:
+   mvn -q -B dependency:go-offline
 
-REQUIREMENTS
-------------
-  Docker + Docker Compose (for the running stack)
-  JDK 17+ and Maven (only if building/testing locally outside Docker)
-  Python 3.12+ with boto3 installed (only for infra/burst.py and
-                 infra/verify_pipeline.py, kept as language-neutral ops
-                 tooling): pip install boto3
 
-RUN THE STACK
--------------
-  docker compose -f infra/docker-compose.yml up --build
+3. CONFIGURATION
 
-  Dashboard:  http://localhost:8086
-  LocalStack: http://localhost:4572
+Sensors (sensors/src/main/java/com/fec/warehouse/sensor/RobotUnit.java):
+- SENSOR_TYPE - required, no default. Must be one of: battery_level_pct,
+  payload_kg, motor_temp_c, position_drift_cm, task_queue_depth
+- SITE_ID - default "zone-a"
+- SAMPLE_INTERVAL - default "2" (seconds between simulated readings)
+- DISPATCH_INTERVAL - default "10" (seconds between HTTP dispatch batches sent
+  to the fog node)
+- FOG_URL - default "http://fog:8000/ingest" (fog node ingest endpoint)
 
-  Stop:  docker compose -f infra/docker-compose.yml down -v
+Fog node (fog/src/main/java/com/fec/warehouse/fog/FleetGateway.java and
+RelayPublisher.java):
+- WINDOW_SECONDS - default "10" (aggregation window length in seconds)
+- SQS_QUEUE_NAME - default "wrf-fleet-agg"
+- AWS_ENDPOINT_URL - no default. Unset means the real AWS SQS endpoint for the
+  configured region; set it to point at a LocalStack endpoint instead
+- AWS_REGION - default "eu-west-1". On EC2/Lambda this is normally supplied by
+  the AWS runtime environment itself
 
-CONFIGURE SENSOR RATES
-----------------------
-Each sensor takes two independent rates (set per service in
-infra/docker-compose.yml):
-  SAMPLE_INTERVAL    seconds between generated readings
-  DISPATCH_INTERVAL  seconds between dispatches to the fog gateway
+Backend processor Lambda (backend/processor/src/main/java/com/fec/warehouse/processor/FleetHandler.java):
+- TABLE_NAME - default "wrf-readings" (DynamoDB table written on each SQS
+  message)
+- AWS_ENDPOINT_URL - no default, same LocalStack-vs-real-AWS switch as above
+- AWS_REGION - default "eu-west-1"
 
-VERIFY END-TO-END
------------------
-With the stack running:
-  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test python infra/verify_pipeline.py
+Backend dashboard API (backend/dashboard/src/main/java/com/fec/warehouse/dashboard/FleetDashboardApp.java,
+also read by FleetDashboardLambda.java):
+- TABLE_NAME - default "wrf-readings" (DynamoDB table read for fleet/readings
+  data)
+- SQS_QUEUE_NAME - default "wrf-fleet-agg" (queue whose depth is reported)
+- LAMBDA_FUNCTION_NAME - default "wrf-processor" (function whose deployment
+  state is checked)
+- AWS_ENDPOINT_URL - no default, same LocalStack-vs-real-AWS switch as above
+- AWS_REGION - default "eu-west-1"
+- FOG_HEALTH_URL - default "http://fog:8000/health" (fog node health check)
+- FOG_THRESHOLDS_URL - default "http://fog:8000/thresholds" (fog node alert
+  threshold definitions)
 
-Or probe the dashboard's own REST API directly:
-  curl http://localhost:8086/api/health
-  curl http://localhost:8086/api/backend-stats
-  curl http://localhost:8086/api/fleet
-  curl "http://localhost:8086/api/readings?sensor_type=motor_temp_c&limit=10"
-  curl http://localhost:8086/api/thresholds
 
-RUN THE TESTS
--------------
-Each Maven module has its own test suite (JUnit 5, hand-written fakes
-implementing the real AWS SDK v2 client interfaces, no Mockito, no calls
-to real AWS/LocalStack):
+4. BUILD INSTRUCTIONS
+
+Each module is built independently with Maven, producing a shaded (fat) jar
+under its own target/ directory:
+
+- Sensors:
+  cd sensors && mvn package -DskipTests -q
+  -> sensors/target/sensor.jar
+
+- Fog:
+  cd fog && mvn package -DskipTests -q
+  -> fog/target/fog.jar
+
+- Backend processor (Lambda):
+  cd backend/processor && mvn package -DskipTests -q
+  -> backend/processor/target/processor.jar
+
+- Backend dashboard (Lambda / local HTTP server):
+  cd backend/dashboard && mvn package -DskipTests -q
+  -> backend/dashboard/target/dashboard.jar
+
+Docker images for the local stack are built automatically by the run command
+in section 5 (each service's Dockerfile runs its own Maven build inside the
+image).
+
+
+5. RUN INSTRUCTIONS
+
+From the project root, bring up the full local stack (LocalStack, fog,
+processor, dashboard, and 10 simulated robot sensor containers) with:
+
+docker compose -f infra/docker-compose.yml up --build
+
+Ports exposed to the host:
+- Dashboard HTTP API and static frontend: http://localhost:8086 (mapped from
+  container port 8000)
+- LocalStack: http://localhost:4572 (mapped from container port 4566)
+
+The fog node's port 8000 is not published to the host in this compose file;
+it is reachable only from other containers on the compose network at
+http://fog:8000. The "processor" service is a one-shot container (restart:
+"no") that deploys FleetHandler as a Lambda inside LocalStack and wires it to
+the SQS queue, then exits.
+
+To stop the stack:
+docker compose -f infra/docker-compose.yml down
+
+
+6. AWS DEPLOYMENT STEPS
+
+Deployment to real AWS uses the Terraform module in terraform/ with
+the existing terraform/deployments/wrf.tfvars file for this project.
+
+1. Configure AWS CLI credentials for the target AWS account (access key,
+   secret key, and session token if using temporary credentials):
+   aws configure
+
+2. Confirm the credentials resolve to the intended account:
+   aws sts get-caller-identity
+
+3. cd terraform
+
+4. Create and switch to an isolated workspace for this project (use
+   "select" instead of "new" if the workspace already exists):
+   terraform workspace new wrf
+   terraform workspace list
+
+5. Build the Lambda deployment artifacts (runs the Maven package commands and
+   tars sensors/fog/infra for the EC2 fog host):
+   ./build.sh deployments/wrf.tfvars
+
+6. Review the plan before applying:
+   terraform plan -var-file=deployments/wrf.tfvars
+
+7. Apply:
+   terraform apply -var-file=deployments/wrf.tfvars
+
+8. Note the dashboard_url, api_url, and fog_public_ip values in the apply
+   output.
+
+9. When finished, switch back to the default workspace:
+   terraform workspace select default
+
+
+7. TESTING INSTRUCTIONS
+
+Each of the four Maven modules has its own JUnit 5 test suite, run with:
+
+- Sensors:
   cd sensors && mvn test
+  56 tests
+
+- Fog:
   cd fog && mvn test
+  24 tests
+
+- Backend processor:
   cd backend/processor && mvn test
+  9 tests
+
+- Backend dashboard:
   cd backend/dashboard && mvn test
+  27 tests
 
-Or without local Maven/JDK:
-  docker run --rm -v "$PWD/fog":/app -w /app maven:3.9-eclipse-temurin-17 mvn test
-  (repeat for sensors/, backend/processor/, backend/dashboard/)
-
-Test coverage includes: sensor drift and payload shape, window aggregation
-math, alert-rule evaluation (including exactly-at-limit boundary
-behaviour), fog ingest buffering and multi-zone isolation, DynamoDB
-pagination and SQS batching, record mapping, Lambda batch processing with
-partial-failure tallying, dashboard roster grouping, and the
-health/queue-depth checks, and the Lambda entry point's routing -- 116 tests total.
-
-LOAD TEST (SCALABILITY EVIDENCE)
---------------------------------
-With the stack running:
-  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
-    python infra/burst.py --messages 2000 --workers 32
-
-REUSE / THIRD-PARTY COMPONENTS
--------------------------------
-The overall pipeline architecture (SQS -> Lambda -> DynamoDB via LocalStack,
-the sort_key disambiguation scheme window_end#site_id, the dashboard
-health-check pattern, the dual-rate SAMPLE_INTERVAL/DISPATCH_INTERVAL
-sensor knobs) is adapted from other prior codebases in this shared
-portfolio repository, not this student's own earlier work. Domain-specific
-code (AMR sensor profiles, fleet-health thresholds) and the entire
-dashboard (dark orange-and-black HUD theme, fleet-roster table with
-inline sparklines and LED indicators, detail panel) are original to this
-project. Its internal design (concurrency, alert-rule representation,
-JSON handling, HTTP routing) was deliberately built distinct from this
-portfolio's other Java projects -- see the project report for the
-comparison.
-
-Third-party open-source components used as standard libraries/tools:
-  - AWS SDK for Java v2 (software.amazon.awssdk: sqs, dynamodb, lambda) -
-    https://github.com/aws/aws-sdk-java-v2
-  - AWS Lambda Java Core/Events (com.amazonaws: aws-lambda-java-core,
-    aws-lambda-java-events) - https://github.com/aws/aws-lambda-java-libs
-  - Jackson Databind (JSON parsing/serialization) -
-    https://github.com/FasterXML/jackson
-  - Chart.js (dashboard sparklines, vendored at
-    backend/dashboard/static/vendor/, copied unmodified from an earlier
-    project in this portfolio) - https://www.chartjs.org
-  - LocalStack (local AWS emulation for SQS/DynamoDB/Lambda) -
-    https://www.localstack.cloud
-  - JUnit 5 (test suite) - https://junit.org/junit5
-  - boto3 (Python AWS SDK, used only by the ops tooling in infra/) - https://boto3.amazonaws.com
-
-REAL AWS DEPLOYMENT
---------------------
-ARCHITECTURE: the dashboard API runs as an AWS Lambda function behind an
-API Gateway REST API. EC2 runs the fog gateway and the ten sensor
-containers.
-
-LIVE RESOURCES: DynamoDB table wrf-readings, SQS queue wrf-fleet-agg,
-Lambda wrf-processor and Lambda wrf-dashboard-api (API Gateway
-iodllqqk3m), EC2 instance i-00c6537b8a41e9750, Elastic IP
-3.211.126.248, S3 buckets wrf-frontend-789399341650 (dashboard) and
-wrf-deploy-789399341650 (staging).
-
-Dashboard: https://wrf-frontend-789399341650.s3.us-east-1.amazonaws.com/index.html
-API: https://iodllqqk3m.execute-api.us-east-1.amazonaws.com/prod
+Total: 116 tests across all four modules.

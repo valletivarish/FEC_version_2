@@ -1,141 +1,198 @@
-Retail Footfall & Inventory Monitoring Fog/Edge Pipeline
-Fog and Edge Computing (H9FECC) - CA Project
-Implementation language: Java 17
+Retail Footfall & Inventory Monitoring
 
 All commands below assume your working directory is this folder
 (projects/08-retail-footfall-inventory/), not the repo root.
 
-OVERVIEW
---------
-A retail chain monitors footfall, stock, and environmental conditions
-across two stores (store-1, store-2). Five sensors per store -- footfall
-count, shelf stock percentage, fridge temperature, checkout queue length,
-and energy draw -- feed a fog gateway. The gateway windows and aggregates
-each (sensor_type, site_id) pair's readings, evaluates retail-health
-threshold rules, and dispatches one aggregate per window to a queue. An AWS
-Lambda function (running inside LocalStack) consumes the queue and stores
-records; a web dashboard renders a KPI-tile-first view (total footfall,
-stores understocked, average queue length, total energy draw, all computed
-live from the stored aggregates) followed by a per-store detail section and
-trend charts.
+PREREQUISITES
+--------------
+  - Docker and Docker Compose (to run the local stack)
+  - JDK 17 and Apache Maven (to build/test the sensors, fog,
+    backend/processor, and backend/dashboard modules locally, outside
+    Docker)
+  - Python 3.12+ with the boto3 package installed (to run
+    infra/verify_pipeline.py and infra/burst.py)
+  - AWS CLI and Terraform >= 1.5 (only needed for the AWS deployment
+    steps below)
 
-This is the fourth Java implementation in this CA portfolio, alongside
-02-industrial-equipment, 04-smart-city, and 07-warehouse-robotics-fleet. It
-deliberately does not share internal structure with any of them:
-  - fog/ buffering uses a single dedicated actor thread (BufferActor)
-    draining a LinkedBlockingQueue<IngestEvent> mailbox. HTTP handler
-    threads never touch the buffer map (a plain HashMap<SensorKey,
-    List<Double>>) directly -- they just call enqueue(), which adds an
-    IngestEvent.Ingest to the queue and returns. Only the actor's own
-    worker thread (runLoop -> handle) ever mutates the map, so there is no
-    shared-map locking, no ConcurrentHashMap, and no atomic/fence anywhere
-    in this class -- contention is structurally impossible rather than
-    merely well-guarded. A flush is itself just another mailbox message
-    (IngestEvent.Drain, carrying a CompletableFuture<BufferSnapshot>), so
-    it is serialized against ingests purely by the queue's FIFO order.
-    This differs from 02's FogApp (single synchronized(lock) around one
-    shared HashMap), 04's CityFogNode (fenced lock-free
-    ConcurrentHashMap-of-generations scheme with AtomicReference/
-    AtomicInteger/AtomicBoolean), and 07's FleetGateway (ConcurrentHashMap
-    of per-key BufferBucket objects, each guarded by its own
-    ReentrantLock).
-  - Alert rules are an enum implementing a functional interface:
-    AlertRule implements Predicate<WindowAggregate>, with each constant
-    (RESTOCK_NEEDED, COLD_CHAIN_RISK, CHECKOUT_CONGESTION,
-    CAPACITY_WARNING) supplying its own test(WindowAggregate) lambda body
-    plus the sensor type/field/op/limit/key metadata it carries. Adding a
-    rule means adding a constant, not touching a shared evaluator. This
-    differs from 02's Alerts (a Map<String,List<Rule>> table evaluated via
-    a field-name switch), 04's IncidentRules (a declarative RULE_CATALOG
-    map plus a wholly separate hardcoded switch-expression assess()
-    method), and 07's AlertRule (a sealed interface with AboveLimit/
-    BelowLimit record variants and a polymorphic firesOn() method).
-  - JSON is built through public, @JsonPropertyOrder-annotated DTO classes
-    (AggregatePayload, ThresholdDescription) serialized directly via
-    objectMapper.writeValueAsString(...) -- there is no ObjectNode
-    tree-building anywhere in this module. This differs from 02's raw
-    inline ObjectNode.put() calls in FogApp, 04's private DigestPayload
-    record serialized the same way (this project's DTOs are public,
-    reusable, field-order-pinned classes rather than a private inner
-    record used once), and 07's JsonBuilder fluent wrapper around
-    ObjectNode.
-  - HTTP routing goes through Route, an enum listing every endpoint
-    (HEALTH, THRESHOLDS, INGEST) with its handler as a lambda/method
-    reference field, iterated once in wireAll() at startup and wired
-    straight onto the HttpServer with a shared try/catch error boundary
-    (guarded()) translating any uncaught exception into a structured
-    500 JSON response. The dashboard's DashboardRoute enum mirrors this
-    same shape for its own seven endpoints. This differs from 02 (fully
-    inline in main(), no reusable class, and notably NO error boundary at
-    all around any handler), 04's RouteServer (a fluent builder that
-    accumulates routes into a Map first, only wiring them to createContext
-    inside start()), and 07's Router (a fluent builder that wires each
-    route to createContext immediately inside handle(), no map at all).
-  - backend/processor/StoreHandler collects a Tally (an immutable record
-    of written-count + failure-reason list) via records.stream().map(...)
-    .reduce(Tally.EMPTY, Tally::combine) -- attempt-all-then-throw-once,
-    folded as an immutable value over the batch rather than mutated in a
-    loop. This differs from 02's Handler (throws on the first record
-    failure inside a for-loop, aborting the batch early), 04's Handler
-    (Collectors.partitioningBy over a stream into an immutable Result
-    record), and 07's FleetHandler (a mutable BatchTally object
-    accumulated in a plain for-loop).
+INSTALLATION STEPS
+--------------------
+  1. Clone the repository.
+  2. cd projects/08-retail-footfall-inventory
+  3. pip install boto3
+  4. No separate local install step is needed for the Java modules --
+     each `mvn test` / `mvn package` invocation below resolves its own
+     dependencies (JUnit 5, AWS SDK for Java v2, Jackson Databind,
+     aws-lambda-java-core/events) automatically on first run.
 
-LAYOUT
-------
-  sensors/            StoreSensorUnit.java (sensor simulator), one
-                       container per sensor type/store, using a
-                       RandomWalk helper for the bounded drift
-  fog/                StoreGateway.java (plain JDK HTTP server): ingest via
-                       BufferActor, window, aggregate (WindowAggregate),
-                       alert (AlertRule), publish to SQS (QueuePublisher),
-                       plus a /thresholds endpoint (ThresholdDescription)
-  backend/processor/  RecordMapper.java (pure transform building the
-                       sort_key) + Tally.java (Stream.reduce accumulator)
-                       + StoreHandler.java (Lambda entry point) +
-                       deploy_lambda.sh (packages the shaded JAR and
-                       registers an SQS event source mapping)
-  backend/dashboard/  StoreDashboardApp.java + StoreRepository.java
-                       (DynamoDB queries, per-store grouping) +
-                       PipelineChecks.java (health/queue-depth checks) +
-                       ThresholdsGateway.java (testable thresholds proxy),
-                       serving a bright commercial retail-analytics theme
-                       (white background, lime-green + burnt-orange
-                       accents): a row of live-computed KPI tiles (total
-                       footfall, stores understocked, avg queue length,
-                       total energy draw) as the primary view, a per-store
-                       detail card section below, and per-metric trend
-                       charts underneath
-  infra/              docker-compose stack, LocalStack bootstrap, pipeline
-                       verification, load test, and dashboard screenshots
+CONFIGURATION
+---------------
+sensors/ (one container per sensor type/store, StoreSensorUnit.java):
+  SENSOR_TYPE       required, no default. One of: footfall_count,
+                    shelf_stock_pct, fridge_temp_c, queue_length,
+                    energy_draw_kw
+  SITE_ID           default: store-1
+  SAMPLE_INTERVAL   default: 2 (seconds between generated readings)
+  DISPATCH_INTERVAL default: 10 (seconds between dispatches to the fog
+                    gateway)
+  FOG_URL           default: http://fog:8000/ingest
 
-REQUIREMENTS
-------------
-  Docker + Docker Compose (for the running stack)
-  JDK 17+ and Maven (only if building/testing locally outside Docker)
-  Python 3.12+ with boto3 installed (only for infra/burst.py and
-                 infra/verify_pipeline.py, kept as language-neutral ops
-                 tooling): pip install boto3
+fog/ (StoreGateway.java, publishes aggregates to SQS):
+  WINDOW_SECONDS    default: 10 (aggregation window length in seconds)
+  SQS_QUEUE_NAME    default: rfi-store-agg
+  AWS_ENDPOINT_URL  no default. When set, the SQS client is pointed at
+                    this endpoint with static test/test credentials
+                    (LocalStack). When unset, the AWS SDK's default
+                    endpoint/credential resolution is used.
+  AWS_REGION        default: eu-west-1
 
-RUN THE STACK
--------------
+backend/processor/ (StoreHandler.java, Lambda entry point consuming the
+SQS event source mapping and writing to DynamoDB):
+  TABLE_NAME        default: rfi-readings
+  AWS_ENDPOINT_URL  no default, same behaviour as above (DynamoDB client)
+  AWS_REGION        default: eu-west-1
+
+backend/processor/deploy_lambda.sh (registers the Lambda + event source
+mapping against LocalStack):
+  AWS_ENDPOINT_URL     default: http://localstack:4566
+  SQS_QUEUE_NAME       default: rfi-store-agg
+  LAMBDA_FUNCTION_NAME default: rfi-processor
+  TABLE_NAME           default: rfi-readings
+  AWS_REGION           default: eu-west-1
+
+backend/dashboard/ (StoreDashboardApp.java, serves the REST API + static
+frontend):
+  TABLE_NAME           default: rfi-readings
+  SQS_QUEUE_NAME       default: rfi-store-agg
+  LAMBDA_FUNCTION_NAME default: rfi-processor
+  AWS_ENDPOINT_URL     no default, same behaviour as above (DynamoDB/SQS/
+                       Lambda clients)
+  AWS_REGION           default: eu-west-1
+  FOG_HEALTH_URL       default: http://fog:8000/health
+  FOG_THRESHOLDS_URL   default: http://fog:8000/thresholds
+
+infra/verify_pipeline.py (polls DynamoDB until every sensor type has a
+record):
+  AWS_ENDPOINT_URL  default: http://localhost:4573
+  AWS_REGION        default: eu-west-1
+  TABLE_NAME        default: rfi-readings
+  VERIFY_TIMEOUT    default: 90 (seconds)
+
+infra/burst.py (load-test tool, sends synthetic messages to SQS):
+  AWS_ENDPOINT_URL  default: http://localhost:4573
+  AWS_REGION        default: eu-west-1
+  SQS_QUEUE_NAME    default: rfi-store-agg
+
+infra/docker-compose.yml also sets AWS_ACCESS_KEY_ID=test and
+AWS_SECRET_ACCESS_KEY=test on every AWS-facing container, for LocalStack.
+
+BUILD INSTRUCTIONS
+---------------------
+Each module builds independently with Maven and produces a shaded jar:
+  cd sensors && mvn package -DskipTests            -> target/sensor.jar
+  cd fog && mvn package -DskipTests                -> target/fog.jar
+  cd backend/processor && mvn package -DskipTests  -> target/processor.jar
+  cd backend/dashboard && mvn package -DskipTests  -> target/dashboard.jar
+
+Or let Docker build each image (used by RUN INSTRUCTIONS below):
+  docker compose -f infra/docker-compose.yml build
+
+RUN INSTRUCTIONS
+------------------
   docker compose -f infra/docker-compose.yml up --build
+
+This starts LocalStack, the fog gateway, the one-shot Lambda-deploy
+container, the dashboard, and 10 sensor containers (5 sensor types x 2
+stores).
 
   Dashboard:  http://localhost:8087
   LocalStack: http://localhost:4573
 
   Stop:  docker compose -f infra/docker-compose.yml down -v
 
-CONFIGURE SENSOR RATES
+AWS DEPLOYMENT STEPS
 -----------------------
-Each sensor takes two independent rates (set per service in
-infra/docker-compose.yml):
-  SAMPLE_INTERVAL    seconds between generated readings
-  DISPATCH_INTERVAL  seconds between dispatches to the fog gateway
+Deploy this project with the Terraform module in terraform/ by
+following these steps:
 
-VERIFY END-TO-END
------------------
-With the stack running:
+  1. Configure AWS credentials for the target account and confirm them:
+       aws configure
+       aws sts get-caller-identity
+
+  2. Create infra/docker-compose.aws.yml alongside the existing
+     infra/docker-compose.yml: include the fog service and all 10
+     sensor services (store1-footfall through store2-energy) with the
+     same environment variables as infra/docker-compose.yml, but drop
+     the localstack and processor services and remove AWS_ENDPOINT_URL
+     from every environment block, so the AWS SDK's default credential
+     chain is used instead of the LocalStack override. Publish the fog
+     container's port 8000.
+
+  3. Create terraform/deployments/rfi.tfvars, using the field layout of
+     the other files in terraform/deployments/ as a format reference
+     only (do not copy their values). The fields required by
+     terraform/variables.tf, with the real values known for this
+     project, are:
+       prefix                  = "rfi"
+       project_root            = "../projects/08-retail-footfall-inventory"
+       table_name              = "rfi-readings"
+       queue_name              = "rfi-store-agg"
+       processor_lambda_name   = "rfi-processor"
+       processor_build_command = "cd backend/processor && mvn package -DskipTests -q"
+       processor_zip_path      = "backend/processor/target/processor.jar"
+       processor_handler       = "com.fec.retail.processor.StoreHandler::handleRequest"
+       processor_runtime       = "java17"
+       dashboard_lambda_name   = "rfi-dashboard-api"
+       dashboard_build_command = "cd backend/dashboard && mvn package -DskipTests -q"
+       dashboard_zip_path      = "backend/dashboard/target/dashboard.jar"
+       dashboard_handler       = <fully-qualified class::method of an
+                                  API Gateway Lambda entry point class,
+                                  added to
+                                  backend/dashboard/src/main/java, that
+                                  answers the dashboard's REST API>
+       dashboard_runtime       = "java17"
+       frontend_local_dir      = "backend/dashboard/static"
+       api_base_placeholder    = <a placeholder token added to the
+                                  frontend, substituted with the real
+                                  API Gateway URL at upload time>
+       api_base_search_files   = [<the file(s) containing that
+                                  placeholder>]
+
+  4. Create and switch to an isolated Terraform workspace before
+     applying, since terraform.tfstate is shared across deployments
+     made through this module:
+       cd terraform
+       terraform workspace new rfi
+       terraform workspace list
+
+  5. Build the deployment artifacts, then preview and apply:
+       ./build.sh deployments/rfi.tfvars
+       terraform plan -var-file=deployments/rfi.tfvars
+       terraform apply -var-file=deployments/rfi.tfvars
+
+  6. Confirm the plan's destroy count is 0 before approving apply.
+
+  7. Switch back to the default workspace afterward so the working
+     directory doesn't default into this one for the next deployment:
+       terraform workspace select default
+
+TESTING INSTRUCTIONS
+-----------------------
+Each Maven module has its own JUnit 5 test suite (hand-written fakes
+implementing the real AWS SDK v2 client interfaces, no LocalStack calls
+in the tests themselves):
+  cd sensors && mvn test                  (56 tests)
+  cd fog && mvn test                      (28 tests)
+  cd backend/processor && mvn test        (14 tests)
+  cd backend/dashboard && mvn test        (20 tests)
+
+All 118 tests pass (verified by running each suite directly).
+
+Or without local Maven/JDK:
+  docker run --rm -v "$PWD/fog":/app -w /app maven:3.9-eclipse-temurin-17 mvn test
+  (repeat for sensors/, backend/processor/, backend/dashboard/)
+
+With the stack running (docker compose up, above), verify the pipeline
+end-to-end:
   AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test python infra/verify_pipeline.py
 
 Or probe the dashboard's own REST API directly:
@@ -145,103 +202,6 @@ Or probe the dashboard's own REST API directly:
   curl "http://localhost:8087/api/readings?sensor_type=queue_length&limit=10"
   curl http://localhost:8087/api/thresholds
 
-RUN THE TESTS
--------------
-Each Maven module has its own test suite (JUnit 5, hand-written fakes
-implementing the real AWS SDK v2 client interfaces, no Mockito, no calls
-to real AWS/LocalStack):
-  cd sensors && mvn test
-  cd fog && mvn test
-  cd backend/processor && mvn test
-  cd backend/dashboard && mvn test
-
-Or without local Maven/JDK:
-  docker run --rm -v "$PWD/fog":/app -w /app maven:3.9-eclipse-temurin-17 mvn test
-  (repeat for sensors/, backend/processor/, backend/dashboard/)
-
-Test coverage highlights:
-  - RandomWalkTest / StoreSensorUnitTest: bounded drift, JSON payload shape,
-    all 5 sensor profiles registered
-  - WindowAggregateTest: count/min/max/avg/latest aggregation math
-  - AlertRuleTest / AlertRuleEvaluateTest: per-constant predicate firing,
-    boundary behaviour (exactly-at-limit does not fire), per-sensor-type
-    rule lookup
-  - AggregatePayloadTest: DTO JSON serialization including empty/non-empty
-    alert lists
-  - BufferActorTest: actor-thread ingest/drain correctness, per-key
-    isolation, and that a drain only ever includes ingests enqueued
-    strictly before it
-  - StoreGatewayTest: /thresholds JSON exposes the real rules grouped by
-    sensor type
-  - RecordMapperTest: sort_key construction (window_end#site_id) and its
-    disambiguation of two stores in the same flush cycle
-  - TallyTest / StoreHandlerTest: Stream.reduce fold correctness, batch
-    processing, partial-failure tallying without aborting the batch early
-  - StoreRepositoryTest: chronological ordering, per-store grouping with
-    distinct per-store values, sensor types with no data omitted
-  - PipelineChecksTest: queue/lambda reachability, queue depth parsing,
-    item count summed correctly across multiple Scan pages (not just the
-    first)
-  - QueuePublisherTest: single-message publish, and publishBatch's chunking
-    at the 10-entry SendMessageBatch limit (23 payloads -> 10/10/3, an
-    exact-10 payload -> a single call, an empty window -> no call)
-  - StoreDashboardAppTest: query-string parsing, content-type resolution
-  - ThresholdsGatewayTest: the dashboard's /api/thresholds proxy fetch
-    against a real local HttpServer, covering both a successful upstream
-    response (body passed through) and an unreachable upstream (throws,
-    which StoreDashboardApp.handleThresholds converts into a 502)
-
-LOAD TEST (SCALABILITY EVIDENCE)
----------------------------------
-With the stack running:
+Load test (with the stack running):
   AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
     python infra/burst.py --messages 2000 --workers 32
-
-REUSE / THIRD-PARTY COMPONENTS
---------------------------------
-The overall pipeline architecture (SQS -> Lambda -> DynamoDB via
-LocalStack, the sort_key disambiguation scheme window_end#site_id, the
-dashboard health-check pattern, the dual-rate SAMPLE_INTERVAL/
-DISPATCH_INTERVAL sensor knobs) is adapted from this student's own prior
-projects earlier in this same CA submission (01 through 07), not a prior
-or external coursework project. The implementation is an independent Java
-program: no source files, classes, or business logic were copied across
-projects, and (see LAYOUT notes above) it also does not mirror any of the
-other three Java projects' (02, 04, 07) internal structure -- concurrency,
-alert-rule representation, JSON handling, HTTP routing, and processor
-batch-handling were all deliberately built as distinct designs, cited
-class-by-class above. Domain-specific code (retail sensor profiles,
-footfall/inventory thresholds) and the entire dashboard (bright
-commercial theme, KPI-tile-first primary view, per-store detail cards,
-trend charts) are original to this project. Third-party open-source
-components used as standard libraries/tools:
-  - AWS SDK for Java v2 (software.amazon.awssdk: sqs, dynamodb, lambda) -
-    https://github.com/aws/aws-sdk-java-v2
-  - AWS Lambda Java Core/Events (com.amazonaws: aws-lambda-java-core,
-    aws-lambda-java-events) - https://github.com/aws/aws-lambda-java-libs
-  - Jackson Databind (JSON parsing/serialization) -
-    https://github.com/FasterXML/jackson
-  - Chart.js (dashboard trend charts, vendored at
-    backend/dashboard/static/vendor/, copied unmodified from an earlier
-    project in this portfolio) - https://www.chartjs.org
-  - LocalStack (local AWS emulation for SQS/DynamoDB/Lambda) -
-    https://www.localstack.cloud
-  - JUnit 5 (test suite) - https://junit.org/junit5
-  - boto3 (Python AWS SDK, used only by the ops tooling in infra/) - https://boto3.amazonaws.com
-
-NOTE ON /api/thresholds
-------------------------
-The dashboard backend proxies GET /api/thresholds from the fog gateway
-(StoreDashboardApp.handleThresholds), but the frontend (dashboard.js) does
-not call it -- alert display names are rendered from a local display-text
-map (ALERT_LABELS) instead. The endpoint is kept for API completeness and
-possible future use, but is not claimed as a frontend feature. The proxy
-fetch itself (ThresholdsGateway.fetch) is unit tested (see RUN THE TESTS)
-against a real local HttpServer covering both the success and
-unreachable-upstream paths.
-
-PHASE 2 NOTE
-------------
-This project targets LocalStack only. Deployment to real AWS/Azure is a
-deliberately deferred phase-2 item for the whole portfolio and is not
-attempted or claimed here.

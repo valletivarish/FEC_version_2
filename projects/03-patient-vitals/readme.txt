@@ -1,140 +1,163 @@
-Patient Vitals Monitoring Fog/Edge Pipeline
-Fog and Edge Computing (H9FECC) - CA Project
+Patient Vitals Monitoring
 
-All commands below assume your working directory is this folder
-(projects/03-patient-vitals/), not the repo root.
+PREREQUISITES
+--------------
+  - Docker and Docker Compose (to run the local stack)
+  - Node.js 20+ (to run each module's own test suite locally; matches the
+    node:20-slim base image used by every Dockerfile in this project)
+  - AWS CLI (to deploy)
+  - Terraform >= 1.5 (to deploy; matches the version constraint in
+    terraform/main.tf)
 
-OVERVIEW
---------
-Ten simulated bedside sensors (heart rate, SpO2, body temperature,
-respiration rate, systolic blood pressure -- each running for two patients)
-feed a virtual edge gateway ("fog node"). The gateway windows and aggregates
-each vital's readings, raises clinical threshold alerts, and dispatches one
-aggregate per window to a queue. An AWS Lambda function (running inside
-LocalStack) consumes the queue and stores records; a web dashboard renders a
-per-patient monitor view (not per-sensor-type) with a live heart-rate trace
-and the remaining vitals as compact readouts, styled as a clinical ward
-display.
+INSTALLATION STEPS
+--------------------
+1. Clone this repository and change into the project folder:
+     git clone <repository-url>
+     cd projects/03-patient-vitals
 
-Phase 1 (this project) runs entirely on Docker with LocalStack emulating AWS
-SQS, DynamoDB, and Lambda. The AWS SDK for JavaScript v3 is used throughout,
-so a later move to real AWS is an endpoint/IAM configuration change rather
-than a rewrite.
+2. Install each module's local dependencies (needed to run its unit tests):
+     cd sensors && npm install               (no dependencies to install)
+     cd ../fog && npm install
+     cd ../backend/processor && npm install
+     cd ../backend/dashboard && npm install
 
-TECH STACK
-----------
-This project is implemented in Node.js 20 (plain CommonJS, no TypeScript
-build step), distinct from the Python baseline used in projects
-01-smart-agriculture and 05-cold-chain-logistics and the Java stack used in
-projects 02-industrial-equipment and 04-smart-city. Each of the 5 CA
-projects deliberately runs a different-enough language/runtime combination
-so that no two implementations share code at the source level -- only the
-overall pipeline shape (sensors -> fog -> queue -> FaaS -> datastore ->
-dashboard) and the DynamoDB sort_key disambiguation scheme are common,
-and both are disclosed below as reused design decisions, not reused code.
-  - sensors/, fog/: Express is used only in fog/ (a tiny HTTP surface); the
-    sensor simulator has zero dependencies, using Node's built-in fetch.
-  - backend/processor/: a plain Lambda handler module (exports.handler),
-    zipped with its node_modules and deployed by a bash + AWS CLI script --
-    the deploy tooling is intentionally language-neutral, matching the same
-    pattern used for the Java processor in project 02.
-  - backend/dashboard/: an Express server exposing the same REST contract
-    a browser-based dashboard needs; the static/ frontend (HTML/CSS/Chart.js)
-    is unchanged from this project's original design, since it only talks to
-    the backend over HTTP and does not care what language serves it.
-  - Testing uses Node's built-in node:test + node:assert/strict runner --
-    no Jest/Mocha dependency. AWS-facing code is isolated behind small
-    functions that accept an injected client (recentWindows(doc, ...),
-    queueReachable(sqs, ...), processRecords(records, doc, ...)), so unit
-    tests use hand-written fake clients instead of hitting LocalStack.
+CONFIGURATION
+--------------
+sensors/sensor.js (one container per vital per patient):
+  SENSOR_TYPE            vital this container simulates: heart_rate, spo2,
+                         body_temperature, respiration_rate, or systolic_bp;
+                         no default, required
+  SITE_ID                patient identifier attached to each reading;
+                         default patient-1
+  SAMPLE_INTERVAL        seconds between generated readings; default 2
+  DISPATCH_INTERVAL      seconds between batched dispatches to the fog
+                         gateway; default 10
+  FOG_URL                fog gateway ingest endpoint; default
+                         http://fog:8000/ingest
 
-LAYOUT
-------
-  sensors/            sensor simulator (one container per vital/patient)
-  fog/                Express edge gateway: ingest, window, aggregate, alert,
-                       publish, plus a /thresholds endpoint exposing the real
-                       alert rules for any API consumer (the dashboard's own
-                       alert labels are display copy for the alert keys, not
-                       a copy of the numeric thresholds -- the ward-monitor
-                       UI deliberately has no numeric rules legend, unlike
-                       01/02's dashboards)
-  backend/processor/  transform.js (pure transform) + handler.js (Lambda
-                       entry point) + deploy_lambda.sh (packages and
-                       registers the function with an SQS event source
-                       mapping)
-  backend/dashboard/  Express + Chart.js, grouped by PATIENT not by vital --
-                       each patient card shows a live heart-rate trace plus
-                       the other 4 vitals as compact tiles
-  infra/              docker-compose stack, LocalStack bootstrap, pipeline
-                       verification, load test, and dashboard screenshots
+fog/app.js, fog/queueGateway.js:
+  WINDOW_SECONDS         seconds per aggregation window; default 10
+  SQS_QUEUE_NAME         SQS queue the fog node publishes window summaries
+                         to; default fpv-vitals-agg
+  AWS_ENDPOINT_URL       AWS endpoint override; unset by default
+  AWS_REGION             AWS region; default eu-west-1
 
-REQUIREMENTS
-------------
-  Docker + Docker Compose (for the running stack)
-  Node.js 20+ (only if running the unit tests locally)
-  Python 3.12+ (only for infra/burst.py and infra/verify_pipeline.py,
-                 which remain Python as ops tooling -- see TECH STACK above)
+backend/processor/handler.js, backend/processor/deploy_lambda.sh:
+  TABLE_NAME             DynamoDB table records are written to; default
+                         fpv-readings
+  AWS_REGION             AWS region; default eu-west-1
+  AWS_ENDPOINT_URL       AWS endpoint override; unset by default
+  AWS_ACCESS_KEY_ID      static access key, used only when AWS_ENDPOINT_URL
+                         is set; default test
+  AWS_SECRET_ACCESS_KEY  static secret key, used only when AWS_ENDPOINT_URL
+                         is set; default test
+  SQS_QUEUE_NAME         queue deploy_lambda.sh wires the Lambda's event
+                         source mapping to; default fpv-vitals-agg
+  LAMBDA_FUNCTION_NAME   Lambda function name deploy_lambda.sh creates or
+                         updates; default fpv-processor
 
-RUN THE STACK
--------------
+backend/dashboard/server.js:
+  TABLE_NAME             DynamoDB table read for patient vitals; default
+                         fpv-readings
+  SQS_QUEUE_NAME         SQS queue reported on by the health and stats
+                         endpoints; default fpv-vitals-agg
+  LAMBDA_FUNCTION_NAME   Lambda function reported on by the health
+                         endpoint; default fpv-processor
+  FOG_HEALTH_URL         fog node health endpoint polled by /api/health;
+                         default http://fog:8000/health
+  FOG_THRESHOLDS_URL     fog node thresholds endpoint proxied by
+                         /api/thresholds; default http://fog:8000/thresholds
+  AWS_REGION             AWS region; default eu-west-1
+  AWS_ENDPOINT_URL       AWS endpoint override; unset by default
+  AWS_ACCESS_KEY_ID      static access key, used only when AWS_ENDPOINT_URL
+                         is set; default test
+  AWS_SECRET_ACCESS_KEY  static secret key, used only when AWS_ENDPOINT_URL
+                         is set; default test
+
+BUILD INSTRUCTIONS
+--------------------
+  sensors:            no dependencies; nothing to build
+  fog:                cd fog && npm install
+  backend/processor:  cd backend/processor && npm install
+  backend/dashboard:  cd backend/dashboard && npm install
+
+These match what each module's own Dockerfile runs during its image build
+(npm install --omit=dev). backend/processor's Docker build additionally
+zips the installed files into a deployable archive:
+  zip -qr function.zip handler.js transform.js node_modules
+
+RUN INSTRUCTIONS
+------------------
+Bring up the local stack:
   docker compose -f infra/docker-compose.yml up --build
 
-  Dashboard:  http://localhost:8082
-  LocalStack: http://localhost:4568
+Ports exposed to the host:
+  Dashboard:   http://localhost:8082   (container port 8000)
+  LocalStack:  http://localhost:4568   (container port 4566)
 
-  Stop:  docker compose -f infra/docker-compose.yml down -v
+The fog gateway, the ten sensor containers, and the one-shot processor
+container are not published to the host; they communicate over the
+compose network only.
 
-CONFIGURE SENSOR RATES
+Stop the stack:
+  docker compose -f infra/docker-compose.yml down -v
+
+AWS DEPLOYMENT STEPS
 ----------------------
-Each sensor takes two independent rates (set per service in
-infra/docker-compose.yml):
-  SAMPLE_INTERVAL    seconds between generated readings
-  DISPATCH_INTERVAL  seconds between dispatches to the edge gateway
+Deployment uses the Terraform module in the repository's top-level
+terraform/ directory.
 
-VERIFY END-TO-END
------------------
-With the stack running:
-  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test python infra/verify_pipeline.py
+1. Configure AWS CLI credentials for the target AWS account:
+     aws configure
+   or export AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and (for temporary
+   credentials) AWS_SESSION_TOKEN directly.
 
-RUN THE TESTS
--------------
-Each module has its own package.json and test script:
-  cd sensors && npm install && npm test
-  cd fog && npm install && npm test
-  cd backend/processor && npm install && npm test
-  cd backend/dashboard && npm install && npm test
+2. Confirm the credentials resolve to the intended account:
+     aws sts get-caller-identity
 
-Or without a local Node.js install:
-  docker run --rm -v "$PWD":/app -w /app/fog node:20-slim \
-    bash -c "npm install && npm test"
+3. From the terraform/ directory, create and switch to a dedicated
+   workspace for this project before running any apply:
+     cd terraform
+     terraform workspace new fpv
+     terraform workspace list
 
-LOAD TEST (SCALABILITY EVIDENCE)
---------------------------------
-With the stack running:
-  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
-    python infra/burst.py --messages 2000 --workers 32
+4. Create terraform/deployments/fpv.tfvars in "key = value" format,
+   defining every variable terraform/variables.tf requires:
+     prefix                   = "fpv"
+     project_root             = "../projects/03-patient-vitals"
+     table_name               = "fpv-readings"
+     queue_name               = "fpv-vitals-agg"
+     processor_lambda_name    = "fpv-processor"
+     processor_build_command  = "cd backend/processor && npm ci --omit=dev --silent && rm -f lambda.zip && zip -qr lambda.zip handler.js transform.js package.json node_modules"
+     processor_zip_path       = "backend/processor/lambda.zip"
+     processor_handler        = "handler.handler"
+     processor_runtime        = "nodejs20.x"
+     dashboard_lambda_name    = "fpv-dashboard-api"
+     dashboard_build_command  = "<command that installs backend/dashboard's dependencies and zips a Lambda-compatible entry point into dashboard_zip_path>"
+     dashboard_zip_path       = "backend/dashboard/lambda.zip"
+     dashboard_handler        = "<module>.<exported function name> of that Lambda entry point"
+     dashboard_runtime        = "nodejs20.x"
+     frontend_local_dir       = "backend/dashboard/static"
+     api_base_placeholder     = "<placeholder token to substitute with the deployed API Gateway URL>"
+     api_base_search_files    = ["<frontend file(s) containing that placeholder>"]
 
-REUSE / THIRD-PARTY COMPONENTS
--------------------------------
-The overall pipeline architecture (SQS -> Lambda -> DynamoDB via LocalStack,
-the sort_key disambiguation scheme, the dashboard health-check pattern) was
-adapted from this student's own project 01-smart-agriculture and
-02-industrial-equipment, built earlier for this same CA submission (not a
-prior/external coursework project). The implementation language and every
-line of application code are new: this project was rewritten from its
-original Python/FastAPI form into Node.js/Express specifically to keep the
-5 CA projects from sharing recognisable source-level structure. Domain
-code -- vital-sign profiles, clinical thresholds, and the entire dashboard
-(light clinical theme, patient-grouped layout, ECG-style trace) -- is
-original to this project.
-Third-party open-source components used as standard libraries/tools:
-  - Express (fog edge gateway, backend/dashboard) - https://expressjs.com
-  - AWS SDK for JavaScript v3 (@aws-sdk/client-sqs, client-dynamodb,
-    lib-dynamodb, client-lambda) - https://github.com/aws/aws-sdk-js-v3
-  - Chart.js (dashboard trace/sparklines, vendored at
-    backend/dashboard/static/vendor/) - https://www.chartjs.org
-  - LocalStack (local AWS emulation for SQS/DynamoDB/Lambda) -
-    https://www.localstack.cloud
-  - Node.js built-in test runner (node:test, node:assert/strict) -- no
-    external test framework dependency
-  - boto3 (Python AWS SDK, used only by the ops tooling in infra/) - https://boto3.amazonaws.com
+5. Build the Lambda deployment artifacts, then plan and apply:
+     ./build.sh deployments/fpv.tfvars
+     terraform plan -var-file=deployments/fpv.tfvars
+     terraform apply -var-file=deployments/fpv.tfvars
+
+6. After the apply finishes, switch back to the default workspace so it
+   does not carry into the next deployment run:
+     terraform workspace select default
+
+TESTING INSTRUCTIONS
+-----------------------
+Each module has its own package.json and test script, using Node's
+built-in node:test runner:
+
+  cd sensors && npm test                4 tests
+  cd fog && npm test                    16 tests
+  cd backend/processor && npm test      5 tests
+  cd backend/dashboard && npm test      10 tests
+
+Total: 35 tests.

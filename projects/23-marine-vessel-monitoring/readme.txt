@@ -1,294 +1,221 @@
-Marine Vessel / Cruise Ship Monitoring Fog/Edge Pipeline
-Fog and Edge Computing (H9FECC) - CA Project
-
-ATTRIBUTION
------------
-This project (23-marine-vessel-monitoring) is the individual CA submission
-of Gopi Krishnan, Student ID X25112627. It is NOT part of the primary
-student's own portfolio of work in the rest of this repository.
+Marine Vessel Monitoring
 
 All commands below assume your working directory is this folder
-(projects/23-marine-vessel-monitoring/), not the repo root.
+(projects/23-marine-vessel-monitoring/) unless stated otherwise.
 
-OVERVIEW
---------
-Two cruise vessels (vessel-a, vessel-b) each carry five simulated sensors
-(engine room temperature, fuel consumption, ballast water level, hull
-vibration, passenger count) that feed a fog node. The fog node windows and
-aggregates each sensor's readings, raises threshold alerts, and dispatches
-one aggregate per window to a queue. An AWS Lambda function consumes the
-queue and stores records; a web dashboard renders a Bridge Console (a
-two-column vessel-a/vessel-b comparison panel, one row per reading) plus a
-chronological Voyage Log of recent aggregation windows.
-
-Local development and CI run entirely on Docker with LocalStack emulating
-AWS SQS, DynamoDB, and Lambda. The AWS SDK (boto3) is used throughout, so
-the same code deploys unchanged to a real AWS account -- see DEPLOYMENT
-(AWS) below.
-
-LAYOUT
-------
-  sensors/            sensor simulator (one process per sensor type/vessel)
-  fog/                Tornado fog node: ingest, buffer, window, aggregate,
-                       alert, publish
-  backend/processor/  transform.py (pure transform) + handler.py (Lambda
-                       entry point) + deploy_lambda.py (packages and
-                       registers the function with an SQS event source
-                       mapping in LocalStack)
-  backend/dashboard/  Tornado REST API + static frontend (marine teal/white
-                       "bridge display" theme, Bridge Console two-column
-                       comparison panel + Voyage Log)
-  infra/              docker-compose stack, LocalStack bootstrap, pipeline
-                       verification, load test, and dashboard screenshots
-  tests/              pytest unit + real HTTP-level route tests
-
-SENSOR TYPES
-------------
-  engine_room_temp_c        C,       20-90,   start 45,  step 4.0
-  fuel_consumption_lph      L/h,     0-500,   start 150, step 30.0
-  ballast_water_level_pct   %,       0-100,   start 50,  step 6.0
-  hull_vibration_mm         mm/s,    0-20,    start 2,   step 1.5
-  passenger_count           people,  0-3000,  start 800, step 150.0
-                            (no alert rule -- informational secondary
-                            detail only, still one of the 5 required
-                            sensors and shown in the Bridge Console)
-
-ALERT THRESHOLDS (evaluated on the window aggregate)
------------------------------------------------------
-  engine_room_temp_c:      avg > 75  -> engine_overheat_risk
-  fuel_consumption_lph:    avg > 350 -> fuel_burn_excessive
-  ballast_water_level_pct: avg > 90  -> ballast_overfill_risk
-  hull_vibration_mm:       max > 15  -> hull_stress_warning
-
-DEPLOYMENT (AWS)
+1. PREREQUISITES
 -----------------
-ARCHITECTURE: EC2 runs the fog node and the ten sensor containers. The
-dashboard API runs as an AWS Lambda function behind API Gateway,
-answering /api/* and reusing data_access.py directly.
+  - Docker and Docker Compose (to run the local stack)
+  - Python 3.12+ (every Dockerfile in this project builds on python:3.12-slim;
+    a local Python 3.12+ install is only needed to run the test suite or the
+    infra/ scripts outside Docker)
+  - pip
+  - AWS CLI (only needed for the AWS deployment steps)
+  - Terraform >= 1.5 with the AWS provider ~> 5.0 (only needed for the AWS
+    deployment steps; the Terraform module lives at the repository
+    root's terraform/ directory, not inside this project folder)
 
-  DynamoDB:      mvs-readings (PAY_PER_REQUEST, partition key sensor_type,
-                 sort key sort_key)
-  SQS queue:     mvs-vessel-agg
-  Lambda:        mvs-processor (SQS-triggered ingestion via event source
-                 mapping)
-  Lambda:        mvs-dashboard-api, behind API Gateway REST API 3crovrzml6
-  EC2 instance:  i-00cee8327e251f43d (tagged mvs-fog-host, runs the fog
-                 node + 10 sensor containers), security group
-                 sg-0237d7ef5cf8bf8c9 (inbound TCP 8000 only, no SSH,
-                 administered via SSM only)
-  Elastic IP:    3.93.139.149 (allocation eipalloc-080d56c695197faf4,
-                 associated with the instance so its public IP stays
-                 fixed across stop/start)
-  S3 buckets:    mvs-frontend-573065484152 (static dashboard frontend,
-                 public read-only, static website hosting enabled),
-                 mvs-deploy-573065484152 (staging bucket used to ship
-                 source to the EC2 instance)
+2. INSTALLATION STEPS
+----------------------
+  1. Clone the repository.
+  2. cd into projects/23-marine-vessel-monitoring
+  3. Install the local dependencies needed to run the test suite:
+       pip install -r requirements-dev.txt
+     This installs pytest, tornado, and boto3 (the same tornado/boto3
+     versions the fog node and dashboard backend use at runtime).
 
-Live URLs:
-  Dashboard: http://mvs-frontend-573065484152.s3-website-us-east-1.amazonaws.com/
-  API:       https://3crovrzml6.execute-api.us-east-1.amazonaws.com/prod
+3. CONFIGURATION
+-----------------
+Environment variables actually read by the code, grouped by component. All
+have working defaults except SENSOR_TYPE, which is required.
 
-index.html requests its assets at /static/style.css, /static/dashboard.js,
-and /static/vendor/chart.umd.min.js (matching how the local Tornado server
-mounts StaticFileHandler), so any re-upload to S3 MUST preserve that path
-shape -- index.html goes to the bucket root, everything else goes under a
-static/ prefix:
-  aws s3 cp backend/dashboard/static/index.html s3://<bucket>/index.html
-  aws s3 cp backend/dashboard/static/style.css s3://<bucket>/static/style.css
-  aws s3 cp backend/dashboard/static/dashboard.js s3://<bucket>/static/dashboard.js
-  aws s3 cp backend/dashboard/static/vendor/chart.umd.min.js s3://<bucket>/static/vendor/chart.umd.min.js
-A flat `aws s3 sync backend/dashboard/static/ s3://<bucket>/` uploads
-everything to the bucket root instead, breaking every asset reference
-with a 404.
+Fog node (fog/app.py):
+  WINDOW_SECONDS      aggregation window length in seconds (default: 10)
+  SQS_QUEUE_NAME       SQS queue the fog node publishes aggregates to
+                        (default: mvs-vessel-agg)
+  AWS_ENDPOINT_URL     AWS endpoint override; set for LocalStack, unset for
+                        real AWS so boto3 falls back to its default
+                        credential/endpoint chain (no default)
+  AWS_REGION           AWS region for the SQS client (default: eu-west-1)
 
-Health check: curl https://3crovrzml6.execute-api.us-east-1.amazonaws.com/prod/api/health
-should return {"gateway":true,"queue":true,"lambda":true,"pipeline":true}.
+Sensors (sensors/sensor.py):
+  SENSOR_TYPE          sensor type identifier, e.g. engine_room_temp_c
+                        (required, no default -- process exits if unset)
+  SITE_ID              vessel identifier (default: vessel-a)
+  SAMPLE_INTERVAL      seconds between generated readings (default: 2)
+  DISPATCH_INTERVAL    seconds between dispatches to the fog node
+                        (default: 10)
+  FOG_URL              fog node ingest endpoint
+                        (default: http://fog:8000/ingest)
 
-REQUIREMENTS
-------------
-  Docker + Docker Compose (for the running stack)
-  Python 3.12+ (only if running the unit tests or ops scripts locally)
-  pip install -r requirements-dev.txt (pytest + tornado + boto3 -- tornado
-  and boto3 are also the only runtime dependencies of the fog node and the
-  dashboard backend; the processor and sensors only need boto3 / the
-  standard library respectively)
+Backend processor (backend/processor/handler.py, deploy_lambda.py):
+  TABLE_NAME           DynamoDB table records are written to
+                        (default: mvs-readings)
+  AWS_ENDPOINT_URL     AWS endpoint override, same as above (no default)
+  AWS_REGION           AWS region (default: eu-west-1)
+  SQS_QUEUE_NAME       queue deploy_lambda.py wires the event source
+                        mapping to (default: mvs-vessel-agg)
+  LAMBDA_FUNCTION_NAME name deploy_lambda.py registers the function under
+                        (default: mvs-processor)
 
-RUN THE STACK
--------------
+Dashboard backend (backend/dashboard/app.py, data_access.py,
+lambda_handler.py):
+  TABLE_NAME           DynamoDB table queried for readings
+                        (default: mvs-readings)
+  SQS_QUEUE_NAME       queue whose depth is reported by /api/backend-stats
+                        (default: mvs-vessel-agg)
+  LAMBDA_FUNCTION_NAME processor function name checked by /api/health
+                        (default: mvs-processor)
+  AWS_ENDPOINT_URL     AWS endpoint override, same as above (no default)
+  AWS_REGION           AWS region (default: eu-west-1)
+  FOG_HEALTH_URL       fog node health endpoint polled by /api/health
+                        (default: http://fog:8000/health)
+  FOG_THRESHOLDS_URL   fog node thresholds endpoint polled by
+                        /api/thresholds (default: http://fog:8000/thresholds)
+  PORT                 local Tornado server port, app.py only, not used by
+                        the Lambda handler (default: 8000)
+
+Ops scripts (infra/verify_pipeline.py, infra/burst.py):
+  AWS_ENDPOINT_URL     AWS endpoint (default: http://localhost:4588)
+  AWS_REGION           AWS region (default: eu-west-1)
+  TABLE_NAME           DynamoDB table, verify_pipeline.py only
+                        (default: mvs-readings)
+  SQS_QUEUE_NAME       SQS queue, burst.py only (default: mvs-vessel-agg)
+  VERIFY_TIMEOUT       seconds to wait for the pipeline to settle,
+                        verify_pipeline.py only (default: 90)
+
+4. BUILD INSTRUCTIONS
+-----------------------
+There is no separate compile step; each service is plain Python built into
+a Docker image at container-build time.
+
+  Build every image (fog, sensors, backend/processor, backend/dashboard):
+    docker compose -f infra/docker-compose.yml build
+
+  Each Dockerfile (fog/Dockerfile, sensors/Dockerfile,
+  backend/processor/Dockerfile, backend/dashboard/Dockerfile) starts from
+  python:3.12-slim, copies its own requirements.txt, and runs
+  pip install -r requirements.txt inside the image.
+
+  For the AWS Lambda zip packages (processor and dashboard), see the build
+  commands in AWS DEPLOYMENT STEPS below -- those are built by Terraform's
+  build.sh, not by docker compose build.
+
+5. RUN INSTRUCTIONS
+---------------------
   docker compose -f infra/docker-compose.yml up --build
 
-  Dashboard:  http://localhost:8102
-  LocalStack: http://localhost:4588
+  This starts: localstack, fog, the one-shot processor (deploys the
+  Lambda into LocalStack and exits), dashboard, and all 10 sensor
+  containers (5 sensor types x 2 vessels).
 
-  Stop:  docker compose -f infra/docker-compose.yml down -v
+  Exposed ports:
+    Dashboard:   http://localhost:8102   (container port 8000)
+    LocalStack:  http://localhost:4588   (container port 4566)
+  fog is not published to the host in this compose file; it is reachable
+  only at http://fog:8000 from inside the compose network.
 
-  Bring services up incrementally if you want to watch each stage:
+  Stop and remove volumes:
+    docker compose -f infra/docker-compose.yml down -v
+
+  Bring services up incrementally:
     docker compose -f infra/docker-compose.yml up -d localstack
     docker compose -f infra/docker-compose.yml up -d fog dashboard
     docker compose -f infra/docker-compose.yml up -d processor
     docker compose -f infra/docker-compose.yml up -d
 
-TEARDOWN NOTE: `docker compose down -v` can leave behind a LocalStack-
-spawned Lambda-executor sibling container (named like
-mvs-localstack-1-lambda-mvs-processor-<hash>) and the network it is
-attached to, which blocks the network's removal ("Network mvs_default
-Resource is still in use"). If it happens, check for it and clean up
-explicitly:
-  docker ps -a --filter "name=mvs"
-  docker network ls --filter "name=mvs"
-  docker rm -f <the lambda-executor container name>
-  docker network rm mvs_default
+6. AWS DEPLOYMENT STEPS
+-------------------------
+No terraform/deployments/mvs.tfvars file exists yet for this project. The
+Terraform module lives at the repository root's terraform/
+directory (not inside this project folder) and is driven by one .tfvars
+file.
 
-CONFIGURE SENSOR RATES
-----------------------
-Each sensor takes two independent rates (set per service in
-infra/docker-compose.yml):
-  SAMPLE_INTERVAL    seconds between generated readings
-  DISPATCH_INTERVAL  seconds between dispatches to the fog node
-Every one of the 10 sensor services (5 sensor types x 2 vessels) uses a
-distinct SAMPLE_INTERVAL/DISPATCH_INTERVAL pair, e.g. sensor-engine-a
-samples every 2s/dispatches every 8s while sensor-passenger-a samples
-every 5s/dispatches every 15s, so the two knobs are genuinely independent,
-not aliased to one value.
+  1. Configure AWS CLI credentials for the target account, then confirm:
+       aws sts get-caller-identity
 
-VERIFY END-TO-END
-------------------
-With the stack running:
-  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
-    AWS_ENDPOINT_URL=http://localhost:4588 python infra/verify_pipeline.py
+  2. From the repository root, create terraform/deployments/mvs.tfvars,
+     defining (prefix, project_root, table_name, queue_name, per-Lambda
+     name/build command/zip path/handler/runtime, frontend_local_dir,
+     api_base_placeholder, api_base_search_files), filled in with this
+     project's own real values, for example:
 
-Example curl commands:
-  curl http://localhost:8102/api/health
-  curl http://localhost:8102/api/vessels
-  curl http://localhost:8102/api/thresholds
-  curl http://localhost:8102/api/backend-stats
-  curl "http://localhost:8102/api/readings?sensor_type=hull_vibration_mm&limit=20"
-  curl "http://localhost:8102/api/readings?sensor_type=engine_room_temp_c&site_id=vessel-b&limit=10"
-  curl "http://localhost:8102/api/voyage-log?limit=10"
+       prefix       = "mvs"
+       project_root = "../projects/23-marine-vessel-monitoring"
 
-fog itself is not published to the host (only reachable at http://fog:8000
-inside the compose network); to exercise it directly -- e.g. to see a real
-400 from a malformed /ingest payload -- run from inside the dashboard
-container, which already has Python and network access to fog:
-  docker compose -f infra/docker-compose.yml exec dashboard python3 -c "
-  import json, urllib.error, urllib.request
-  req = urllib.request.Request('http://fog:8000/ingest',
-      data=json.dumps({'bad': 'payload'}).encode(),
-      headers={'Content-Type': 'application/json'})
-  try:
-      urllib.request.urlopen(req)
-  except urllib.error.HTTPError as exc:
-      print(exc.code, exc.read())
-  "
-  # -> 400 b'{"error": "sensor_type is required and must be a non-empty string"}'
+       table_name = "mvs-readings"
+       queue_name = "mvs-vessel-agg"
 
-RUN THE TESTS
--------------
+       processor_lambda_name   = "mvs-processor"
+       processor_build_command = "cd backend/processor && rm -rf build lambda.zip && pip install -r requirements.txt -t build --quiet && cp handler.py transform.py build/ && cd build && zip -qr ../lambda.zip . && cd .."
+       processor_zip_path      = "backend/processor/lambda.zip"
+       processor_handler       = "handler.lambda_handler"
+       processor_runtime       = "python3.12"
+
+       dashboard_lambda_name   = "mvs-dashboard-api"
+       dashboard_build_command = "cd backend/dashboard && rm -rf build lambda.zip && pip install -r requirements.txt -t build --quiet && cp lambda_handler.py data_access.py thresholds_proxy.py build/ && cd build && zip -qr ../lambda.zip . && cd .."
+       dashboard_zip_path      = "backend/dashboard/lambda.zip"
+       dashboard_handler       = "lambda_handler.lambda_handler"
+       dashboard_runtime       = "python3.12"
+
+       frontend_local_dir    = "backend/dashboard/static"
+       api_base_placeholder  = "%%API_BASE%%"
+       api_base_search_files = ["dashboard.js"]
+
+  3. From terraform/, create and switch to a dedicated workspace before
+     ever applying (the default workspace already tracks another
+     project's live state):
+       cd terraform
+       terraform workspace new mvs
+       terraform workspace list
+
+  4. Build the Lambda zip packages and the EC2 deploy tarball:
+       ./build.sh deployments/mvs.tfvars
+
+  5. Review the plan before applying:
+       terraform plan -var-file=deployments/mvs.tfvars
+     Confirm the "Plan: N to add, 0 to change, 0 to destroy" line shows
+     0 to destroy before proceeding.
+
+  6. Apply:
+       terraform apply -var-file=deployments/mvs.tfvars
+
+  7. Switch back to the default workspace when finished so the working
+     directory doesn't default into this workspace for a later command:
+       terraform workspace select default
+
+7. TESTING INSTRUCTIONS
+-------------------------
   pip install -r requirements-dev.txt
   pytest
 
-Or without a local Python 3.12:
+Or without a local Python 3.12+:
   docker run --rm -v "$PWD":/app -w /app python:3.12-slim \
     bash -c "pip install -r requirements-dev.txt && pytest"
 
-120 tests currently pass, covering:
-  - test_aggregation.py       window aggregation math
-  - test_alerts.py            RULES evaluation and thresholds_payload(),
-                               including that hull vibration keys on "max"
-                               not "avg" and passenger_count never fires
-  - test_buffering.py         the lock-free plain-dict buffering module
-  - test_publisher.py         the fire-and-forget SQS publisher, including
-                               a slow-fake-client test proving publish()
-                               returns before the network call completes
-  - test_validation.py        /ingest input validation
-  - test_fog_http.py          real HTTP-level tests against a live Tornado
-                               HTTPServer on a real socket (fog node),
-                               including the 400 validation path and a
-                               flush()-then-published-message assertion
-  - test_dashboard_http.py    same real-HTTP-level treatment for the
-                               dashboard, including a live 502-on-
-                               unreachable-upstream / 200-on-reachable-
-                               upstream round trip through /api/thresholds
-  - test_sensor.py            the sensor random walk and call_later
-                               self-rearming tick logic, including a
-                               real-event-loop test asserting the sample
-                               tick fires multiple times
-  - test_transform.py /
-    test_handler.py           Lambda transform/handler against a
-                               hand-written fake DynamoDB table (no real
-                               AWS/LocalStack touched)
-  - test_data_access.py       dashboard DynamoDB/SQS/Lambda data-access
-                               functions, including per-vessel grouping
-                               and newest-first log merge (fake boto3)
-  - test_thresholds_proxy.py  thresholds-proxy function against both a
-                               real local success server and a real closed
-                               TCP port
-  - test_dashboard_lambda_handler.py
-                               API Gateway REST API dispatch table,
-                               including 404-on-unknown-route, query-param
-                               validation, and degrade-to-zero-on-Scan-
-                               failure health path (mocked data-access)
+120 tests currently pass across:
+  tests/test_aggregation.py              4 tests
+  tests/test_alerts.py                  10 tests
+  tests/test_buffering.py                4 tests
+  tests/test_dashboard_http.py          15 tests
+  tests/test_dashboard_lambda_handler.py 10 tests
+  tests/test_data_access.py             13 tests
+  tests/test_fog_http.py                13 tests
+  tests/test_handler.py                  3 tests
+  tests/test_publisher.py                9 tests
+  tests/test_sensor.py                  12 tests
+  tests/test_thresholds_proxy.py         2 tests
+  tests/test_transform.py                6 tests
+  tests/test_validation.py              19 tests
 
-LOAD TEST (SCALABILITY EVIDENCE)
----------------------------------
-With the stack running:
+Run a single file:
+  pytest tests/test_aggregation.py
+
+To exercise the pipeline end-to-end against a running local stack:
+  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
+    AWS_ENDPOINT_URL=http://localhost:4588 python infra/verify_pipeline.py
+
+For a burst-load check against a running local stack:
   AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
     AWS_ENDPOINT_URL=http://localhost:4588 \
     python infra/burst.py --messages 2000 --workers 32
-
-Asserts (1) the queue shows the burst immediately after sending, and (2)
-either the queue fully drains within the timeout, or -- if LocalStack's
-single-container Lambda emulation hasn't finished by then -- that the
-remaining count strictly decreased from the immediate post-burst count.
-See the project report's evaluation section for the full recorded run and
-its interpretation.
-
-BRIDGE CONSOLE / VOYAGE LOG (dashboard structure)
----------------------------------------------------
-The dashboard's primary view is a two-column vessel-a/vessel-b comparison
-table (backend/dashboard/static/style.css's .console-table rules): one row
-per reading, one column per vessel, each cell showing the latest value, a
-native <meter> gauge, and an inline alert badge when that reading's rule
-has fired. The secondary section is a Voyage Log
-(backend/dashboard/data_access.py's recent_log_entries(), .voyage-log
-rules): a chronological list of individual aggregation-window entries
-across both vessels, newest first. Theme: marine teal/white
-(--teal: #0e6e6a, --teal-soft: #dbeeec), standard system font stack only,
-no custom SVG, no emoji, native <meter> for every bounded reading. Verified
-responsive at 375px (infra/dashboard-mobile.png): the console table scrolls
-internally (overflow-x: auto) but the page body itself never scrolls
-horizontally.
-
-REUSE / THIRD-PARTY COMPONENTS
---------------------------------
-Portfolio-wide architecture reused (not this student's own prior work,
-disclosed here for transparency): the overall pipeline shape (SQS -> Lambda
--> DynamoDB via LocalStack, the sort_key disambiguation scheme, the
-dashboard health-check pattern), adapted from seven earlier Python projects
-in this repository: 05-cold-chain-logistics, 12-smart-building-energy,
-13-ev-charging-network, 14-smart-parking-management,
-17-solar-farm-monitoring, 21-bridge-structural-health, and
-01-smart-agriculture (a separate individual CA submission by a different
-student, Kondragunta Lakshmi Chaitanya, X25171216).
-
-Written independently for this project: fog buffering, alert-rule
-representation, the SQS publisher, the HTTP framework choice (Tornado),
-sensor loop scheduling, all domain-specific code (reading profiles, alert
-thresholds), and the entire dashboard (teal/white "bridge display" theme,
-Bridge Console two-column comparison table + Voyage Log layout). See the
-project report's cloud-architecture-justification section for the
-comparative analysis against sibling projects.
-
-Third-party open-source components used as standard libraries/tools:
-  - Tornado (HTTP framework for fog and dashboard) - https://www.tornadoweb.org
-  - boto3 (AWS SDK for Python) - https://boto3.amazonaws.com
-  - Chart.js (engine room temperature trend chart, vendored at
-    backend/dashboard/static/vendor/, byte-identical copy of the file
-    already vendored in 21-bridge-structural-health, confirmed with `diff`)
-    - https://www.chartjs.org
-  - LocalStack (local AWS emulation for SQS/DynamoDB/Lambda) -
-    https://www.localstack.cloud
-  - pytest (test suite) - https://pytest.org
-No FastAPI or Flask is used anywhere in this project's application code;
-the only third-party runtime dependencies across the whole app are tornado
-and boto3.

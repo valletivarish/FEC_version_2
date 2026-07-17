@@ -1,199 +1,151 @@
-Smart Port & Container Terminal Monitoring
-Fog and Edge Computing (H9FECC) - CA Project
+Smart Port Container Terminal
 
-ATTRIBUTION
-------------
-This project is Uday Kiran Reddy Dodda's individual CA submission, Student
-ID X25166484, National College of Ireland. It shares this portfolio
-repository with several other students' independently attributed projects
-as a convenience; it is not part of the main portfolio owner's own
-submission.
+1. PREREQUISITES
 
-All commands below assume your working directory is this folder
-(projects/20-smart-port-container-terminal/), not the repo root.
+- Docker and Docker Compose (v2, `docker compose` subcommand)
+- Java 17 JDK
+- Apache Maven 3.9+
+- AWS CLI v2 (only needed for the AWS Deployment Steps section)
+- Terraform >= 1.5 with the AWS provider ~> 5.0 (only needed for the AWS Deployment Steps section)
 
-OVERVIEW
---------
-Two container-terminal berths (berth-a and berth-b) each carry five sensor
-types: crane load, container stack height, wind speed, berth occupancy,
-and reefer temperature. Ten sensor containers post batched readings to a
-fog HTTP node, which windows and aggregates each sensor-and-berth pair on
-a fixed interval, evaluates real operational-safety thresholds, and
-publishes one batched aggregate message per flush cycle to Amazon SQS. An
-AWS Lambda function consumes the queue and writes to DynamoDB. A dashboard
-renders a plain-text operational-status line per berth alongside the five
-raw readings and a crane-load trend chart.
+2. INSTALLATION STEPS
 
-The stack runs on Docker with LocalStack emulating AWS SQS, DynamoDB, and
-Lambda for local development.
+1. Clone the repository and change into the project folder:
+   git clone <repository-url>
+   cd projects/20-smart-port-container-terminal
 
-TECH STACK
-----------
-Java 17 throughout, built on the JDK's own HTTP server (no Spring or other
-web framework). The fog buffer is a sorted, sequence-keyed concurrent map
-that defers grouping to drain time; alert rules are pure data records
-evaluated through two small lookup tables; the SQS publisher batches an
-entire flush cycle's messages into a single send; HTTP dispatch uses the
-JDK's Filter chain-of-responsibility mechanism; each sensor runs two
-self-rescheduling tasks on a single-thread scheduler so no lock is needed
-for its buffer. Testing uses JUnit 5 with hand-written fake AWS clients
-(no LocalStack, no mocking library) plus real-socket HTTP tests against
-the production server classes. A full comparison of this design against
-this portfolio's other Java submissions is in the project report.
+2. Each module is a standalone Maven project (sensors, fog, backend/processor,
+   backend/dashboard). To pre-fetch dependencies for local test/build runs
+   without network access later, run in each module directory:
+   mvn -q -B dependency:go-offline
 
-LAYOUT
-------
-  sensors/            Java sensor simulator, one container per
-                       sensor-type/berth pair
-  fog/                 plain-JDK HTTP server: ingest validation, buffering,
-                       windowed aggregation, threshold evaluation, batched
-                       SQS dispatch, HTTP routing
-  backend/processor/  Lambda entry point consuming the SQS event source
-                       mapping and writing to DynamoDB, plus deployment
-                       tooling
-  backend/dashboard/  plain-JDK HTTP server serving its own REST API and
-                       the static frontend: an inline operational-status
-                       line per berth, five raw reading rows with native
-                       meter bars, and a Chart.js crane-load trend chart
-  infra/              docker-compose stack, LocalStack bootstrap, pipeline
-                       verification, and load test
+3. CONFIGURATION
 
-REQUIREMENTS
-------------
-  Docker + Docker Compose (for the running stack)
-  JDK 17+ and Maven (only if building/testing locally outside Docker)
-  Python 3.12 + boto3 (only for infra/verify_pipeline.py and infra/burst.py)
+Sensor units (sensors/src/main/java/com/fec/port/sensor/BerthSensorUnit.java):
+- SENSOR_TYPE - no default, must be set to one of: crane_load_kg,
+  container_stack_height, wind_speed_knots, berth_occupancy_pct, reefer_temp_c
+- SITE_ID - default "berth-a"
+- SAMPLE_INTERVAL - default "2" (seconds between generated samples)
+- DISPATCH_INTERVAL - default "10" (seconds between batches sent to the fog node)
+- FOG_URL - default "http://fog:8000/ingest"
 
-RUN THE STACK
--------------
-  docker compose -f infra/docker-compose.yml up --build
+Fog node (fog/src/main/java/com/fec/port/fog/TerminalGateway.java):
+- WINDOW_SECONDS - default "10" (aggregation window length in seconds)
+- SQS_QUEUE_NAME - default "spc-berth-agg"
+- AWS_ENDPOINT_URL - no default; set to a LocalStack endpoint for local runs,
+  unset for real AWS
+- AWS_REGION - default "eu-west-1"
 
-  Dashboard:  http://localhost:8099
-  LocalStack: http://localhost:4585
+Backend processor Lambda (backend/processor/src/main/java/com/fec/port/processor/TerminalHandler.java):
+- TABLE_NAME - default "spc-readings" (DynamoDB table written per SQS record)
+- AWS_ENDPOINT_URL - no default; set to a LocalStack endpoint for local runs,
+  unset for real AWS
+- AWS_REGION - default "eu-west-1"
 
-  Stop:  docker compose -f infra/docker-compose.yml down -v
+Backend dashboard (TerminalDashboardApp.java for local HTTP server,
+TerminalDashboardLambda.java for the API Gateway-backed Lambda):
+- TABLE_NAME - default "spc-readings"
+- SQS_QUEUE_NAME - default "spc-berth-agg"
+- LAMBDA_FUNCTION_NAME - default "spc-processor"
+- AWS_ENDPOINT_URL - no default; set to a LocalStack endpoint for local runs,
+  unset for real AWS
+- AWS_REGION - default "eu-west-1"
+- FOG_HEALTH_URL - default "http://fog:8000/health"
+- FOG_THRESHOLDS_URL - default "http://fog:8000/thresholds"
 
-TEARDOWN NOTE: docker compose down -v can leave behind a LocalStack-
-spawned Lambda-executor sibling container (named like
-spc-localstack-1-lambda-spc-processor-<hash>) and the network it is
-attached to, which blocks the network's removal. If down -v reports
-"Network spc_default Resource is still in use", check for it and clean up
-explicitly:
-  docker ps -a --filter "name=spc"
-  docker network ls --filter "name=spc"
-  docker rm -f <the lambda-executor container name>
-  docker network rm spc_default
+LocalStack Lambda deploy script (backend/processor/deploy_lambda.sh, used only
+inside the local docker-compose stack, reads the same AWS_ENDPOINT_URL,
+SQS_QUEUE_NAME, LAMBDA_FUNCTION_NAME, TABLE_NAME, AWS_REGION variables above).
 
-CONFIGURE SENSOR RATES
------------------------
-Each sensor takes two independent rates (set per service in
-infra/docker-compose.yml), genuinely different values per container:
-  SAMPLE_INTERVAL    seconds between generated readings
-  DISPATCH_INTERVAL  seconds between dispatches to the fog node
+4. BUILD INSTRUCTIONS
 
-For example sensor-crane-a samples every 2s and dispatches every 8s, while
-sensor-occupancy-a samples every 4s and dispatches every 14s.
+Build each module (produces a jar in that module's target/ directory):
 
-RUN THE TESTS
--------------
-Each Maven project has its own JUnit 5 test suite:
-  cd sensors && mvn test                  (6 tests)
-  cd fog && mvn test                      (48 tests)
-  cd backend/processor && mvn test        (8 tests)
-  cd backend/dashboard && mvn test        (33 tests)
+cd sensors && mvn package -DskipTests -q && cd ..
+   -> target/sensor.jar
 
-Or without local Maven/JDK:
-  docker run --rm -v "$PWD/fog":/app -w /app maven:3.9-eclipse-temurin-17 mvn test
-  (repeat for sensors/, backend/processor/, backend/dashboard/)
+cd fog && mvn package -DskipTests -q && cd ..
+   -> target/fog.jar (shaded jar)
 
-All 95 tests pass. Notable coverage: real-socket HTTP tests exercise the
-fog ingest endpoint and its routing filter chain over an actual bound
-port (not a unit test of validation logic in isolation); the dashboard
-suite covers both the LocalStack-profile HTTP server and the API Gateway
-Lambda dispatch path, including CORS headers on every response.
+cd backend/processor && mvn package -DskipTests -q && cd ../..
+   -> target/processor.jar (shaded jar)
 
-VERIFY END-TO-END
-------------------
-With the stack running (allow ~30s after startup for the first window
-flush), run the automated check:
-  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
-    AWS_ENDPOINT_URL=http://localhost:4585 python3 infra/verify_pipeline.py
+cd backend/dashboard && mvn package -DskipTests -q && cd ../..
+   -> target/dashboard.jar (shaded jar)
 
-Or curl the API directly:
-  curl http://localhost:8099/api/health
-  curl http://localhost:8099/api/thresholds
-  curl "http://localhost:8099/api/readings?sensor_type=crane_load_kg&limit=5"
-  curl http://localhost:8099/api/berths
-  curl http://localhost:8099/api/backend-stats
+5. RUN INSTRUCTIONS
 
-Expected /api/health once the pipeline has warmed up:
-  {"gateway":true,"queue":true,"lambda":true,"pipeline":true,"freshest_age_seconds":<small number>}
+Bring up the full local stack (LocalStack, fog, dashboard, one-shot processor
+Lambda deploy, and 10 sensor containers covering 5 sensor types across
+berth-a/berth-b):
 
-Expected /api/thresholds (the fog's real, code-defined rules):
-  {"crane_load_kg":[{"field":"avg","op":">","limit":32000.0,"key":"crane_overload_risk"}],
-   "wind_speed_knots":[{"field":"avg","op":">","limit":34.0,"key":"high_wind_crane_halt"}],
-   "berth_occupancy_pct":[{"field":"avg","op":">","limit":90.0,"key":"berth_congestion_warning"}],
-   "reefer_temp_c":[{"field":"avg","op":">","limit":-10.0,"key":"reefer_temp_breach"}]}
+cd infra
+docker compose up --build
 
-/api/berths returns, per berth, the latest window for all 5 sensor types
-plus a computed status line - see STATUS LINE LOGIC below.
+Ports:
+- Dashboard: http://localhost:8099 (container port 8000 published as 8099)
+- LocalStack: localhost:4585 (container port 4566 published as 4585)
+- fog: internal to the compose network only, not published to the host
 
-LOAD TEST (SCALABILITY EVIDENCE)
----------------------------------
-With the stack running:
-  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
-    AWS_ENDPOINT_URL=http://localhost:4585 python3 infra/burst.py --messages 2000 --workers 32
+Stop the stack:
+docker compose down
 
-Sends synthetic loadtest sensor-type messages (never the real 5 sensor
-types, so burst traffic never lands in the dashboard's live partitions),
-then asserts (1) the queue shows the burst immediately after sending, and
-(2) polls for a full drain within a timeout - if it does not fully drain,
-asserts the remaining count strictly decreased from the immediate
-post-burst count (a soft warning, not a failure, since LocalStack's
-single-container Lambda throughput can genuinely take longer than the
-poll window to fully absorb a large burst).
+6. AWS DEPLOYMENT STEPS
 
-STATUS LINE LOGIC
-------------------
-Computed per berth as a pure function over that berth's latest window per
-sensor type - it never recomputes threshold logic, it only reads the real
-alert keys the fog's rule evaluation already fired:
-  Crane:     "Overload Risk" if crane load's latest window carries the
-             crane-overload alert, else "Nominal".
-  Wind:      "Crane Halt" if wind speed's latest window carries the
-             high-wind alert, else "Safe".
-  Reefer:    "Temp Breach" if reefer temperature's latest window carries
-             the temperature-breach alert, else "Nominal".
-  Occupancy: the real latest berth-occupancy percentage, with
-             "(Congested)" appended if that window carries the congestion
-             alert.
-Container stack height never contributes to the status line (it carries
-no alert rule); it still appears as one of the five raw reading rows
-underneath. The dashboard renders this as one inline text line per berth;
-colour is applied only to an individual segment's value when that segment
-is active, never a tile or card background.
+A terraform/deployments/spc.tfvars file is already prepared for this project.
+From the repository root:
 
-REUSE / THIRD-PARTY COMPONENTS
---------------------------------
-The overall pipeline shape (sensors feeding a fog layer that windows,
-aggregates, and alerts before dispatching to a queue, a FaaS processor, a
-datastore, and a dashboard) follows standard designs used elsewhere in
-this shared portfolio, adapted from the main portfolio owner's earlier
-work and, for project 01 specifically, from Kondragunta Lakshmi
-Chaitanya's (X25171216) individually-attributed project. The code itself
-is an independent implementation, and the domain modelling (sensor types
-and ranges, the four real operational thresholds, the status-line logic)
-and the entire dashboard UI are original to this project.
+1. Configure AWS credentials (access key, secret key, session token if using
+   temporary credentials):
+   aws configure
 
-Third-party open-source components used as standard libraries/tools:
-  - AWS SDK for Java v2 (software.amazon.awssdk: sqs, dynamodb, lambda) -
-    https://aws.amazon.com/sdk-for-java/
-  - Jackson (com.fasterxml.jackson.core: jackson-databind) for JSON -
-    https://github.com/FasterXML/jackson
-  - aws-lambda-java-core / aws-lambda-java-events (Lambda handler
-    interfaces) - https://github.com/aws/aws-lambda-java-libs
-  - JUnit 5 (test suite) - https://junit.org/junit5/
-  - Chart.js (dashboard crane-load trend chart, vendored locally, never
-    fetched from a CDN) - https://www.chartjs.org
-  - LocalStack (local AWS emulation for SQS/DynamoDB/Lambda) -
-    https://www.localstack.cloud
+2. Confirm the credentials resolve to the intended account:
+   aws sts get-caller-identity
+
+3. Change into the Terraform module directory:
+   cd terraform
+
+4. Create and switch to a dedicated workspace for this project:
+   terraform workspace new spc
+   terraform workspace list
+
+5. Build the Lambda jars and the EC2 deploy tarball (must run before apply):
+   ./build.sh deployments/spc.tfvars
+
+6. Review the plan:
+   terraform plan -var-file=deployments/spc.tfvars
+
+7. Apply:
+   terraform apply -var-file=deployments/spc.tfvars
+
+8. Read the resulting resource identifiers and URLs:
+   terraform output
+
+9. When finished, switch back to the default workspace:
+   terraform workspace select default
+
+To tear the stack down:
+cd terraform
+terraform workspace select spc
+terraform destroy -var-file=deployments/spc.tfvars
+
+7. TESTING INSTRUCTIONS
+
+Run each module's test suite from its own directory:
+
+cd sensors && mvn test
+   -> 6 tests (BerthSensorUnitTest)
+
+cd fog && mvn test
+   -> 48 tests (TerminalRouterTest 4, WindowAggregateTest 4, TerminalLedgerTest 6,
+      TerminalGatewayTest 6, TerminalGatewayHttpTest 9, BatchPayloadJsonTest 3,
+      IngestValidationTest 7, BerthRulesTest 9)
+
+cd backend/processor && mvn test
+   -> 8 tests (ItemMapperTest 5, TerminalHandlerTest 3)
+
+cd backend/dashboard && mvn test
+   -> 33 tests (BerthRepositoryTest 4, PipelineStatusTest 8, StatusLineTest 6,
+      TerminalDashboardAppTest 4, TerminalDashboardLambdaTest 9, ThresholdsGatewayTest 2)
+
+Total: 95 tests across all four modules.

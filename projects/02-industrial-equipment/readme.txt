@@ -1,99 +1,180 @@
-Plant Floor Predictive Maintenance Fog/Edge Pipeline
-Fog and Edge Computing (H9FECC) - CA Project
-Implementation language: Java 17
+Industrial Equipment Monitoring
 
-All commands below assume your working directory is this folder
-(projects/02-industrial-equipment/), not the repo root.
+PREREQUISITES
+--------------
+  - Docker and Docker Compose (to run the local stack)
+  - JDK 17 and Maven (only needed to build/test the four Java modules
+    outside Docker)
+  - Python 3 with boto3 installed (only needed to run the ops scripts in
+    infra/: verify_pipeline.py and burst.py)
+  - AWS CLI and Terraform >= 1.5 (only needed for the AWS deployment steps)
 
-OVERVIEW
---------
-Five simulated production-line sensors (vibration, motor temperature,
-bearing acoustic emission, rotation speed, power draw) feed a virtual fog
-node. The fog node windows and aggregates each sensor's readings, raises
-threshold alarms, and dispatches one aggregate per window to a queue. An AWS
-Lambda function (running inside LocalStack) consumes the queue and stores
-records; a web dashboard renders each sensor type as a plain card listing
-its current reading, a native <meter> bar against the sensor's configured
-range, its real alarm limit as plain text, and a trend trace underneath.
+INSTALLATION STEPS
+--------------------
+  1. Clone the repository and change into this project's folder:
+       cd projects/02-industrial-equipment
+  2. All commands below assume this folder is your working directory.
+  3. If you plan to run the Maven test suites or build locally, no extra
+     install step is required beyond having JDK 17 and Maven on PATH --
+     each module's own pom.xml declares its dependencies and Maven will
+     fetch them on first build/test.
+  4. If you plan to run the Python ops scripts (infra/verify_pipeline.py,
+     infra/burst.py), install boto3:
+       pip install boto3
 
-This project is implemented in Java (JDK 17), deliberately different from
-project 01 (Python) to avoid application-code similarity across the
-portfolio. It uses plain JDK HttpServer (com.sun.net.httpserver) rather than
-a framework such as Spring, to keep builds fast and dependencies minimal --
-the only direct dependencies are the AWS SDK for Java v2 and Jackson for
-JSON. Sensors, fog, the Lambda handler, and the dashboard server are each
-independent Maven projects, mirroring the per-directory Docker build
-structure already used by the other projects in this portfolio.
+CONFIGURATION
+--------------
+Environment variables actually read by the code, by component:
 
-Phase 1 (this project) runs entirely on Docker with LocalStack emulating AWS
-SQS, DynamoDB, and Lambda. The AWS SDK for Java v2 is used throughout, so a
-later move to real AWS is an endpoint/credentials configuration change
-rather than a rewrite.
+  sensors/ (Sensor.java):
+    SENSOR_TYPE        sensor type this container simulates; one of
+                       vibration, motor_temperature, bearing_acoustic,
+                       rotation_speed, power_draw; no default (must be set)
+    SITE_ID            site/line identifier, default "line-1"
+    SAMPLE_INTERVAL    seconds between generated readings, default "2"
+    DISPATCH_INTERVAL  seconds between dispatches to the fog gateway,
+                       default "10"
+    FOG_URL            fog gateway ingest URL, default
+                       "http://fog:8000/ingest"
 
-LAYOUT
-------
-  sensors/            Java sensor simulator (Sensor.java), one container per
-                       sensor type/site
-  fog/                 plain-JDK HTTP server (FogApp.java): ingest, window,
-                       aggregate, alarm (Aggregation.java/Alerts.java),
-                       publish to SQS (QueueRelay.java), plus a /thresholds
-                       endpoint exposing the real alarm rules so the
-                       dashboard never hardcodes a copy
-  backend/processor/  Reshape.java (pure transform) + Handler.java (AWS
-                       Lambda entry point, RequestHandler<SQSEvent,...>) +
-                       deploy_lambda.sh (bash + AWS CLI packages the built
-                       JAR and registers it with an SQS event source
-                       mapping -- deployment tooling is intentionally
-                       language-neutral, not Java, matching how real
-                       polyglot systems usually keep ops scripts separate
-                       from application code)
-  backend/dashboard/  plain-JDK HTTP server (DashboardApp.java) serving its
-                       own REST API and static dashboard UI (backend/dashboard/static/
-                       is NOT a copy of project 01's frontend -- the HTML
-                       layout, CSS theme, and JS rendering logic were all
-                       rewritten; the redesigned view is deliberately plain --
-                       a card per sensor type showing its reading against a
-                       native <meter> bar, no custom-drawn graphics -- only
-                       the REST endpoint naming convention and the vendored
-                       Chart.js library are shared/reused, see REUSE section
-                       below)
-  infra/              docker-compose stack, LocalStack bootstrap, pipeline
-                       verification, load test, and dashboard screenshots
-                       structure -- only the Dockerfiles differ, service
-                       names/env vars/ports are identical to before)
-                       kept as ops tooling, not application code
-  tests/              JUnit 5 unit + logic tests, one test module per Maven
-                       project (sensors/fog/processor/dashboard)
+  fog/ (FogApp.java, QueueRelay.java):
+    WINDOW_SECONDS      aggregation window length in seconds, default "10"
+    SQS_QUEUE_NAME      target SQS queue name, default "fei-sensor-agg"
+    AWS_ENDPOINT_URL    AWS endpoint override (set for LocalStack, unset
+                        for real AWS so the SDK's default credential/
+                        endpoint chain is used), no default
+    AWS_REGION          AWS region, default "eu-west-1"
 
-REQUIREMENTS
-------------
-  Docker + Docker Compose (for the running stack)
-  JDK 17+ and Maven (only if building/testing locally outside Docker)
+  backend/processor/ (Handler.java, the Lambda entry point):
+    TABLE_NAME          DynamoDB table name, default "fei-readings"
+    AWS_ENDPOINT_URL    AWS endpoint override (LocalStack only), no
+                        default
+    AWS_REGION          AWS region, default "eu-west-1"
 
-RUN THE STACK
--------------
+  backend/processor/deploy_lambda.sh (LocalStack one-shot Lambda deploy
+  job -- this script only creates/updates the function against the
+  LocalStack endpoint, it is not used for the real AWS deployment):
+    AWS_ENDPOINT_URL     LocalStack endpoint, default
+                        "http://localstack:4566"
+    SQS_QUEUE_NAME        queue to wire the function's event source
+                        mapping to, default "fei-sensor-agg"
+    LAMBDA_FUNCTION_NAME  name to create/update the function under,
+                        default "fei-processor"
+    TABLE_NAME             passed through as the created function's own
+                        TABLE_NAME variable, default "fei-readings"
+    AWS_REGION            AWS region, default "eu-west-1"
+
+  backend/dashboard/ (DashboardApp.java):
+    TABLE_NAME            DynamoDB table name, default "fei-readings"
+    SQS_QUEUE_NAME        SQS queue name (for queue-depth checks),
+                        default "fei-sensor-agg"
+    LAMBDA_FUNCTION_NAME  processor Lambda name (for health checks),
+                        default "fei-processor"
+    AWS_ENDPOINT_URL      AWS endpoint override (LocalStack only), no
+                        default
+    AWS_REGION            AWS region, default "eu-west-1"
+    FOG_HEALTH_URL        fog gateway health endpoint, default
+                        "http://fog:8000/health"
+    FOG_THRESHOLDS_URL    fog gateway thresholds endpoint, default
+                        "http://fog:8000/thresholds"
+
+  infra/verify_pipeline.py:
+    AWS_ENDPOINT_URL    default "http://localhost:4567"
+    AWS_REGION          default "eu-west-1"
+    TABLE_NAME          default "fei-readings"
+    VERIFY_TIMEOUT      seconds to poll before giving up, default "90"
+
+  infra/burst.py:
+    AWS_ENDPOINT_URL    default "http://localhost:4567"
+    AWS_REGION          default "eu-west-1"
+    SQS_QUEUE_NAME      default "fei-sensor-agg"
+
+BUILD INSTRUCTIONS
+--------------------
+Each module is an independent Maven project and builds a jar:
+  cd sensors && mvn package -DskipTests               (target/sensor.jar)
+  cd fog && mvn package -DskipTests                    (target/fog.jar, shaded)
+  cd backend/processor && mvn package -DskipTests      (target/processor.jar, shaded)
+  cd backend/dashboard && mvn package -DskipTests      (target/dashboard.jar, shaded)
+
+Or build all four via Docker (each module's own Dockerfile does the same
+Maven build inside a maven:3.9-eclipse-temurin-17 stage):
+  docker compose -f infra/docker-compose.yml build
+
+RUN INSTRUCTIONS
+------------------
+Bring up the full local stack (LocalStack, fog gateway, one-shot Lambda
+deploy job for backend/processor, dashboard, and 6 sensor containers
+covering the 5 sensor types across 2 production lines):
   docker compose -f infra/docker-compose.yml up --build
 
-  Dashboard:  http://localhost:8081
-  LocalStack: http://localhost:4567
+Ports exposed to the host:
+  Dashboard:  http://localhost:8081  (container port 8000)
+  LocalStack: http://localhost:4567  (container port 4566)
 
-  Stop:  docker compose -f infra/docker-compose.yml down -v
+The fog gateway (container port 8000) is not published to the host in
+this compose file; it is reachable only from other containers on the
+compose network at http://fog:8000.
 
-CONFIGURE SENSOR RATES
-----------------------
-Each sensor takes two independent rates (set per service in
-infra/docker-compose.yml):
-  SAMPLE_INTERVAL    seconds between generated readings
-  DISPATCH_INTERVAL  seconds between dispatches to the fog node
+Stop and remove the stack:
+  docker compose -f infra/docker-compose.yml down -v
 
-VERIFY END-TO-END
------------------
-With the stack running:
-  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test python infra/verify_pipeline.py
+AWS DEPLOYMENT STEPS
+-----------------------
+No terraform/deployments/*.tfvars file exists yet for this project.
+Before deploying, create one (for example
+terraform/deployments/fei.tfvars) following the structure of the other
+files already in terraform/deployments/ -- use those files as a format
+reference only, not as values to copy. The file needs:
+  - prefix              a short resource-name prefix (this project's own
+                        code and docker-compose.yml already use "fei" for
+                        its queue/table names, so reusing "fei" here
+                        keeps naming consistent)
+  - project_root         path to this project's folder relative to
+                        terraform/, e.g. "../projects/02-industrial-equipment"
+  - table_name            "fei-readings"
+  - queue_name            "fei-sensor-agg"
+  - processor_lambda_name, processor_build_command, processor_zip_path,
+    processor_handler, processor_runtime -- for backend/processor; the
+    existing build is "cd backend/processor && mvn package -DskipTests -q",
+    the zip/jar path is "backend/processor/target/processor.jar", the
+    handler class is already Lambda-ready at
+    "com.fec.industrial.processor.Handler::handleRequest", and the
+    runtime is "java17"
+  - dashboard_lambda_name, dashboard_build_command, dashboard_zip_path,
+    dashboard_handler, dashboard_runtime -- for backend/dashboard; note
+    that DashboardApp.java currently runs as a plain HTTP server (see
+    RUN INSTRUCTIONS) rather than implementing a Lambda request handler,
+    so a Lambda-compatible entry point needs to be added to this module
+    before it can be referenced here and deployed behind API Gateway
+  - frontend_local_dir, api_base_placeholder, api_base_search_files --
+    for the static dashboard frontend in backend/dashboard/static
 
-RUN THE TESTS
--------------
-Each Maven project has its own test suite (JUnit 5):
+Once the tfvars file exists:
+  1. Configure AWS credentials for the target account:
+       aws configure
+     (or export AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY /
+     AWS_SESSION_TOKEN directly)
+  2. Confirm you are pointed at the correct account:
+       aws sts get-caller-identity
+  3. From the repo root, create and switch to a dedicated Terraform
+     workspace for this project before ever applying:
+       cd terraform
+       terraform workspace new fei
+       terraform workspace list
+  4. Build the Lambda jars and the EC2 deploy tarball:
+       ./build.sh deployments/fei.tfvars
+  5. Review the plan:
+       terraform plan -var-file=deployments/fei.tfvars
+  6. Apply:
+       terraform apply -var-file=deployments/fei.tfvars
+  7. When finished, switch back to the default workspace so it does not
+     carry into the next deployment run:
+       terraform workspace select default
+
+TESTING INSTRUCTIONS
+-----------------------
+Each Maven module has its own JUnit 5 test suite:
   cd sensors && mvn test
   cd fog && mvn test
   cd backend/processor && mvn test
@@ -103,34 +184,25 @@ Or without local Maven/JDK:
   docker run --rm -v "$PWD/fog":/app -w /app maven:3.9-eclipse-temurin-17 mvn test
   (repeat for sensors/, backend/processor/, backend/dashboard/)
 
-LOAD TEST (SCALABILITY EVIDENCE)
---------------------------------
-With the stack running:
+Real per-module test counts (verified by running each suite):
+  sensors:            4 tests   (SensorTest: 4)
+  fog:                18 tests  (AggregationTest: 3, AlertsTest: 7,
+                       FogAppTest: 4, QueueRelayTest: 4)
+  backend/processor:  5 tests   (HandlerTest: 2, ReshapeTest: 3)
+  backend/dashboard:  15 tests  (DashboardAppTest: 3, DynamoHelperTest: 3,
+                       HealthChecksTest: 9)
+  total:              42 tests, all passing
+
+End-to-end pipeline check, with the local stack running:
+  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test python infra/verify_pipeline.py
+
+Load test:
   AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
     python infra/burst.py --messages 2000 --workers 32
 
-REUSE / THIRD-PARTY COMPONENTS
--------------------------------
-The overall pipeline SHAPE (sensors -> fog windowing/aggregation/alerting ->
-queue -> FaaS processor -> datastore -> dashboard, with a sort-key
-disambiguation scheme for multi-site records and a health-check/thresholds-
-proxy pattern on the dashboard) follows the same design this student
-established in project 01-smart-agriculture, built earlier for this same CA
-submission (not a prior/external coursework project) -- but the CODE ITSELF
-is an independent Java implementation, not a translation or port of the
-Python source; no source files, classes, or business logic were copied
-across languages. Domain-specific code (sensor types, alarm thresholds) and
-the entire dashboard UI are original to this project. Third-party
-open-source components used as standard libraries/tools:
-  - AWS SDK for Java v2 (software.amazon.awssdk: sqs, dynamodb, lambda) -
-    https://aws.amazon.com/sdk-for-java/
-  - Jackson (com.fasterxml.jackson.core: jackson-databind) for JSON -
-    https://github.com/FasterXML/jackson
-  - aws-lambda-java-core / aws-lambda-java-events (Lambda handler
-    interfaces) - https://github.com/aws/aws-lambda-java-libs
-  - JUnit 5 (test suite) - https://junit.org/junit5/
-  - Chart.js (dashboard sparklines, vendored at
-    backend/dashboard/static/vendor/, unchanged from project 01/02's
-    original frontend) - https://www.chartjs.org
-  - LocalStack (local AWS emulation for SQS/DynamoDB/Lambda) -
-    https://www.localstack.cloud
+Or probe the dashboard's own REST API directly:
+  curl http://localhost:8081/api/health
+  curl http://localhost:8081/api/backend-stats
+  curl http://localhost:8081/api/summary
+  curl "http://localhost:8081/api/readings?sensor_type=vibration&limit=10"
+  curl http://localhost:8081/api/thresholds

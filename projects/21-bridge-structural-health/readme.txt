@@ -1,133 +1,162 @@
 Bridge & Structural Health Monitoring
-Fog and Edge Computing (H9FECC) - CA Project
 
-ATTRIBUTION
------------
-This project (21-bridge-structural-health) is the individual CA submission
-of Kasireddy Vadicherla, Student ID X25104047. It shares this portfolio
-repository with several other students' independently attributed projects
-as a convenience; it is not part of the main portfolio owner's own
-submission.
+PREREQUISITES
+--------------
+  - Docker and Docker Compose (to run the local stack)
+  - Python 3.12+ (to run the test suite and the infra/ scripts outside
+    Docker; each service's own Dockerfile also uses python:3.12-slim)
+  - AWS CLI and Terraform >= 1.5 (only needed for the AWS deployment steps)
 
-All commands below assume your working directory is this folder
-(projects/21-bridge-structural-health/), not the repo root.
+INSTALLATION STEPS
+--------------------
+  1. Clone the repository and change into this project's folder:
+       cd projects/21-bridge-structural-health
+  2. All commands below assume this folder is your working directory.
+  3. To run the test suite or the infra/ scripts locally (outside Docker),
+     install the Python dependencies:
+       pip install -r requirements-dev.txt
+     No install step is needed just to run the Docker stack -- each
+     service's own Dockerfile installs its own requirements.txt inside
+     its image at build time.
 
-OVERVIEW
---------
-A civil infrastructure authority monitors structural health on two bridge
-spans (span-a, span-b). Five simulated structural sensors per span (strain
-gauge, deck vibration, tilt/inclinometer, weigh-in-motion traffic load,
-expansion joint movement) feed a virtual fog node. The fog node windows and
-aggregates each sensor's readings, raises threshold alerts, and dispatches
-one aggregate per window to a queue. An AWS Lambda function (running inside
-LocalStack) consumes the queue and stores records; a web dashboard renders
-a live per-span "structural integrity index" bar, all 5 raw readings, and
-a strain trend chart.
+CONFIGURATION
+--------------
+Environment variables actually read by the code, by component:
 
-This repo's Docker/LocalStack stack (below) is the full local development
-and test environment, emulating AWS SQS, DynamoDB, and Lambda. The AWS SDK
-(boto3) is used throughout, so a move to a real AWS account is an
-endpoint/IAM configuration change rather than a rewrite.
+  sensors/ (sensor.py):
+    SENSOR_TYPE          sensor type this container simulates, no
+                         default (must be set)
+    SITE_ID              bridge span identifier, default "span-a"
+    SAMPLE_INTERVAL      seconds between generated readings, default "2"
+    DISPATCH_INTERVAL    seconds between dispatches to the fog node,
+                         default "10"
+    FOG_URL               fog node ingest URL, default
+                         "http://fog:8000/ingest"
 
-LAYOUT
-------
-  sensors/            sensor simulator (one container per sensor_type/span
-                       pair; two independent OS processes per container --
-                       see REUSE below)
-  fog/                Bottle fog node: ingest, window, aggregate, alert,
-                       publish
-  backend/processor/  transform.py (pure transform) + handler.py (Lambda
-                       entry point) + deploy_lambda.py (packages and
-                       registers the function with an SQS event source
-                       mapping in LocalStack)
-  backend/dashboard/  Bottle + Chart.js live dashboard
-  infra/              docker-compose stack, LocalStack bootstrap, pipeline
-                       verification, load test, and dashboard screenshots
-  tests/              pytest unit + real-HTTP-level route tests
+  fog/ (app.py):
+    WINDOW_SECONDS       aggregation window length in seconds, default
+                         "10"
+    SQS_QUEUE_NAME        target SQS queue name, default "bshm-span-agg"
+    AWS_ENDPOINT_URL      AWS endpoint override (set for LocalStack,
+                         unset for real AWS so boto3's default
+                         credential/endpoint chain is used), no default
+    AWS_REGION             AWS region, default "eu-west-1"
 
-SENSOR TYPES
-------------
-  strain_microstrain     microstrain, 0-2000, start 300, step 100.0
-  deck_vibration_mms      mm/s,        0-30,   start 2,   step 1.5
-  tilt_angle_deg          deg,         0-5,    start 0.3, step 0.15
-  traffic_load_tonnes     tonnes,      0-200,  start 40,  step 15.0
-  expansion_joint_mm      mm,          -50-50, start 5,   step 3.0
-                          (can go negative -- thermal contraction)
+  backend/processor/ (handler.py, the Lambda entry point):
+    TABLE_NAME            DynamoDB table name, default "bshm-readings"
+    AWS_ENDPOINT_URL      AWS endpoint override (LocalStack only), no
+                         default
+    AWS_REGION             AWS region, default "eu-west-1"
 
-ALERT THRESHOLDS (evaluated on the window aggregate)
------------------------------------------------------
-  strain_microstrain:   avg > 1200  -> structural_stress_warning
-  deck_vibration_mms:   max > 20    -> excessive_vibration_alert
-  tilt_angle_deg:       avg > 2.5   -> deformation_risk
-  traffic_load_tonnes:  avg > 150   -> overload_risk
-  expansion_joint_mm has no alert rule -- informational thermal-movement
-  reading only, still one of the 5 required sensors and shown in the
-  dashboard's secondary detail section.
+  backend/processor/deploy_lambda.py (LocalStack-only packaging helper,
+  not used for the real AWS deployment):
+    AWS_ENDPOINT_URL      no default
+    AWS_REGION             default "eu-west-1"
+    SQS_QUEUE_NAME          default "bshm-span-agg"
+    TABLE_NAME              default "bshm-readings"
+    LAMBDA_FUNCTION_NAME    default "bshm-processor"
 
-STRUCTURAL INTEGRITY INDEX (backend/dashboard/scoring.py)
------------------------------------------------------------
-The dashboard's primary per-span view is a single 0-100% index, combining
-that window's strain_microstrain average and deck_vibration_mms peak
-against configured safe/critical bounds. Each component scores 100 at or
-below its safe bound and 0 at or beyond its critical bound, linearly
-in-between; the two component scores are then averaged and rounded to one
-decimal place. The critical bounds equal fog/alerts.py's own alert
-thresholds (1200 microstrain avg, 20 mm/s vibration max), so the index
-reaches 0 exactly where an engineer would already see an active alert.
+  backend/dashboard/ (app.py for local/Docker, lambda_handler.py for the
+  real AWS deployment; both call into data_access.py, which owns the
+  boto3 client construction):
+    TABLE_NAME              DynamoDB table name, default "bshm-readings"
+    SQS_QUEUE_NAME           SQS queue name (for queue-depth checks),
+                            default "bshm-span-agg"
+    LAMBDA_FUNCTION_NAME     processor Lambda name (for health checks),
+                            default "bshm-processor"
+    AWS_ENDPOINT_URL        AWS endpoint override (LocalStack only), no
+                            default
+    AWS_REGION                AWS region, default "eu-west-1"
+    FOG_HEALTH_URL            fog node health endpoint, default
+                            "http://fog:8000/health"
+    FOG_THRESHOLDS_URL        fog node thresholds endpoint, default
+                            "http://fog:8000/thresholds"
+    PIPELINE_FRESH_SECONDS    max age in seconds for the freshest window
+                            before /api/health reports the pipeline
+                            unhealthy, default "30"
+    PORT                      port app.py's HTTP server binds to
+                            (local/Docker only), default "8000"
 
-    strain_score    = 100 - 100 * (strain_avg - 400)      / (1200 - 400)   [clamped 0..100]
-    vibration_score  = 100 - 100 * (vibration_max - 8)      / (20 - 8)       [clamped 0..100]
-    integrity_index   = round((strain_score + vibration_score) / 2, 1)
+  infra/verify_pipeline.py:
+    AWS_ENDPOINT_URL    default "http://localhost:4586"
+    AWS_REGION          default "eu-west-1"
+    TABLE_NAME          default "bshm-readings"
+    VERIFY_TIMEOUT      seconds to poll before giving up, default "90"
 
-REQUIREMENTS
-------------
-  Docker + Docker Compose (for the running stack)
-  Python 3.12+ (only if running the unit tests locally)
+  infra/burst.py:
+    AWS_ENDPOINT_URL    default "http://localhost:4586"
+    AWS_REGION          default "eu-west-1"
+    SQS_QUEUE_NAME      default "bshm-span-agg"
 
-RUN THE STACK
--------------
+BUILD INSTRUCTIONS
+--------------------
+Each Python module has its own requirements.txt and builds inside its own
+Docker image (no separate compile step needed):
+  cd sensors && docker build -t bshm-sensor .          (stdlib only, no
+                                                          requirements.txt)
+  cd fog && docker build -t bshm-fog .
+  cd backend/processor && docker build -t bshm-processor .
+  cd backend/dashboard && docker build -t bshm-dashboard .
+
+Or build all of them at once via Docker Compose:
+  docker compose -f infra/docker-compose.yml build
+
+RUN INSTRUCTIONS
+------------------
+Bring up the full local stack (LocalStack, fog node, one-shot Lambda
+deploy job, dashboard, and all 10 sensor containers for span-a/span-b):
   docker compose -f infra/docker-compose.yml up --build
 
-  Dashboard:  http://localhost:8100
-  LocalStack: http://localhost:4586
+Ports exposed to the host:
+  Dashboard:  http://localhost:8100  (container port 8000)
+  LocalStack: http://localhost:4586  (container port 4566)
 
-  Stop:  docker compose -f infra/docker-compose.yml down -v
+The fog node (container port 8000) is not published to the host in this
+compose file; it is reachable only from other containers on the compose
+network at http://fog:8000.
 
-TEARDOWN NOTE: docker compose down -v can leave behind a LocalStack-
-spawned Lambda-executor sibling container (named like
-bshm-localstack-1-lambda-bshm-processor-<hash>) and the network it is
-attached to, which blocks the network's removal. If down -v reports
-"Network bshm_default Resource is still in use", check for it and clean
-up explicitly:
+Stop and remove the stack:
+  docker compose -f infra/docker-compose.yml down -v
+
+If "down -v" reports the network is still in use, LocalStack's own
+Lambda-executor helper container can be left behind. Check for it and
+remove it, then remove the network:
   docker ps -a --filter "name=bshm"
   docker network ls --filter "name=bshm"
   docker rm -f <the lambda-executor container name>
   docker network rm bshm_default
 
-CONFIGURE SENSOR RATES
-----------------------
-Each sensor container takes two independent rates (set per service in
-infra/docker-compose.yml):
-  SAMPLE_INTERVAL    seconds between generated readings
-  DISPATCH_INTERVAL  seconds between dispatches to the fog node
-Every one of the 10 sensor services (5 sensor types x 2 spans) uses a
-distinct SAMPLE_INTERVAL/DISPATCH_INTERVAL pair.
+AWS DEPLOYMENT STEPS
+-----------------------
+Deployment uses the Terraform module in terraform/, with the
+existing terraform/deployments/bshm.tfvars file for this project's
+resource names and build commands.
 
-VERIFY END-TO-END
------------------
-With the stack running:
-  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
-    AWS_ENDPOINT_URL=http://localhost:4586 python infra/verify_pipeline.py
+  1. Configure AWS credentials for the target account:
+       aws configure
+     (or export AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY /
+     AWS_SESSION_TOKEN directly)
+  2. Confirm you are pointed at the correct account:
+       aws sts get-caller-identity
+  3. From the repo root, create and switch to a dedicated Terraform
+     workspace for this project before ever applying:
+       cd terraform
+       terraform workspace new bshm
+       terraform workspace list
+  4. Build the Lambda zips and the EC2 deploy tarball:
+       ./build.sh deployments/bshm.tfvars
+  5. Review the plan:
+       terraform plan -var-file=deployments/bshm.tfvars
+  6. Apply:
+       terraform apply -var-file=deployments/bshm.tfvars
+  7. When finished, switch back to the default workspace so it does not
+     carry into the next deployment run:
+       terraform workspace select default
 
-A few manual curl checks against the running stack:
-  curl http://localhost:8100/api/health
-  curl http://localhost:8100/api/thresholds
-  curl http://localhost:8100/api/spans
-  curl "http://localhost:8100/api/readings?sensor_type=strain_microstrain&site_id=span-a&limit=10"
-  curl http://localhost:8100/api/backend-stats
-
-RUN THE TESTS
--------------
+TESTING INSTRUCTIONS
+-----------------------
+Install the test dependencies and run the full suite from the project
+root:
   pip install -r requirements-dev.txt
   pytest
 
@@ -135,50 +164,35 @@ Or without a local Python 3.12:
   docker run --rm -v "$PWD":/app -w /app python:3.12-slim \
     bash -c "pip install -r requirements-dev.txt && pytest"
 
-LOAD TEST (SCALABILITY EVIDENCE)
---------------------------------
-With the stack running:
+Real per-file test counts (verified by running the suite):
+  tests/test_aggregation.py:       4 tests
+  tests/test_alerts.py:            9 tests
+  tests/test_buffering.py:         7 tests
+  tests/test_dashboard_http.py:   13 tests
+  tests/test_data_access.py:      13 tests
+  tests/test_fog_http.py:         10 tests
+  tests/test_handler.py:           3 tests
+  tests/test_lambda_handler.py:   13 tests
+  tests/test_publisher.py:         5 tests
+  tests/test_scoring.py:          10 tests
+  tests/test_sensor.py:            8 tests
+  tests/test_thresholds_proxy.py:  2 tests
+  tests/test_transform.py:         6 tests
+  tests/test_validation.py:       12 tests
+  total:                          115 tests, all passing
+
+End-to-end pipeline check, with the local stack running:
+  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
+    AWS_ENDPOINT_URL=http://localhost:4586 python infra/verify_pipeline.py
+
+Load test:
   AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
     AWS_ENDPOINT_URL=http://localhost:4586 \
     python infra/burst.py --messages 2000 --workers 32
 
-REUSE / THIRD-PARTY COMPONENTS
--------------------------------
-Reused: the overall pipeline shape (sensors -> fog windowing/aggregation/
-alerting -> queue -> FaaS processor -> datastore -> dashboard), a design
-pattern shared across this portfolio repository. It belongs to the main
-portfolio owner, not this student's own prior work. (See the project
-report's architecture section for a comparison against this portfolio's
-other Python projects.)
-
-Original to this project: the code itself (fog buffering, alert-rule
-representation, SQS publisher, HTTP routing, sensor-loop scheduling), all
-domain-specific logic (sensor types, thresholds, the structural integrity
-index), and the entire dashboard UI.
-
-Third-party open-source components used as standard libraries/tools:
-  - Bottle (fog node, dashboard) - https://bottlepy.org
-  - boto3 (AWS SDK for Python) - https://boto3.amazonaws.com
-  - Chart.js (dashboard chart, vendored at
-    backend/dashboard/static/vendor/) - https://www.chartjs.org
-  - LocalStack (local AWS emulation for SQS/DynamoDB/Lambda) -
-    https://www.localstack.cloud
-  - pytest (test suite) - https://pytest.org
-
-REAL AWS DEPLOYMENT
---------------------
-ARCHITECTURE: the dashboard API runs as an AWS Lambda function behind an
-API Gateway REST API. EC2 runs the fog node and the ten sensor
-containers.
-
-LIVE RESOURCES: DynamoDB table bshm-readings, SQS queue bshm-span-agg,
-Lambda bshm-processor (SQS-triggered ingestion) and Lambda
-bshm-dashboard-api (behind API Gateway REST API pe87xzlj3j), EC2
-instance i-0248a49cf83500330 (security group sg-0da0aeef22d0c9dba,
-inbound TCP 8000 only), Elastic IP 54.175.26.119, S3 bucket
-bshm-frontend-661886400169 (dashboard frontend, public read-only) and S3
-staging bucket bshm-deploy-661886400169.
-
-Live URLs: dashboard at
-https://bshm-frontend-661886400169.s3.us-east-1.amazonaws.com/index.html,
-API at https://pe87xzlj3j.execute-api.us-east-1.amazonaws.com/prod.
+Or probe the dashboard's own REST API directly:
+  curl http://localhost:8100/api/health
+  curl http://localhost:8100/api/thresholds
+  curl http://localhost:8100/api/spans
+  curl "http://localhost:8100/api/readings?sensor_type=strain_microstrain&site_id=span-a&limit=10"
+  curl http://localhost:8100/api/backend-stats

@@ -1,246 +1,238 @@
-Ski Resort & Avalanche Safety Monitoring Fog/Edge Pipeline
-Fog and Edge Computing (H9FECC) - CA Project
+Ski Resort Avalanche Safety Monitoring
 
-ATTRIBUTION
-------------
-This project is Ebin Joseph's individual CA submission, Student ID
-X25142224, National College of Ireland. It shares this portfolio repository
-with several other students' independently attributed projects as a
-convenience; it is not part of the main portfolio owner's own submission.
+PREREQUISITES
+--------------
+- Docker Engine with the Compose v2 plugin (`docker compose`)
+- Node.js 20.x and npm (matches the node:20-slim base image used by every
+  Dockerfile in this project: sensors, fog, backend/processor,
+  backend/dashboard)
+- Python 3.9+ with the boto3 package (`pip install boto3`) -- only needed
+  to run the optional pipeline verification scripts in infra/
+  (verify_pipeline.py, burst.py)
+- AWS CLI v2 and Terraform >= 1.5 -- only needed for the AWS Deployment
+  Steps section below
 
-All commands below assume your working directory is this folder
-(projects/25-ski-resort-avalanche-safety/), not the repo root.
-
-OVERVIEW
---------
-A ski resort monitors avalanche precursors and slope conditions across two
-slopes (slope-a, slope-b). Each slope carries five sensors -- snowpack
-depth, snow temperature, wind speed, seismic vibration (the avalanche
-precursor signal), and lift chair count. A fog node buffers incoming
-readings, windows and aggregates them every WINDOW_SECONDS, evaluates
-avalanche-safety threshold rules against the aggregate, and dispatches one
-aggregate message per window to a queue. A Lambda function (running inside
-LocalStack) consumes the queue and stores records in DynamoDB. A web
-dashboard renders a horizontal avalanche risk-level gauge per slope
-(LOW/MODERATE/HIGH/EXTREME, drawn against a native <meter>) plus a
-per-slope sensor-reading detail panel and cross-slope window-average trend
-charts.
-
-The stack runs on Docker with LocalStack emulating AWS SQS, DynamoDB, and
-Lambda for local development. It has also been deployed to a real AWS
-Academy account -- see REAL AWS DEPLOYMENT below for live resource IDs
-and URLs.
-
-TECH STACK
-----------
-Node.js 20 (plain CommonJS, no TypeScript build step, no Express or other
-web framework). fog/intake.js buffers readings per (sensorType, siteId)
-into plain object literals; fog/alerts.js evaluates four threshold rules
-via per-rule class instances; fog/publisher.js's SQS client is an ES6
-Proxy that lazily constructs the real client on first use; fog/app.js and
-backend/dashboard/server.js dispatch HTTP routes via a
-`switch (true)` on a composed `${method} ${path}` key. Testing uses
-Node's built-in node:test + node:assert/strict runner (no Jest/Mocha);
-AWS-facing code accepts an injected client so unit tests use hand-written
-fake client objects instead of hitting LocalStack. A critical comparison
-of this design against the portfolio's other Node.js siblings, with
-justification for each choice, is in the project report.
-
-LAYOUT
-------
-  sensors/            sensor simulator (one container per metric/slope):
-                       two independent AbortController-coordinated
-                       setTimeout loops (sensor.js), random-walk profiles
-                       (profiles.js)
-  fog/                http.createServer edge gateway: switch(true)
-                       method+path dispatch (app.js) -> /ingest validates
-                       and appends to a plain object-literal buffer keyed
-                       "sensor_type::site_id" (intake.js) -> window flush
-                       groups + aggregates (aggregation.js) -> Rule-class
-                       array alert evaluation (alerts.js) -> Proxy-wrapped
-                       lazy-client SQS publish (publisher.js), plus a
-                       /thresholds endpoint exposing the real rules
-  backend/processor/  transform.js (pure transform building the sort_key)
-                       + handler.js (Lambda entry point) + deploy_lambda.sh
-                       (packages and registers the function with an SQS
-                       event source mapping)
-  backend/dashboard/  http.createServer + Chart.js, no Express, the same
-                       switch(true) method+path dispatch as fog/. REST API
-                       covering all 5 sensor types plus a per-slope
-                       grouping endpoint (GET /api/slopes and GET
-                       /api/slopes/:slopeId, the latter matched by a
-                       regex-tested switch(true) case). Static frontend: a
-                       crisp icy-blue/white alpine theme -- a horizontal
-                       avalanche risk-level gauge per slope (plain
-                       LOW/MODERATE/HIGH/EXTREME text against a native
-                       <meter>), a per-slope reading detail panel, and
-                       Chart.js trend comparisons. No hand-illustrated SVG
-                       art, no emoji, anywhere.
-  infra/              docker-compose stack, LocalStack bootstrap, pipeline
-                       verification, load test, and dashboard screenshots
-
-REQUIREMENTS
-------------
-  Docker + Docker Compose (for the running stack)
-  Node.js 20+ (only if running the unit tests locally)
-  Python 3.12+ with `pip install boto3` (only for infra/burst.py and
-  infra/verify_pipeline.py)
-
-RUN THE STACK
--------------
-  docker compose -f infra/docker-compose.yml up --build
-
-  Dashboard:  http://localhost:8104
-  LocalStack: http://localhost:4590
-
-  Recommended bring-up order (matches how this project was verified):
-    docker compose -f infra/docker-compose.yml up -d localstack
-    docker compose -f infra/docker-compose.yml up -d fog dashboard
-    docker compose -f infra/docker-compose.yml up -d processor
-    docker compose -f infra/docker-compose.yml up -d
-
-  Stop:  docker compose -f infra/docker-compose.yml down -v
-
-  LocalStack's Lambda emulation starts its own executor container
-  (public.ecr.aws/lambda/nodejs:20, named something like
-  `ska-localstack-1-lambda-ska-processor-<hash>`) outside docker compose's
-  own tracking. `down -v` sometimes reclaims it cleanly and sometimes does
-  not: verified across repeated teardowns in this project, one `down -v`
-  run left both the executor container AND the `ska_default` network
-  behind with `Network ska_default Resource is still in use` printed to
-  the console (the executor container was still attached when compose
-  tried to remove the network), while another run reclaimed both on its
-  own. When it is left behind, remove it manually with (also verified
-  live -- this exact pair of commands cleared both the stray container and
-  the stray network on the run where `down -v` did not):
-    docker ps -a --filter "name=ska-localstack.*-lambda-" -q | xargs -r docker rm -f
-    docker network ls --filter "name=ska" -q | xargs -r docker network rm
-
-CONFIGURE SENSOR RATES
-----------------------
-Each sensor takes two independent rates (set per service in
-infra/docker-compose.yml):
-  SAMPLE_INTERVAL    seconds between generated readings
-  DISPATCH_INTERVAL  seconds the dispatch loop waits before the next real
-                     send once the outbox has items
-These are genuinely independent knobs -- every sensor service in
-docker-compose.yml uses a visibly different pair (e.g. wind sensors sample
-every 1s but dispatch after 5-6s; snow-temperature sensors sample every 3s
-and dispatch after 10-11s).
-
-VERIFY END-TO-END
-------------------
-With the stack running:
-  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
-    AWS_ENDPOINT_URL=http://localhost:4590 python infra/verify_pipeline.py
-
-Example curl commands against the live REST API (all exercised live while
-building this project):
-  curl http://localhost:8104/api/health
-  curl http://localhost:8104/api/slopes
-  curl http://localhost:8104/api/slopes/slope-a
-  curl "http://localhost:8104/api/readings?sensor_type=seismic_vibration_mg&site_id=slope-a&limit=10"
-  curl http://localhost:8104/api/thresholds
-  curl http://localhost:8104/api/backend-stats
-
-RUN THE TESTS
--------------
-Each module has its own package.json and test script. All 121 tests below
-were run and confirmed passing (node --test, exit 0) at the time this
-readme was written: 13 in sensors/, 47 in fog/, 10 in backend/processor/,
-51 in backend/dashboard/ (38 covering the local dashboard server plus 13 for
-lambdaHandler.js, the API Gateway REST API entry point described below).
-  cd sensors && npm install && npm test
-  cd fog && npm install && npm test
-  cd backend/processor && npm install && npm test
-  cd backend/dashboard && npm install && npm test
-
-Or without a local Node.js install:
-  docker run --rm -v "$PWD":/app -w /app/fog node:20-slim \
-    bash -c "npm install && npm test"
-
-Test coverage includes: window aggregation math (count/min/max/avg,
-latest = last-in-order not max), threshold evaluation against the exact
-hard-alert limits (seismic_vibration_mg avg>25, wind_speed_kmh avg>80,
-snow_temp_c avg>2, snowpack_depth_cm avg<30), the object-literal intake
-buffer's group-at-ingest/snapshot-and-reset behaviour, the Proxy
-publisher's lazy-construction/queue-url memoization/retry-then-succeed
-behaviour, the AbortController-coordinated sensor loops (both loops stop
-rescheduling once the shared signal fires, and a pre-aborted signal never
-fires a single tick), sort_key disambiguation (window_end#site_id), and
-REAL HTTP-level tests against a real local server on an ephemeral port
-(not just unit tests of the validation function) for both fog /ingest
-(accepts valid payloads with 202, rejects missing fields / malformed JSON /
-non-numeric values / empty readings arrays with 400) and the dashboard's
-/api/thresholds proxy function (covering both a real upstream success
-response and a real unreachable-upstream connection failure, per
-thresholdsProxy.test.js).
-
-LOAD TEST (SCALABILITY EVIDENCE)
----------------------------------
-With the stack running:
-  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
-    AWS_ENDPOINT_URL=http://localhost:4590 \
-    python infra/burst.py --messages 2000 --workers 32
-
-This asserts (1) the queue shows the burst immediately after sending, and
-(2) either the queue fully drains within the timeout, or -- if LocalStack's
-single-container Lambda emulation hasn't finished draining 2000 messages in
-time -- that the remaining count strictly decreased from the immediate
-post-burst count, proving the Lambda consumer is making real progress
-rather than being stalled or broken. Both were confirmed live: a 2000-
-message burst landed as waiting=2000/in_flight=10 immediately after
-sending, and after the drain timeout the remaining count had strictly
-decreased (consistent with LocalStack's single-container Lambda throughput
-ceiling, not a broken pipeline); the script exited 0.
-
-REUSE / THIRD-PARTY COMPONENTS
--------------------------------
-The overall pipeline architecture (SQS -> Lambda -> DynamoDB via LocalStack,
-the sort_key disambiguation scheme window_end#site_id, the dashboard
-health-check pattern, the dual-rate SAMPLE_INTERVAL/DISPATCH_INTERVAL sensor
-knobs, the loadtest two-tier assertion pattern) is adapted from other prior
-codebases in this shared portfolio repository (03-patient-vitals,
-06-offshore-wind-farm, 10-wildfire-forest-monitoring,
-11-water-treatment-utility, 15-data-center-environmental-monitoring,
-18-elevator-escalator-fleet-monitoring, 22-smart-waste-management), not this
-student's own earlier work -- several of those belong to the portfolio's
-other individually-attributed students (15 to Nithin, X25125338; 22 to
-Gundeti Sachin Reddy, X23432721), the rest to the main portfolio owner.
-Every line of application code, the domain logic (ski-resort sensor
-profiles, the four alert thresholds, the avalanche risk-level
-derivation), and the entire dashboard (icy-blue/white alpine theme,
-risk-level gauge, per-slope reading panels, trend charts) are original to
-this project.
-
-Third-party open-source components used as standard libraries/tools:
-  - AWS SDK for JavaScript v3 (@aws-sdk/client-sqs, client-dynamodb,
-    lib-dynamodb, client-lambda) - https://github.com/aws/aws-sdk-js-v3
-  - Chart.js (dashboard trend charts, vendored at
-    backend/dashboard/static/vendor/, copied unmodified from the
-    portfolio's 11-water-treatment-utility project, not this student's
-    own earlier work) - https://www.chartjs.org
-  - LocalStack (local AWS emulation for SQS/DynamoDB/Lambda) -
-    https://www.localstack.cloud
-  - Node.js built-in test runner (node:test, node:assert/strict) -- no
-    external test framework dependency
-  - Node.js built-in http module (fog and dashboard HTTP servers) -- no
-    Express or other web framework dependency anywhere in this project
-  - boto3 (Python AWS SDK, used only by the ops tooling in infra/) - https://boto3.amazonaws.com
-
-REAL AWS DEPLOYMENT
+INSTALLATION STEPS
 --------------------
-ARCHITECTURE: the dashboard API runs as an AWS Lambda function behind an
-API Gateway REST API. EC2 runs the fog node and the ten sensor
-containers.
+1. Clone the repository and change into this project's folder:
+     cd projects/25-ski-resort-avalanche-safety
+   All further commands below assume this working directory unless a
+   different one is stated.
 
-LIVE RESOURCES: DynamoDB table ska-readings, SQS queue ska-slope-agg,
-Lambda ska-processor and Lambda ska-dashboard-api (API Gateway REST API
-fl6fe76mlf), EC2 instance i-02485962a872245d9 (security group
-sg-043d59fbae6bca08f, inbound TCP 8000 only), Elastic IP 52.86.31.136,
-S3 buckets ska-frontend-475393590440 (dashboard) and
-ska-deploy-475393590440 (staging).
+2. Install each Node module's own dependencies (needed to run its unit
+   tests locally; `docker compose` installs these automatically inside
+   each image when building, so this step is only required for running
+   tests or editing code outside Docker):
+     cd sensors && npm install && cd ..
+     cd fog && npm install && cd ..
+     cd backend/processor && npm install && cd ../..
+     cd backend/dashboard && npm install && cd ../..
+   (sensors has no external runtime dependencies; the other three each
+   pull in the AWS SDK v3 clients they use.)
 
-Live URLs: dashboard at
-https://ska-frontend-475393590440.s3.us-east-1.amazonaws.com/index.html,
-API at https://fl6fe76mlf.execute-api.us-east-1.amazonaws.com/prod.
+3. Only if you plan to run the optional verification scripts in infra/:
+     pip install boto3
+
+CONFIGURATION
+--------------
+sensors/sensor.js reads:
+  SENSOR_TYPE       -- no default, must be set; one of snowpack_depth_cm,
+                        snow_temp_c, wind_speed_kmh, seismic_vibration_mg,
+                        lift_chair_count
+  SITE_ID           -- default "slope-a"
+  SAMPLE_INTERVAL   -- default "2" (seconds between simulated samples)
+  DISPATCH_INTERVAL -- default "10" (seconds between dispatch attempts to
+                        the fog node)
+  FOG_URL           -- default "http://fog:8000/ingest"
+
+fog/app.js and fog/publisher.js read:
+  WINDOW_SECONDS       -- default "10" (aggregation window length)
+  SQS_QUEUE_NAME       -- default "ska-slope-agg"
+  AWS_ENDPOINT_URL     -- unset by default; when set, the fog node's SQS
+                           client targets this endpoint (e.g. LocalStack);
+                           when unset, the AWS SDK's default credential
+                           chain and endpoint are used
+  AWS_REGION           -- default "eu-west-1"
+  AWS_ACCESS_KEY_ID    -- default "test" (only applied when
+                           AWS_ENDPOINT_URL is set)
+  AWS_SECRET_ACCESS_KEY -- default "test" (only applied when
+                           AWS_ENDPOINT_URL is set)
+
+backend/processor/handler.js reads:
+  TABLE_NAME            -- default "ska-readings"
+  AWS_REGION            -- default "eu-west-1"
+  AWS_ENDPOINT_URL      -- unset by default; same LocalStack-vs-real
+                            behavior as above
+  AWS_ACCESS_KEY_ID     -- default "test" (only applied when
+                            AWS_ENDPOINT_URL is set)
+  AWS_SECRET_ACCESS_KEY -- default "test" (only applied when
+                            AWS_ENDPOINT_URL is set)
+
+backend/processor/deploy_lambda.sh (LocalStack-only packaging/deploy
+script invoked by its own Docker container) additionally reads:
+  SQS_QUEUE_NAME     -- default "ska-slope-agg"
+  LAMBDA_FUNCTION_NAME -- default "ska-processor"
+  TABLE_NAME         -- default "ska-readings"
+
+backend/dashboard/server.js, lambdaHandler.js and awsClients.js read:
+  TABLE_NAME            -- default "ska-readings"
+  SQS_QUEUE_NAME        -- default "ska-slope-agg"
+  LAMBDA_FUNCTION_NAME  -- default "ska-processor"
+  FOG_HEALTH_URL        -- default "http://fog:8000/health"
+  FOG_THRESHOLDS_URL    -- default "http://fog:8000/thresholds"
+  AWS_REGION            -- default "eu-west-1"
+  AWS_ENDPOINT_URL      -- unset by default; same LocalStack-vs-real
+                            behavior as above
+  AWS_ACCESS_KEY_ID     -- default "test" (only applied when
+                            AWS_ENDPOINT_URL is set)
+  AWS_SECRET_ACCESS_KEY -- default "test" (only applied when
+                            AWS_ENDPOINT_URL is set)
+
+infra/verify_pipeline.py and infra/burst.py (optional scripts) read:
+  AWS_ENDPOINT_URL  -- default "http://localhost:4590"
+  AWS_REGION        -- default "eu-west-1"
+  TABLE_NAME        -- default "ska-readings" (verify_pipeline.py)
+  SQS_QUEUE_NAME    -- default "ska-slope-agg" (burst.py)
+  VERIFY_TIMEOUT    -- default "90" (verify_pipeline.py, seconds)
+
+BUILD INSTRUCTIONS
+--------------------
+Node modules (dependency install, per module):
+  cd sensors && npm install
+  cd fog && npm install
+  cd backend/processor && npm install
+  cd backend/dashboard && npm install
+
+Docker images (built automatically by `docker compose up --build`, or
+manually per service):
+  cd infra && docker compose build
+
+Lambda deployment packages (used by the AWS Deployment Steps below, run
+automatically by terraform/build.sh -- shown here for reference):
+  # backend/processor
+  cd backend/processor && npm ci --omit=dev --silent && rm -f lambda.zip \
+    && zip -qr lambda.zip handler.js transform.js package.json node_modules
+
+  # backend/dashboard
+  cd backend/dashboard && npm ci --omit=dev --silent && rm -f lambda.zip \
+    && zip -qr lambda.zip lambdaHandler.js server.js awsClients.js \
+    readingsStore.js pipelineStatus.js thresholdsProxy.js package.json \
+    node_modules
+
+RUN INSTRUCTIONS
+------------------
+Bring up the full local stack (LocalStack, fog node, one-shot Lambda
+deploy container, dashboard, and 10 sensor containers -- 2 slopes x 5
+sensor types):
+  cd infra
+  docker compose up --build
+
+Ports exposed to the host:
+  - Dashboard:  http://localhost:8104  (container port 8000)
+  - LocalStack: http://localhost:4590  (container port 4566)
+  The fog node's HTTP port (8000) is only reachable inside the Docker
+  network in this local compose file (sensors and the dashboard reach it
+  via the service name "fog"); it is not published to the host.
+
+The `processor` service is a one-shot container (restart: "no") that
+zips backend/processor, deploys it as a Lambda function inside
+LocalStack, and wires it to the SQS queue via an event source mapping,
+then exits.
+
+To stop the stack:
+  docker compose down
+
+AWS DEPLOYMENT STEPS
+-----------------------
+This project is deployed using the Terraform module in
+terraform/ at the repository root. No terraform/deployments/ska.tfvars
+file exists yet -- create one first, following the field structure used
+by the other files in that directory (prefix, project_root, table_name,
+queue_name, processor_lambda_name/build_command/zip_path/handler/runtime,
+dashboard_lambda_name/build_command/zip_path/handler/runtime,
+frontend_local_dir, api_base_placeholder, api_base_search_files).
+
+1. Configure AWS CLI credentials for the target AWS account (access key,
+   secret key, session token for an AWS Academy Learner Lab session):
+     aws configure
+   Confirm you are pointed at the correct account before proceeding:
+     aws sts get-caller-identity
+
+2. Create terraform/deployments/ska.tfvars, for example:
+     prefix       = "ska"
+     project_root = "../projects/25-ski-resort-avalanche-safety"
+
+     table_name = "ska-readings"
+     queue_name = "ska-slope-agg"
+
+     processor_lambda_name   = "ska-processor"
+     processor_build_command = "cd backend/processor && npm ci --omit=dev --silent && rm -f lambda.zip && zip -qr lambda.zip handler.js transform.js package.json node_modules"
+     processor_zip_path      = "backend/processor/lambda.zip"
+     processor_handler       = "handler.handler"
+     processor_runtime       = "nodejs20.x"
+
+     dashboard_lambda_name   = "ska-dashboard-api"
+     dashboard_build_command = "cd backend/dashboard && npm ci --omit=dev --silent && rm -f lambda.zip && zip -qr lambda.zip lambdaHandler.js server.js awsClients.js readingsStore.js pipelineStatus.js thresholdsProxy.js package.json node_modules"
+     dashboard_zip_path      = "backend/dashboard/lambda.zip"
+     dashboard_handler       = "lambdaHandler.handler"
+     dashboard_runtime       = "nodejs20.x"
+
+     frontend_local_dir    = "backend/dashboard/static"
+     api_base_placeholder  = "__API_BASE__"
+     api_base_search_files = ["index.html"]
+
+   Before building, replace the empty string in the apiBase field of the
+   <script id="api-config"> element in backend/dashboard/static/index.html
+   with the literal token you set as api_base_placeholder above, so the
+   deploy step can substitute the real API Gateway URL into it.
+
+3. Create and switch to an isolated Terraform workspace for this project
+   before applying:
+     cd terraform
+     terraform workspace new ska
+     terraform workspace list
+
+4. Build the Lambda deployment packages and the EC2 source tarball:
+     ./build.sh deployments/ska.tfvars
+
+5. Review the plan before applying, and confirm it shows only resources
+   to add, not to destroy:
+     terraform plan -var-file=deployments/ska.tfvars
+
+6. Apply:
+     terraform apply -var-file=deployments/ska.tfvars
+
+7. Switch back to the default workspace afterward so the working
+   directory doesn't default into this workspace for a later deploy:
+     terraform workspace select default
+
+TESTING INSTRUCTIONS
+-----------------------
+Each module uses Node's built-in test runner (node:test). Run from
+within each module's own directory (after `npm install` where the module
+has dependencies):
+
+  cd sensors && node --test
+  -> 13 tests
+
+  cd fog && node --test
+  -> 47 tests
+
+  cd backend/processor && node --test
+  -> 10 tests
+
+  cd backend/dashboard && node --test
+  -> 51 tests
+
+Total: 121 tests across all four modules.
+
+Optional pipeline verification scripts (require the local stack running
+via `docker compose up` in infra/, and boto3 installed):
+
+  python3 infra/verify_pipeline.py
+  Polls DynamoDB until all 5 sensor types have at least one record, or
+  fails after VERIFY_TIMEOUT seconds (default 90).
+
+  python3 infra/burst.py --messages 2000 --workers 32
+  Sends synthetic messages directly onto the SQS queue in parallel and
+  verifies the Lambda consumer makes real progress draining them.

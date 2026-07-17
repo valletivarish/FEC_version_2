@@ -1,293 +1,216 @@
-Water Treatment Utility Fog/Edge Pipeline
-Fog and Edge Computing (H9FECC) - CA Project
+Water Treatment Utility
 
 All commands below assume your working directory is this folder
-(projects/11-water-treatment-utility/), not the repo root.
+(projects/11-water-treatment-utility/), not the repo root, unless stated
+otherwise.
 
-OVERVIEW
---------
-A water utility monitors treatment quality and flow across two treatment
-plants (plant-1, plant-2). Each plant carries five sensors -- turbidity, pH,
-chlorine residual, flow rate, and line pressure. A fog node buffers incoming
-readings, windows and aggregates them every WINDOW_SECONDS, evaluates
-water-quality/hydraulic threshold rules against the aggregate, and
-dispatches one aggregate message per window to a queue. A Lambda function
-(running inside LocalStack) consumes the queue and stores records in
-DynamoDB. A web dashboard renders a compact reading-by-plant matrix table
-(rows = the 5 readings, columns = plant-1/plant-2) with a native <meter> per
-cell against that reading's configured range, a per-plant compliance strip,
-and cross-plant window-average trend charts.
+PREREQUISITES
+--------------
+  - Docker and Docker Compose (to run the local stack)
+  - Node.js 20.x (only needed to run the unit tests, or build/run any module,
+    outside Docker)
+  - Python 3.12+ with the boto3 package installed (only needed for
+    infra/verify_pipeline.py and infra/burst.py)
+  - AWS CLI (only needed for the AWS Deployment Steps below)
+  - Terraform (only needed for the AWS Deployment Steps below, via the
+    terraform/ module at the repo root)
 
-Phase 1 (this project) runs entirely on Docker with LocalStack emulating
-AWS SQS, DynamoDB, and Lambda. The AWS SDK for JavaScript v3 is used
-throughout, so a later move to real AWS is an endpoint/IAM configuration
-change rather than a rewrite. Real AWS/Azure deployment is a deliberately
-deferred Phase 2 item for the whole portfolio and is NOT attempted here.
+INSTALLATION STEPS
+--------------------
+  1. Clone the repository and cd into projects/11-water-treatment-utility.
+  2. Install local Node.js dependencies for each module:
+       cd sensors && npm install
+       cd ../fog && npm install
+       cd ../backend/processor && npm install
+       cd ../backend/dashboard && npm install
+  3. (Optional, only for the scripts in infra/) install the Python
+     dependency:
+       pip install boto3
 
-TECH STACK
-----------
-Node.js 20 (plain CommonJS, no TypeScript build step), the fourth Node.js
-implementation in this CA portfolio, after 03-patient-vitals,
-06-offshore-wind-farm, and 10-wildfire-forest-monitoring. To avoid all four
-same-language projects sharing recognisable source-level structure, this
-project deliberately picks a fourth, genuinely different implementation
-choice on every axis where 03, 06 and 10 already differ from each other:
+CONFIGURATION
+---------------
+Real environment variables read by the code, what each configures, and its
+real default:
 
-  - Fog buffering: 03 collects raw readings into a shared array-per-key
-    object and reduces it at flush time. 06 folds each reading into a live
-    streaming accumulator (fog/accumulator.js: openAccumulator/fold/seal),
-    never retaining the raw list. 10 decouples ingestion from buffering with
-    an EventEmitter (fog/buffer.js): the HTTP handler emits a "reading"
-    event and a single listener owns the per-key Map. This project instead
-    uses a genuine two-phase write-ahead-log design: fog/ledger.js's
-    createLedger()/appendEntry()/drainEntries() is a single flat array with
-    NO per-key structure at all -- /ingest (in fog/app.js's handleIngest())
-    does nothing but validate the request and push one raw entry per
-    reading onto that flat array, a plain synchronous Array.push(). There is
-    no Map, no per-(sensor_type, site_id) grouping, and no aggregation math
-    at ingest time whatsoever. Grouping only happens once, at flush time,
-    when ledger.js's groupByKey() runs over the whole drained entry list in
-    one pass, immediately before aggregation.js's summarizeWindow(). Fast
-    synchronous append now, aggregation entirely deferred to later -- a
-    real two-phase design, distinct from all three siblings' at-ingest
-    grouping (whether via a directly-called shared object, a directly-
-    called streaming accumulator, or an event-emitted per-key Map).
+  SENSOR_TYPE            (sensors) metric a sensor container generates; one
+                         of turbidity_ntu, ph_level, chlorine_ppm,
+                         flow_rate_lps, pressure_bar. No default -- must be
+                         set.
+  SITE_ID                (sensors) plant identifier tagged onto readings.
+                         Default: plant-1
+  SAMPLE_INTERVAL        (sensors) seconds between generated readings.
+                         Default: 2
+  DISPATCH_INTERVAL      (sensors) seconds the drain loop waits once the
+                         outbox has items before sending the next batch.
+                         Default: 10
+  FOG_URL                (sensors) URL a sensor POSTs readings to.
+                         Default: http://fog:8000/ingest
+  WINDOW_SECONDS         (fog) seconds between window flush/aggregate cycles.
+                         Default: 10
+  SQS_QUEUE_NAME         (fog, dashboard) SQS queue name aggregated window
+                         messages are published to / read from.
+                         Default: wtu-plant-agg
+  TABLE_NAME             (backend/processor, backend/dashboard) DynamoDB
+                         table name reading records are written to / read
+                         from. Default: wtu-readings
+  LAMBDA_FUNCTION_NAME   (backend/dashboard) name of the processor Lambda
+                         function whose active state the dashboard checks.
+                         Default: wtu-processor
+  AWS_REGION             (fog, backend/processor, backend/dashboard) AWS
+                         region used by every AWS SDK client.
+                         Default: eu-west-1
+  AWS_ENDPOINT_URL       (fog, backend/processor, backend/dashboard) endpoint
+                         override for AWS SDK clients. Unset by default,
+                         which leaves the SDK's own default credential chain
+                         in place; when set (e.g. to http://localstack:4566),
+                         SQS/DynamoDB/Lambda clients target that endpoint and
+                         also switch to a static access key/secret pair.
+  AWS_ACCESS_KEY_ID      (backend/processor, backend/dashboard) static
+                         access key used only when AWS_ENDPOINT_URL is set.
+                         Default: test
+  AWS_SECRET_ACCESS_KEY  (backend/processor, backend/dashboard) static
+                         secret key used only when AWS_ENDPOINT_URL is set.
+                         Default: test
+  FOG_HEALTH_URL         (backend/dashboard) URL polled for fog gateway
+                         health. Default: http://fog:8000/health
+  FOG_THRESHOLDS_URL     (backend/dashboard) URL proxied for the fog
+                         gateway's threshold rules.
+                         Default: http://fog:8000/thresholds
 
-  - Alert rules: 03 uses a generic [field, op, limit, key] lookup table
-    looped over per vital (fog/alerts.js's VITAL_LIMITS). 06 uses an
-    INSPECTORS dispatch object with one named function per sensor type. 10
-    uses a flat array of {sensorType, key, test} rule-descriptor objects
-    evaluated via RULES.filter().map(). This project instead represents
-    rules as fog/alerts.js's ALERT_RULES: a real Map<sensorType, Function>
-    built once at module load, where each value is a small closure produced
-    by the makeThreshold(field, op, limit, key) factory, capturing its own
-    field/operator/limit/key. evaluateAlerts(sensorType, summary) is a
-    single ALERT_RULES.get(sensorType) lookup followed by invoking that
-    closure -- no shared lookup table looped per vital, no per-type dispatch
-    object of hand-written named functions, and no filter/map over a flat
-    array. A separate THRESHOLD_TABLE remains purely descriptive metadata
-    for the /thresholds endpoint (never read by evaluateAlerts), matching
-    the same disclosure pattern the siblings use.
+BUILD INSTRUCTIONS
+---------------------
+Each module is plain Node.js with its own package.json; "build" is npm
+install plus, for the two Lambda-bound backend modules, zipping the runtime
+files:
 
-  - SQS publisher: 03's fog/queueGateway.js is a QueueGateway class
-    (constructor + init() + send()). 06's fog/publisher.js is a closure
-    factory createPublisher({...}) returning a fresh { publish, queueUrl }
-    object. 10's fog/publisher.js is a stateless exported async function
-    publish(sqsClient, queueName, payload) taking the SQS client as a
-    parameter on every call, with queue-url memoization in an external
-    module-level Map cache. This project's fog/publisher.js is none of
-    those: module.exports IS a single Object.freeze()'d object literal (not
-    a class you instantiate, not a factory you call for a fresh instance) --
-    the client and the resolved queue url are private variables closed over
-    by the module, and callers do gateway.configure(endpoint, region) once,
-    then gateway.publishBatch(queueName, payloads) once per flush window
-    (chunked at the 10-entry SendMessageBatch limit; the single-message
-    gateway.publish(queueName, payload) remains for callers that only ever
-    have one message) with no client parameter at all. The frozen object
-    exposes a `queueUrl` property as a
-    getter rather than a stored value, because Object.freeze() only locks a
-    property's descriptor, not what a getter computes -- so reads always
-    reflect the current private cache even though the object itself cannot
-    be reassigned or extended at runtime.
+  sensors:              cd sensors && npm install
+  fog:                  cd fog && npm install
+  backend/processor:    cd backend/processor && npm install
+                        (Lambda zip, matching backend/processor/Dockerfile):
+                        npm install --omit=dev --no-audit --no-fund &&
+                        zip -qr function.zip handler.js transform.js node_modules
+  backend/dashboard:    cd backend/dashboard && npm install
 
-  - HTTP routing: 03 and 06 both use Express (03 inline routes in app.js;
-    06 split into Express Router files). 10 uses zero Express -- plain
-    http.createServer with a hand-written if/else chain dispatching on
-    method and pathname, no path-parameter support. This project also uses
-    zero Express (fog/app.js and backend/dashboard/server.js are both
-    plain http.createServer), but dispatch itself is a declarative routing
-    table: fog/router.js's and backend/dashboard/router.js's createRouter()
-    holds an ordered array of [method, regex, handler] tuples, matched with
-    RegExp.exec() against the request pathname at request time. Capture
-    groups become simple path parameters -- backend/dashboard/server.js's
-    GET /api/plants/:plantId route is /^\/api\/plants\/([a-z0-9-]+)$/, with
-    match[1] passed straight through to the handler as the plant id. Both
-    router.js files are exercised by their own router.test.js entirely
-    independently of http.createServer (dispatch() is called directly
-    against plain method/pathname strings, no server, no socket). Every
-    request in both services still passes through a real try/catch that
-    turns any uncaught exception into a structured 500 JSON response.
+Docker images (matching each module's own Dockerfile):
+  docker build -t wtu-sensor    ./sensors
+  docker build -t wtu-fog       ./fog
+  docker build -t wtu-processor ./backend/processor
+  docker build -t wtu-dashboard ./backend/dashboard
 
-  - Sensor loop: 03's sensors/sensor.js runs one flat setInterval that
-    samples every tick and dispatches inline once a dispatch-interval check
-    passes. 06's sensors/sensor.js builds a stateful "rig" object
-    (buildRig -> sample/dueForFlush/flush) polled by a single setInterval.
-    10's sensors/sensor.js runs two independent self-rescheduling
-    setTimeout loops, one per concern. This project's sensors/sensor.js
-    uses a fourth idiom: sampling is a single plain setInterval (simple,
-    fixed-rate, startSampleLoop()), but dispatch is NOT driven by any timer
-    at all. startDrainLoop() recursively reschedules drainTick() via
-    setImmediate forever; drainTick() only performs a real send when BOTH
-    the outbox has items AND Date.now() - lastDispatch >= dispatchIntervalMs
-    (a plain timestamp comparison, not a countdown), draining the outbox in
-    strict arrival order with Array.prototype.shift(). When neither
-    condition holds, the loop just reschedules itself for the next turn of
-    the event loop and does nothing -- dispatch is opportunistic/event-loop-
-    driven rather than timer-driven, a genuinely different scheduling idiom
-    from all three siblings' timer-based approaches (whether one shared
-    timer, one timer polling a stateful object, or two independent timers).
+RUN INSTRUCTIONS
+------------------
+Bring up the full local stack (LocalStack, fog gateway, one-shot processor
+Lambda deploy, dashboard, and 10 sensor containers):
 
-  - Testing uses Node's built-in node:test + node:assert/strict runner --
-    no Jest/Mocha dependency, matching 01/03/06/10. AWS-facing code is
-    isolated behind functions/objects that accept an injected client, so
-    unit tests use hand-written fake client objects ({ send: async (cmd) =>
-    ... }) instead of hitting LocalStack.
-
-LAYOUT
-------
-  sensors/            sensor simulator (one container per metric/plant):
-                       setInterval sampling + opportunistic setImmediate
-                       drain-loop dispatch (sensor.js), random-walk profiles
-                       (profiles.js)
-  fog/                http.createServer edge gateway: declarative routing
-                       table (router.js) -> /ingest validates and appends to
-                       a flat write-ahead-log ledger (ledger.js, no per-key
-                       grouping at ingest time) -> window flush groups by
-                       key + aggregates (aggregation.js) -> Map<sensorType,
-                       Function> closure-based alert evaluation (alerts.js)
-                       -> frozen-object-literal SQS publish (publisher.js),
-                       plus a /thresholds endpoint exposing the real rules
-  backend/processor/  transform.js (pure transform building the sort_key)
-                       + handler.js (Lambda entry point) + deploy_lambda.sh
-                       (packages and registers the function with an SQS
-                       event source mapping)
-  backend/dashboard/  http.createServer + Chart.js, no Express, same
-                       declarative router.js as fog/. REST API covering all
-                       5 sensor types plus a per-plant grouping endpoint
-                       (GET /api/plants and GET /api/plants/:plantId, the
-                       latter exercising the router's regex capture group).
-                       Static frontend: a light engineering/blueprint theme
-                       -- a compact matrix table (rows = readings, columns =
-                       plant-1/plant-2) with a native <meter> per cell
-                       against that reading's configured range, a plain
-                       per-plant compliance strip, and Chart.js trend
-                       comparisons. No hand-illustrated SVG art anywhere.
-  infra/              docker-compose stack, LocalStack bootstrap, pipeline
-                       verification, load test, and dashboard screenshots
-
-REQUIREMENTS
-------------
-  Docker + Docker Compose (for the running stack)
-  Node.js 20+ (only if running the unit tests locally)
-  Python 3.12+ with `pip install boto3` (only for infra/burst.py and
-  infra/verify_pipeline.py)
-
-RUN THE STACK
--------------
   docker compose -f infra/docker-compose.yml up --build
 
-  Dashboard:  http://localhost:8090
-  LocalStack: http://localhost:4576
+Exposed ports:
+  Dashboard:  http://localhost:8090  (container listens on 8000, published
+              on host port 8090)
+  LocalStack: http://localhost:4576  (container listens on 4566, published
+              on host port 4576)
 
-  Stop:  docker compose -f infra/docker-compose.yml down -v
+Stop and remove volumes:
+  docker compose -f infra/docker-compose.yml down -v
 
-CONFIGURE SENSOR RATES
-----------------------
-Each sensor takes two independent rates (set per service in
-infra/docker-compose.yml):
-  SAMPLE_INTERVAL    seconds between generated readings
-  DISPATCH_INTERVAL  seconds the opportunistic drain loop waits before the
-                     next real send once the outbox has items
-These are genuinely independent knobs -- every sensor service in
-docker-compose.yml uses a visibly different pair (e.g. flow-rate sensors
-sample every 1s but dispatch after roughly 5-6s; pH sensors sample every 3s
-and dispatch after roughly 10-11s).
+AWS DEPLOYMENT STEPS
+-----------------------
+No terraform/deployments/*.tfvars file exists yet for this project. Follow
+these steps to deploy it through the Terraform module at the repo
+root's terraform/ directory:
 
-VERIFY END-TO-END
-------------------
-With the stack running:
-  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test python infra/verify_pipeline.py
+  1. Obtain AWS credentials for the target account and run
+     `aws configure` (or export the access key / secret key / session token
+     directly), then confirm you're in the intended account:
+       aws sts get-caller-identity
 
-Example curl commands against the live REST API:
-  curl http://localhost:8090/api/health
-  curl http://localhost:8090/api/plants
-  curl http://localhost:8090/api/plants/plant-2
-  curl "http://localhost:8090/api/readings?sensor_type=chlorine_ppm&site_id=plant-1&limit=10"
-  curl http://localhost:8090/api/thresholds
-  curl http://localhost:8090/api/backend-stats
+  2. Create terraform/deployments/wtu.tfvars. Use the other files already in
+     terraform/deployments/ as a reference for the exact variable names and
+     value format only (each project's own values are specific to that
+     project, not to be copied). This project needs at least:
+       prefix                   = "wtu"
+       project_root              = "../projects/11-water-treatment-utility"
+       table_name                 = "wtu-readings"
+       queue_name                 = "wtu-plant-agg"
+       processor_lambda_name      = "wtu-processor"
+       processor_build_command    = (a shell command that installs
+                                     production dependencies and zips
+                                     handler.js, transform.js, package.json,
+                                     and node_modules from backend/processor
+                                     into a single zip file)
+       processor_zip_path         = (path to that zip file)
+       processor_handler          = "handler.handler"
+       processor_runtime          = "nodejs20.x"
+       dashboard_lambda_name      = "wtu-dashboard-api"
+       dashboard_build_command    = (a shell command that installs
+                                     production dependencies and zips the
+                                     dashboard's Lambda entry point plus its
+                                     supporting files and node_modules from
+                                     backend/dashboard into a single zip
+                                     file)
+       dashboard_zip_path         = (path to that zip file)
+       dashboard_handler          = (the exported handler function's module
+                                     path)
+       dashboard_runtime          = "nodejs20.x"
+       frontend_local_dir         = "backend/dashboard/static"
+       api_base_placeholder       = (the placeholder token index.html uses
+                                     for the API base URL, if any)
+       api_base_search_files      = ["index.html"]
+     Before dashboard_build_command/dashboard_handler/dashboard_zip_path can
+     be filled in, add a Lambda-compatible entry point for the dashboard API
+     in backend/dashboard/ (an exported handler function reachable at the
+     module path used for dashboard_handler) -- backend/dashboard currently
+     only exposes an http.createServer-based server.js for local/EC2 use.
+     Also add an infra/docker-compose.aws.yml (fog + sensor containers, no
+     LocalStack) alongside the existing infra/docker-compose.yml, since the
+     module's ec2_compose_file variable defaults to that filename.
 
-RUN THE TESTS
--------------
-Each module has its own package.json and test script. All 107 tests below
-were run and confirmed passing (node --test, exit 0) at the time this
-readme was written: 11 in sensors/, 51 in fog/, 10 in backend/processor/,
-35 in backend/dashboard/.
-  cd sensors && npm install && npm test
-  cd fog && npm install && npm test
-  cd backend/processor && npm install && npm test
-  cd backend/dashboard && npm install && npm test
+  3. From the repo root, create and switch to a dedicated Terraform
+     workspace before ever applying (the module's local state may
+     already track a different project's live resources under the
+     "default" workspace):
+       cd terraform
+       terraform workspace new wtu
+       terraform workspace list
 
-Or without a local Node.js install:
+  4. Build the Lambda deployment artifacts:
+       ./build.sh deployments/wtu.tfvars
+
+  5. Preview the plan and confirm it only adds resources (0 to destroy)
+     before applying:
+       terraform plan -var-file=deployments/wtu.tfvars
+
+  6. Apply:
+       terraform apply -var-file=deployments/wtu.tfvars
+
+  7. Switch back to the default workspace when finished so the working
+     directory doesn't default into the wtu workspace for a later command:
+       terraform workspace select default
+
+TESTING INSTRUCTIONS
+-----------------------
+Each module has its own package.json and test script (Node's built-in
+node --test runner). All commands below were run directly and confirmed
+passing (exit 0) against the current code:
+
+  cd sensors && npm test               -- 11 tests
+  cd fog && npm test                   -- 51 tests
+  cd backend/processor && npm test     -- 10 tests
+  cd backend/dashboard && npm test     -- 35 tests
+
+Total: 107 tests passing across all four modules.
+
+Without a local Node.js install, any module's tests can be run in a
+container, for example:
   docker run --rm -v "$PWD":/app -w /app/fog node:20-slim \
     bash -c "npm install && npm test"
 
-Test coverage includes: window aggregation math (count/min/max/avg/latest,
-latest = last-in-order not max), threshold evaluation against the exact
-hard-alert limits (including that low_pressure_fault checks min, not avg),
-the write-ahead-log ledger's append/drain/group-at-flush behaviour, the
-frozen publisher object's queue-url memoization and retry-then-succeed
-behaviour, the declarative router's method/pathname/capture-group matching
-(tested with no http.createServer at all), sort_key disambiguation
-(window_end#site_id), and REAL HTTP-level tests against a real local server
-on an ephemeral port (not just unit tests of the validation function) for
-both fog /ingest (accepts valid payloads with 202, rejects missing fields /
-malformed JSON / non-numeric values / empty readings arrays with 400) and
-the dashboard's /api/thresholds proxy function (covering both a real
-upstream success response and a real unreachable-upstream connection
-failure, per thresholdsProxy.test.js).
+With the local stack running (docker compose -f infra/docker-compose.yml up),
+two additional Python scripts exercise the pipeline end-to-end against real
+SQS/DynamoDB calls:
 
-LOAD TEST (SCALABILITY EVIDENCE)
----------------------------------
-With the stack running:
-  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
-    python infra/burst.py --messages 2000 --workers 32
+  End-to-end pipeline check:
+    AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test python infra/verify_pipeline.py
 
-This asserts (1) the queue shows the burst immediately after sending, and
-(2) either the queue fully drains within the timeout, or -- if LocalStack's
-single-container Lambda emulation hasn't finished draining 2000 messages in
-time -- that the remaining count strictly decreased from the immediate
-post-burst count, proving the Lambda consumer is making real progress
-rather than being stalled or broken.
-
-REUSE / THIRD-PARTY COMPONENTS
--------------------------------
-The overall pipeline architecture (SQS -> Lambda -> DynamoDB via LocalStack,
-the sort_key disambiguation scheme window_end#site_id, the dashboard
-health-check pattern, the dual-rate SAMPLE_INTERVAL/DISPATCH_INTERVAL sensor
-knobs, the loadtest two-tier assertion pattern) is adapted from this
-student's own prior projects earlier in this same CA submission
-(01-smart-agriculture, 03-patient-vitals, 06-offshore-wind-farm,
-07-warehouse-robotics-fleet, 08-retail-footfall-inventory,
-09-aquaculture-fish-farm, 10-wildfire-forest-monitoring), not a prior/
-external coursework project. Every line of application code, the domain
-logic (water-treatment sensor profiles, the four alert thresholds, the
-plant-compliance derivation), and the entire dashboard (light engineering/
-blueprint theme, reading-by-plant matrix table, per-plant compliance strip,
-trend charts) are original to this project. The internal module structure
-was deliberately written differently from 03-patient-vitals,
-06-offshore-wind-farm, and 10-wildfire-forest-monitoring's Node.js code on
-every axis called out in TECH STACK above, so none of the four Node.js
-projects in this portfolio share recognisable source-level structure.
-
-Third-party open-source components used as standard libraries/tools:
-  - AWS SDK for JavaScript v3 (@aws-sdk/client-sqs, client-dynamodb,
-    lib-dynamodb, client-lambda) - https://github.com/aws/aws-sdk-js-v3
-  - Chart.js (dashboard trend charts, vendored at
-    backend/dashboard/static/vendor/) - https://www.chartjs.org
-  - LocalStack (local AWS emulation for SQS/DynamoDB/Lambda) -
-    https://www.localstack.cloud
-  - Node.js built-in test runner (node:test, node:assert/strict) -- no
-    external test framework dependency
-  - Node.js built-in http module (fog and dashboard HTTP servers) -- no
-    Express or other web framework dependency anywhere in this project
-  - boto3 (Python AWS SDK, used only by the ops tooling in infra/) - https://boto3.amazonaws.com
-
-NOTE ON /api/thresholds
-------------------------
-The dashboard backend proxies GET /api/thresholds from the fog gateway via
-thresholdsProxy.js's fetchThresholds(url), covered by its own test for both
-the success and unreachable-upstream paths. The current frontend
-(dashboard.js) does not call it directly -- alert names are rendered from a
-small local display-text map (ALERT_LABELS) instead. The endpoint is kept
-for API completeness and possible future use, and is not claimed as a
-frontend feature.
+  Burst load test (default 2000 messages across 32 worker threads):
+    AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test python infra/burst.py --messages 2000 --workers 32

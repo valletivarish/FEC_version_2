@@ -1,105 +1,221 @@
-Cold Chain / Warehouse Logistics Monitoring Fog/Edge Pipeline
-Fog and Edge Computing (H9FECC) - CA Project
+Cold Chain Logistics
 
-All commands below assume your working directory is this folder
-(projects/05-cold-chain-logistics/), not the repo root.
+===========================================================================
+1. PREREQUISITES
+===========================================================================
 
-OVERVIEW
---------
-Ten simulated shipping-container sensors (storage temperature, humidity,
-door-open duration, shock/vibration, CO2 level -- each running for two
-containers) feed a virtual depot relay ("fog node"). The relay windows and
-aggregates each reading type, raises operational exceptions, and dispatches
-one aggregate per window to a queue. An AWS Lambda function (running inside
-LocalStack) consumes the queue and stores records; a web dashboard renders a
-manifest TABLE as the primary view (one row per container, one column per
-reading type, not a card/gauge grid), with a secondary storage-temperature
-trend section per container, styled as a warehouse operations board.
+- Docker and Docker Compose (v2 syntax; infra/docker-compose.yml uses the
+  top-level "name:" key)
+- Python 3.12 (matches the python:3.12-slim base image used by every
+  Dockerfile in this project)
+- pip
+- AWS CLI v2, configured with credentials for the target AWS account
+  (needed only for section 6, AWS Deployment Steps)
+- Terraform (needed only for section 6)
+- zip (needed only for section 6, to package Lambda deployment artifacts)
 
-Phase 1 (this project) runs entirely on Docker with LocalStack emulating AWS
-SQS, DynamoDB, and Lambda. The AWS SDK (boto3) is used throughout, so a later
-move to real AWS is an endpoint/IAM configuration change rather than a
-rewrite.
+===========================================================================
+2. INSTALLATION STEPS
+===========================================================================
 
-LAYOUT
-------
-  sensors/            sensor simulator (one container per reading/container)
-  fog/                FastAPI depot relay: ingest, window, aggregate, flag,
-                       ship, plus a /thresholds endpoint exposing the real
-                       exception rules for any API consumer (the dashboard's
-                       own status labels are display copy for the exception
-                       keys, not a copy of the numeric thresholds -- the
-                       manifest-table UI deliberately has no numeric rules
-                       legend, unlike 01/02's dashboards)
-  backend/processor/  reshape.py (pure transform) + handler.py (Lambda entry
-                       point) + deploy_lambda.py (packages and registers the
-                       function with an SQS event source mapping)
-  backend/dashboard/  FastAPI + Chart.js. Primary view is a data TABLE
-                       (manifest), not a card grid -- one row per container,
-                       columns for all 5 readings, a status column, and an
-                       age column. Secondary section: one small trend chart
-                       per container for the safety-critical storage
-                       temperature reading only.
-  infra/              docker-compose stack, LocalStack bootstrap, pipeline
-                       verification, load test, and dashboard screenshots
-  tests/              pytest unit + endpoint/route tests
+1. Clone the repository.
+2. cd into projects/05-cold-chain-logistics.
+3. Create and activate a Python virtual environment:
+   python3 -m venv venv
+   source venv/bin/activate
+4. Install the dependencies needed to run the test suite locally:
+   pip install -r requirements-dev.txt
 
-REQUIREMENTS
-------------
-  Docker + Docker Compose (for the running stack)
-  Python 3.12+ (only if running the unit tests locally)
+===========================================================================
+3. CONFIGURATION
+===========================================================================
 
-RUN THE STACK
--------------
-  docker compose -f infra/docker-compose.yml up --build
+Sensors (sensors/sensor.py):
+- SENSOR_TYPE          - required, no default. One of: storage_temperature,
+                          humidity, door_open_seconds, shock_vibration,
+                          co2_level. Selects which reading profile the
+                          sensor simulates.
+- SITE_ID              - default "container-1". Container identifier
+                          attached to every reading this sensor sends.
+- SAMPLE_INTERVAL      - default "2". Seconds between simulated readings.
+- DISPATCH_INTERVAL    - default "10". Seconds between batch POSTs to the
+                          fog relay.
+- FOG_URL              - default "http://fog:8000/ingest". URL the sensor
+                          posts its reading batches to.
 
-  Dashboard:  http://localhost:8084
-  LocalStack: http://localhost:4570
+Fog relay (fog/app.py, fog/publisher.py):
+- WINDOW_SECONDS       - default "10". Length of each aggregation window
+                          in seconds.
+- SQS_QUEUE_NAME       - default "fcl-manifest-agg". SQS queue that window
+                          aggregates are published to.
+- AWS_ENDPOINT_URL     - default unset. AWS endpoint override; set to
+                          http://localstack:4566 for local runs, leave
+                          unset for real AWS.
+- AWS_REGION           - default "eu-west-1". Region for the SQS client.
 
-  Stop:  docker compose -f infra/docker-compose.yml down -v
+Backend processor (backend/processor/handler.py, deploy_lambda.py):
+- TABLE_NAME           - default "fcl-readings". DynamoDB table window
+                          aggregates are written to.
+- AWS_ENDPOINT_URL     - default unset.
+- AWS_REGION           - default "eu-west-1".
+- SQS_QUEUE_NAME       - default "fcl-manifest-agg". Used by
+                          deploy_lambda.py to look up the queue ARN wired
+                          as this Lambda's event source (LocalStack-only
+                          deploy tooling).
+- LAMBDA_FUNCTION_NAME - default "fcl-processor". Used by deploy_lambda.py
+                          to name the deployed function (LocalStack-only
+                          deploy tooling).
 
-CONFIGURE SENSOR RATES
-----------------------
-Each sensor takes two independent rates (set per service in
-infra/docker-compose.yml):
-  SAMPLE_INTERVAL    seconds between generated readings
-  DISPATCH_INTERVAL  seconds between dispatches to the depot relay
+Backend dashboard (backend/dashboard/routes.py, health.py):
+- TABLE_NAME           - default "fcl-readings". DynamoDB table read by
+                          the manifest/readings/backend-stats endpoints.
+- SQS_QUEUE_NAME       - default "fcl-manifest-agg". SQS queue read for
+                          queue-depth and health checks.
+- LAMBDA_FUNCTION_NAME - default "fcl-processor". Lambda function name
+                          checked by GET /api/health.
+- AWS_ENDPOINT_URL     - default unset.
+- AWS_REGION           - default "eu-west-1".
+- FOG_HEALTH_URL       - default "http://fog:8000/health". Fog relay
+                          health-check URL.
+- FOG_THRESHOLDS_URL   - default "http://fog:8000/thresholds". Fog relay
+                          alert-threshold URL.
 
-VERIFY END-TO-END
------------------
-With the stack running:
-  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test python infra/verify_pipeline.py
+Standard AWS SDK credential variables (consumed by boto3's default
+credential chain, not read directly via os.getenv anywhere in this
+project's code): AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY. Local Docker
+Compose sets both to "test" for LocalStack; real AWS deployment relies on
+the IAM role/instance profile or configured CLI credentials instead.
 
-RUN THE TESTS
--------------
-  pip install -r requirements-dev.txt
-  pytest
+===========================================================================
+4. BUILD INSTRUCTIONS
+===========================================================================
 
-Or without a local Python 3.12:
-  docker run --rm -v "$PWD":/app -w /app python:3.12-slim \
-    bash -c "pip install -r requirements-dev.txt && pytest"
+Build every module's Docker image in one step (from the project root):
+   docker compose -f infra/docker-compose.yml build
 
-LOAD TEST (SCALABILITY EVIDENCE)
---------------------------------
-With the stack running:
-  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
-    python infra/burst.py --messages 2000 --workers 32
+Or build an individual module's image:
+   docker build -t fcl-sensor ./sensors
+   docker build -t fcl-fog ./fog
+   docker build -t fcl-processor ./backend/processor
+   docker build -t fcl-dashboard ./backend/dashboard
 
-REUSE / THIRD-PARTY COMPONENTS
--------------------------------
-The overall pipeline architecture (SQS -> Lambda -> DynamoDB via LocalStack,
-the sort_key disambiguation scheme, the dashboard health-check pattern) was
-adapted from this student's own projects 01-smart-agriculture,
-02-industrial-equipment, 03-patient-vitals, and 04-smart-city, built earlier
-for this same CA submission (not a prior/external coursework project).
-Domain-specific code -- reading profiles, operational thresholds, and the
-entire dashboard (warehouse gray/safety-orange theme, table-first manifest
-layout) -- is new for this project. Third-party open-source components used
-as standard libraries/tools:
-  - FastAPI (backend/dashboard, depot relay) - https://fastapi.tiangolo.com
-  - boto3 (AWS SDK for Python) - https://boto3.amazonaws.com
-  - Chart.js (temperature trend charts, vendored at
-    backend/dashboard/static/vendor/) - https://www.chartjs.org
-  - LocalStack (local AWS emulation for SQS/DynamoDB/Lambda) -
-    https://www.localstack.cloud
-  - pytest (test suite) - https://pytest.org
+To install a module's dependencies locally without Docker (e.g. to run it
+or its tests directly):
+   pip install -r fog/requirements.txt
+   pip install -r backend/processor/requirements.txt
+   pip install -r backend/dashboard/requirements.txt
+
+sensors/sensor.py has no requirements.txt; it uses only the Python
+standard library.
+
+===========================================================================
+5. RUN INSTRUCTIONS
+===========================================================================
+
+From the project root:
+   cd infra
+   docker compose up --build
+
+This starts:
+- localstack        - host port 4570 -> container port 4566
+- fog                - no host port published; reachable at
+                       http://fog:8000 from other containers on the
+                       compose network
+- processor          - one-shot container (restart: "no"); deploys
+                       handler.py as a Lambda into LocalStack, wires it to
+                       the SQS queue, then exits
+- dashboard          - host port 8084 -> container port 8000
+- 10 sensor containers (sensor-temp-c1/c2, sensor-humidity-c1/c2,
+  sensor-door-c1/c2, sensor-shock-c1/c2, sensor-co2-c1/c2) - no host ports
+  published
+
+Dashboard UI:  http://localhost:8084
+Dashboard API: http://localhost:8084/api/...
+LocalStack endpoint: http://localhost:4570
+
+To stop everything:
+   docker compose down
+
+===========================================================================
+6. AWS DEPLOYMENT STEPS
+===========================================================================
+
+No terraform/deployments/*.tfvars file exists yet for this project.
+Follow these steps to prepare and deploy it:
+
+1. Confirm AWS credentials are configured for the target account:
+   aws sts get-caller-identity
+
+2. Create terraform/deployments/fcl.tfvars defining the fields below:
+   prefix                   = "fcl"
+   project_root             = "../projects/05-cold-chain-logistics"
+   table_name               = "fcl-readings"
+   queue_name               = "fcl-manifest-agg"
+   processor_lambda_name    = "fcl-processor"
+   processor_build_command  = <command that installs backend/processor's
+                                requirements.txt into a build directory,
+                                copies handler.py and reshape.py into it,
+                                and zips the result>
+   processor_zip_path       = "backend/processor/lambda.zip"
+   processor_handler        = "handler.lambda_handler"
+   processor_runtime        = "python3.12"
+   dashboard_lambda_name    = "fcl-dashboard-api"
+   dashboard_build_command  = <command that packages a Lambda-compatible
+                                handler for backend/dashboard>
+   dashboard_zip_path       = "backend/dashboard/lambda.zip"
+   dashboard_handler        = <entry point of that handler>
+   dashboard_runtime        = "python3.12"
+   frontend_local_dir       = "backend/dashboard/static"
+   api_base_placeholder     = <a placeholder token>
+   api_base_search_files    = ["index.html"]
+
+   backend/processor/handler.py already exposes a Lambda-shaped entry
+   point (lambda_handler(event, context)), so the processor fields above
+   can be filled in directly. backend/dashboard has no Lambda-handler
+   module yet; add one (an entry point function accepting (event,
+   context), built on top of the existing DataAccess/health-check code in
+   routes.py and health.py) before filling in the dashboard_* fields.
+   backend/dashboard/static/dashboard.js currently calls the API via
+   relative /api/... paths (same-origin); add a placeholder token to
+   index.html and prefix those fetch calls with it before filling in
+   api_base_placeholder/api_base_search_files.
+
+3. Add infra/docker-compose.aws.yml alongside the existing
+   infra/docker-compose.yml: the fog service and the 10 sensor services,
+   with fog's port published, and no localstack/processor/dashboard
+   services (those are provisioned separately by Terraform as Lambda/S3
+   resources).
+
+4. terraform workspace new fcl
+5. terraform workspace list
+   (confirm "fcl" is the selected workspace before applying)
+6. cd terraform
+7. ./build.sh deployments/fcl.tfvars
+8. terraform plan -var-file=deployments/fcl.tfvars
+   (confirm the plan shows only resources being added, 0 to destroy)
+9. terraform apply -var-file=deployments/fcl.tfvars
+10. terraform workspace select default
+    (afterward, so the working directory doesn't stay on this workspace
+    for a future run)
+
+===========================================================================
+7. TESTING INSTRUCTIONS
+===========================================================================
+
+From the project root, with requirements-dev.txt installed (see section 2):
+   pytest
+
+133 tests total, across 10 files:
+   tests/test_aggregation.py  - 21 tests
+   tests/test_alerts.py       - 9 tests
+   tests/test_app.py          - 7 tests
+   tests/test_fog_endpoint.py - 15 tests
+   tests/test_handler.py      - 12 tests
+   tests/test_health.py       - 16 tests
+   tests/test_publisher.py    - 20 tests
+   tests/test_reshape.py      - 8 tests
+   tests/test_routes.py       - 12 tests
+   tests/test_sensor.py       - 13 tests
+
+To run a single file:
+   pytest tests/test_aggregation.py

@@ -3,7 +3,10 @@ const SENSORS = ["soil_moisture", "temperature", "humidity", "light_intensity", 
 // runtime-config.js sets window.RUNTIME_CONFIG before this file loads; it is
 // empty for local dev (same-origin FastAPI) and holds the deployed API
 // Gateway URL once the static assets are copied onto S3 at deploy time.
-const API_BASE = (window.RUNTIME_CONFIG && window.RUNTIME_CONFIG.apiBase) || "";
+const API_BASE = (() => {
+  const value = window.RUNTIME_CONFIG && window.RUNTIME_CONFIG.apiBase;
+  return value && value !== "__API_BASE__" ? value : "";
+})();
 
 function swatch(sensor) {
   return `<span class="swatch ${sensor}"></span>`;

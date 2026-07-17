@@ -1,305 +1,223 @@
-Smart Parking Management Fog/Edge Pipeline
-Fog and Edge Computing (H9FECC) - CA Project
+Smart Parking Management
 
-All commands below assume your working directory is this folder
-(projects/14-smart-parking-management/), not the repo root.
+1. PREREQUISITES
 
-OVERVIEW
---------
-A city parking operator monitors two multi-level parking lots (lot-a,
-lot-b), each with a fixed capacity of 300 spaces. Ten simulated sensors
-(occupied spaces, entry rate, exit rate, average dwell time, gate fault
-events -- each running for both lots) feed a fog node. The fog node windows
-and aggregates each sensor's readings, raises threshold alerts, and
-dispatches one aggregate per window to a queue. An AWS Lambda function
-(running inside LocalStack) consumes the queue and stores records; a web
-dashboard renders a per-lot capacity console, primarily a native <progress>
-occupancy gauge per lot, with entry/exit rate, dwell time and gate-fault
-detail as secondary rows.
+- Docker Engine with the Docker Compose v2 plugin (the "docker compose" command)
+- Python 3.12 (matches the base image used by every Dockerfile in this project)
+- pip
+- AWS CLI (only needed for the AWS Deployment Steps section)
+- Terraform (only needed for the AWS Deployment Steps section)
 
-Phase 1 (this project) runs entirely on Docker with LocalStack emulating AWS
-SQS, DynamoDB, and Lambda. The AWS SDK (boto3) is used throughout, so a real
-AWS/Azure deployment is a deliberately deferred Phase 2 item for the whole
-portfolio, not attempted here.
+2. INSTALLATION STEPS
 
-LAYOUT
-------
-  sensors/            sensor simulator (one asyncio process per sensor
-                       type/lot pair -- see REUSE section for the loop
-                       structure)
-  fog/                fog node: ingest, buffer, window, aggregate, alert,
-                       publish -- see REUSE section below for the exact
-                       module-by-module implementation choices
-  backend/processor/  transform.py (pure transform) + handler.py (Lambda
-                       entry point) + deploy_lambda.py (packages and
-                       registers the function with an SQS event source
-                       mapping in LocalStack)
-  backend/dashboard/  REST API + static frontend (dark asphalt/violet
-                       "night city" theme, per-lot cards with a native
-                       <progress> capacity gauge)
-  infra/              docker-compose stack, LocalStack bootstrap, pipeline
-                       verification, load test, and dashboard screenshots
-  tests/              pytest unit + real HTTP-level route tests
+1) Clone the repository and change into this project's directory:
+   cd projects/14-smart-parking-management
 
-REQUIREMENTS
-------------
-  Docker + Docker Compose (for the running stack)
-  Python 3.12+ (only if running the unit tests or ops scripts locally)
-  pip install -r requirements-dev.txt (pytest + boto3 -- boto3 is also the
-  only runtime dependency of every service in this project: fog, dashboard
-  and processor all use plain wsgiref.simple_server for HTTP, not a
-  framework, so boto3 is the one real third-party dependency across the
-  whole app)
+2) Create a virtual environment and install the dependencies needed to run
+   the test suite locally:
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install -r requirements-dev.txt
 
-RUN THE STACK
--------------
-  docker compose -f infra/docker-compose.yml up --build
+3. CONFIGURATION
 
-  Dashboard:  http://localhost:8093
-  LocalStack: http://localhost:4579
+The following environment variables are read directly from the process
+environment. Defaults shown are the values used when a variable is unset.
 
-  Stop:  docker compose -f infra/docker-compose.yml down -v
+- AWS_ENDPOINT_URL - custom AWS service endpoint (e.g. a LocalStack URL).
+  Unset by default, in which case boto3 talks to real AWS endpoints.
+  Read by fog/app.py, backend/processor/handler.py,
+  backend/processor/deploy_lambda.py, backend/dashboard/data_access.py.
 
-  Bring services up incrementally if you want to watch each stage:
-    docker compose -f infra/docker-compose.yml up -d localstack
-    docker compose -f infra/docker-compose.yml up -d fog dashboard
-    docker compose -f infra/docker-compose.yml up -d processor
-    docker compose -f infra/docker-compose.yml up -d
+- AWS_REGION - AWS region for every boto3 client. Default: eu-west-1.
+  Read by the same four files listed above.
 
-CONFIGURE SENSOR RATES
-----------------------
-Each sensor takes two independent rates (set per service in
-infra/docker-compose.yml):
-  SAMPLE_INTERVAL    seconds between generated readings
-  DISPATCH_INTERVAL  seconds between dispatches to the fog node
-Every sensor service in docker-compose.yml uses a different combination
-(e.g. sensor-occupied-a samples every 2s/dispatches every 8s,
-sensor-gatefault-a samples every 5s/dispatches every 16s) to demonstrate
-the two knobs are genuinely independent, not aliased to one value.
+- SQS_QUEUE_NAME - SQS queue the fog node publishes window-aggregate
+  messages to. Default: spm-lot-agg.
+  Read by fog/app.py, backend/processor/deploy_lambda.py,
+  backend/dashboard/data_access.py.
 
-VERIFY END-TO-END
-------------------
-With the stack running:
-  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_ENDPOINT_URL=http://localhost:4579 \
-    python infra/verify_pipeline.py
+- TABLE_NAME - DynamoDB table window aggregates are written to and read
+  from. Default: spm-readings.
+  Read by backend/processor/handler.py, backend/processor/deploy_lambda.py,
+  backend/dashboard/data_access.py.
 
-Example curl commands:
-  curl http://localhost:8093/api/health
-  curl http://localhost:8093/api/lots
-  curl http://localhost:8093/api/thresholds
-  curl http://localhost:8093/api/backend-stats
-  curl "http://localhost:8093/api/readings?sensor_type=occupied_spaces&limit=20"
-  curl "http://localhost:8093/api/readings?sensor_type=gate_fault_events&site_id=lot-b&limit=10"
+- LAMBDA_FUNCTION_NAME - name of the deployed processor Lambda function.
+  Default: spm-processor.
+  Read by backend/processor/deploy_lambda.py, backend/dashboard/data_access.py.
 
-fog itself is not published to the host (only reachable at http://fog:8000
-inside the compose network, matching the brief's fog/backend split); to
-exercise it directly -- e.g. to see a real 400 from a malformed /ingest
-payload -- run from inside the dashboard container, which already has
-Python and network access to fog:
-  docker compose -f infra/docker-compose.yml exec dashboard python3 -c "
-  import json, urllib.error, urllib.request
-  req = urllib.request.Request('http://fog:8000/ingest',
-      data=json.dumps({'bad': 'payload'}).encode(),
-      headers={'Content-Type': 'application/json'})
-  try:
-      urllib.request.urlopen(req)
-  except urllib.error.HTTPError as exc:
-      print(exc.code, exc.read())
-  "
-  # -> 400 b'{"error": "sensor_type is required and must be a non-empty string"}'
+- WINDOW_SECONDS - length in seconds of the fog node's aggregation window
+  (also the interval between flushes). Default: 10.
+  Read by fog/app.py.
 
-RUN THE TESTS
--------------
-  pip install -r requirements-dev.txt
-  pytest
+- FOG_HEALTH_URL - URL the dashboard polls for the fog node's health check.
+  Default: http://fog:8000/health.
+  Read by backend/dashboard/app.py.
 
-Or without a local Python 3.12:
-  docker run --rm -v "$PWD":/app -w /app python:3.12-slim \
-    bash -c "pip install -r requirements-dev.txt && pytest"
+- FOG_THRESHOLDS_URL - URL the dashboard fetches the fog node's alert
+  threshold catalogue from. Default: http://fog:8000/thresholds.
+  Read by backend/dashboard/app.py.
 
-127 tests currently pass covering: window aggregation math, the AlertKey
-enum/RULES dict-of-dicts evaluate() logic (plus a cross-check that
-THRESHOLD_DESCRIPTIONS never drifts from the real predicates), the
-closure-based SQS publisher (including retry-until-success and
-exhausted-attempts-raises paths, plus its publish.batch() sibling closure:
-chunking at the 10-entry SendMessageBatch limit, unique-per-chunk entry
-Ids, queue-url reuse, and the empty-batch no-op case), the collections.deque
-ring buffer (including that it silently evicts the oldest reading once
-MAX_READINGS_PER_KEY is exceeded), /ingest input validation, a real
-HTTP-level test suite against a live wsgiref.simple_server for both the fog
-node and the dashboard (ephemeral port, http.client requests, no mocked
-transport), the sensor random walk plus the asyncio sample/dispatch tick
-logic (including a real asyncio.gather concurrency check that both loops
-fire within a bounded run), the Lambda transform/handler (with a
-hand-written fake DynamoDB table, no real AWS/LocalStack touched), the
-occupancy status formula, the dashboard's DynamoDB/SQS/Lambda data-access
-functions (fake boto3 objects, including that items_in_table() follows
-LastEvaluatedKey across multiple scan() pages rather than trusting the
-first page's Count alone), and the thresholds-proxy function against
-both a real local success server and a real closed TCP port (genuine
-unreachable-upstream failure).
+- PORT - port the dashboard's HTTP server listens on. Default: 8000.
+  Read by backend/dashboard/app.py.
 
-LOAD TEST (SCALABILITY EVIDENCE)
----------------------------------
-With the stack running:
-  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_ENDPOINT_URL=http://localhost:4579 \
-    python infra/burst.py --messages 2000 --workers 32
+- SENSOR_TYPE - the metric this sensor container simulates. One of:
+  occupied_spaces, entry_rate_per_min, exit_rate_per_min,
+  avg_dwell_time_min, gate_fault_events. Required, no default.
+  Read by sensors/sensor.py.
 
-Asserts (1) the queue shows the burst immediately after sending, and (2)
-either the queue fully drains within the timeout, or -- if LocalStack's
-single-container Lambda emulation hasn't finished by then -- that the
-remaining count strictly decreased from the immediate post-burst count, so
-a genuinely stalled pipeline still fails the assertion even when a slow one
-does not.
+- SITE_ID - the parking lot ID this sensor container simulates.
+  Default: lot-a.
+  Read by sensors/sensor.py.
 
-OCCUPANCY STATUS FORMULA
--------------------------
-backend/dashboard/status.py computes occupancy_pct = round(100 * occupied /
-capacity, 1) from each lot's most recent occupied_spaces window average,
-then derives a 4-tier status badge:
-  - any active alert on that lot (from any of its 5 readings) -> "alert"
-  - occupancy_pct >= 90 -> "near_full"
-  - occupancy_pct >= 75 -> "busy"
-  - otherwise -> "normal"
-This is deliberately independent of fog's alert thresholds (fog/alerts.py)
--- a lot can visibly trend toward "near_full" well before its
-occupied_spaces window average ever crosses 270 and trips
-near_full_capacity, the same "earlier, graded signal" idea as
-12-smart-building-energy's letter-grade efficiency badge, applied here as a
-4-tier occupancy status instead of a 5-tier A-F grade.
+- SAMPLE_INTERVAL - seconds between simulated sensor samples. Default: 2.
+  Read by sensors/sensor.py.
 
-REUSE / THIRD-PARTY COMPONENTS
---------------------------------
-The overall pipeline shape (SQS -> Lambda -> DynamoDB via LocalStack, the
-sort_key disambiguation scheme, the dashboard health-check pattern) was
-adapted from this student's own projects 01-smart-agriculture,
-05-cold-chain-logistics and 12-smart-building-energy, built earlier for
-this same CA submission (not a prior/external coursework project). This is
-the 4th Python project in the portfolio, so every implementation-choice
-axis below was deliberately made a genuinely distinct combination from all
-three (confirmed by reading each project's current source before writing
-this one) -- these exact choices were pre-assigned by the CA brief to
-guarantee no collision with the other concurrently-built projects in this
-batch (13, 15-18) either.
+- DISPATCH_INTERVAL - seconds between batches sent to the fog node's
+  /ingest endpoint. Default: 10.
+  Read by sensors/sensor.py.
 
-  Fog buffering (fog/buffering.py):
-    01's fog/app.py writes straight into a shared defaultdict(list) from
-    inside the async request handler -- unbounded, no queue at all. 05's
-    fog/app.py pushes onto an asyncio.Queue and folds each batch into a
-    WindowAccumulator of RollingStat objects from an asyncio background
-    task (streaming fold, also unbounded). 12's fog/ingest_pipeline.py
-    decouples ingest from buffering with a stdlib queue.Queue INBOX feeding
-    a single consumer thread that writes into a plain (unbounded) dict of
-    lists. This project's buffer is a real collections.deque(maxlen=500)
-    per (sensor_type, site_id) key -- a genuinely bounded ring buffer:
-    add_readings() extends the deque directly (guarded by a plain
-    threading.Lock, since the WSGI server handles requests on real OS
-    threads, not an event loop or a separate consumer thread), and once a
-    key's deque hits MAX_READINGS_PER_KEY the oldest unflushed readings for
-    that key are silently evicted in favour of the newest ones, so a
-    key that is never flushed cannot grow memory without limit the way all
-    three siblings' structures can.
+- FOG_URL - URL the sensor container posts readings to.
+  Default: http://fog:8000/ingest.
+  Read by sensors/sensor.py.
 
-  Alert rules (fog/alerts.py):
-    01 keeps THRESHOLDS as a dict-of-lists-of-tuples keyed by sensor_type,
-    looped over with an if/elif on the operator string. 05 keeps one
-    hand-written _check_<key> function per exception, wired through a
-    dict-dispatch table (_EVALUATORS). 12 defines every rule as a frozen,
-    __post_init__-validated Rule dataclass instance in one flat RULES list
-    (not keyed by sensor_type at all) and filters that flat list. This
-    project defines an enum.Enum class (AlertKey) for the four alert keys,
-    then RULES: dict[str, dict[AlertKey, Callable[[dict], bool]]] keyed
-    first by sensor_type and then by AlertKey straight to a lambda
-    predicate. evaluate() is a single filtering comprehension over the
-    inner dict's .items():
-      [key.value for key, predicate in predicates.items() if predicate(agg)]
-    THRESHOLD_DESCRIPTIONS is a separate, explicit field/op/limit/key mirror
-    for the purely-descriptive /thresholds endpoint (lambdas aren't
-    introspectable for their own field/op/limit), and
-    tests/test_alerts.py::TestThresholdsPayload::
-    test_descriptions_agree_with_the_real_evaluate_predicates cross-checks
-    every description against evaluate() itself so the two can never
-    silently drift apart.
+4. BUILD INSTRUCTIONS
 
-  SQS publisher (fog/publisher.py):
-    01's fog/publisher.py is a class (SqsPublisher) with a bounded
-    sleep-based retry loop in __init__. 05's fog/publisher.py is a
-    contextlib.contextmanager factory (open_shipment_link) yielding a
-    ShipmentLink dataclass-backed object with its own jittered-backoff
-    retry generator. 12's fog/publisher.py is a pair of
-    functools.lru_cache-memoized module-level functions wrapping a bare
-    boto3.client. This project's fog/publisher.py is make_publisher(...), a
-    closure factory: it builds one boto3 client and resolves the queue URL
-    once (retrying with a fixed delay while LocalStack finishes
-    provisioning it), then returns a small inner publish(message) function
-    that closes over both the client and the resolved queue_url. There is
-    no class, no contextmanager, and no lru_cache/global-variable cache --
-    the closure itself is the only place any state lives.
+Each service is built as its own Docker image; dependencies are installed
+inside the image build, not on the host.
 
-  HTTP routing/framework (fog/app.py, backend/dashboard/app.py):
-    01 and 05 both use FastAPI (05 split into
-    app.py/ingest_routes.py/status_routes.py; the dashboard similarly split
-    into app.py/routes.py/health.py). 12 uses no framework anywhere: both
-    the fog node and the dashboard are plain
-    http.server.BaseHTTPRequestHandler served by ThreadingHTTPServer, with
-    hand-written if/elif route dispatch in do_GET/do_POST. This project
-    also uses no framework, but a different stdlib HTTP model again:
-    wsgiref.simple_server. `app(environ, start_response)` is the actual WSGI
-    application callable -- there is no request/response object at all,
-    only the raw WSGI contract. Routing is a manual if/elif chain on
-    environ['REQUEST_METHOD']/environ['PATH_INFO'], and POST bodies are
-    read by hand off environ['wsgi.input'] using CONTENT_LENGTH. WSGIServer
-    is mixed with socketserver.ThreadingMixIn (ThreadingWSGIServer) so
-    concurrent sensor POSTs from both lots don't serialize behind one slow
-    request. POST /ingest has real input validation (fog/validation.py)
-    rejecting malformed/missing-field payloads with 400, proven by a real
-    HTTP-level test (tests/test_fog_http.py) that boots an actual
-    wsgiref.simple_server on an ephemeral port and drives it with
-    http.client -- mirroring the plain-JDK-HttpServer / plain-http.
-    createServer / http.server discipline already used by this portfolio's
-    Java, Node, and 12's Python siblings, applied here via wsgiref instead.
-    The dashboard backend gets the identical real-HTTP-level test treatment
-    (tests/test_dashboard_http.py).
+- sensors: no third-party dependencies (standard library only, no
+  requirements.txt). Build: docker build -t spm-sensor ./sensors
 
-  Sensor loop structure (sensors/sensor.py):
-    01 uses a single `while True: ... time.sleep(sample_interval)` loop,
-    checking elapsed time to decide when to dispatch. 05 uses the stdlib
-    `sched` scheduler with two events re-entering themselves on one
-    scheduler queue, still driven by a single thread calling `clock.run()`.
-    12 uses two independently self-rearming `threading.Timer` chains, each
-    tick a genuine separate OS thread. This project uses real `asyncio`:
-    `asyncio.run(main())` drives two independent coroutines --
-    `sample_loop()` and `dispatch_loop()` -- concurrently via
-    `asyncio.gather`, each with its own `while True: await
-    asyncio.sleep(interval)` cadence on a single event loop thread. There is
-    no OS-thread concurrency and no central scheduler object; the two loops
-    interleave cooperatively, coordinated only by an asyncio.Lock around
-    the shared reading buffer.
-    tests/test_sensor.py::TestConcurrentLoops exercises the real
-    sample_loop/dispatch_loop coroutines together via asyncio.gather for a
-    short bounded run and asserts both cadences actually fired.
+- fog: installs fog/requirements.txt (boto3==1.35.90).
+  Build: docker build -t spm-fog ./fog
 
-Domain-specific code (reading profiles, thresholds, the occupancy-status
-formula, and the entire dashboard: dark asphalt/violet "night city" theme,
-per-lot-card + native <progress> capacity gauge layout) is new for this
-project. The dashboard's structural choice -- a native <progress> element
-for the primary per-lot capacity gauge, with all secondary metrics
-(entry/exit rate, dwell time, gate faults) rendered as plain text rows, no
-gauge widget at all for those -- is deliberately distinct from every
-sibling dashboard in this batch that uses <meter> (02, 09, 11, 12).
-No hand-drawn SVG art appears anywhere in this dashboard (grep -r "<svg"
-backend/dashboard/static returns nothing outside the vendored,
-unmodified Chart.js bundle); the only graphics are the native <progress>
-gauge, plain CSS-coloured status badges/alert tags, and one Chart.js line
-chart. Third-party open-source components used as standard
-libraries/tools:
-  - boto3 (AWS SDK for Python) - https://boto3.amazonaws.com
-  - Chart.js (occupied-spaces trend chart, vendored at
-    backend/dashboard/static/vendor/, byte-identical copy of the file
-    already vendored in 01-smart-agriculture) - https://www.chartjs.org
-  - LocalStack (local AWS emulation for SQS/DynamoDB/Lambda) -
-    https://www.localstack.cloud
-  - pytest (test suite) - https://pytest.org
-No framework (FastAPI/Flask/uvicorn/ASGI) is used anywhere in this
-project's application code -- every HTTP service is built on the Python
-standard library's wsgiref.simple_server module.
+- backend/processor: installs backend/processor/requirements.txt
+  (boto3==1.35.90).
+  Build: docker build -t spm-processor ./backend/processor
+
+- backend/dashboard: installs backend/dashboard/requirements.txt
+  (boto3==1.35.90).
+  Build: docker build -t spm-dashboard ./backend/dashboard
+
+To build every image at once via Compose:
+docker compose -f infra/docker-compose.yml build
+
+5. RUN INSTRUCTIONS
+
+From the project root:
+cd infra
+docker compose up --build
+
+This brings up the following (Compose project name: spm):
+
+- localstack - SQS, DynamoDB and Lambda emulation. Host port 4579 maps to
+  container port 4566.
+- fog - the fog aggregation node. Not published to the host; reachable at
+  http://fog:8000 from other containers on the Compose network.
+- processor - a one-shot container (restart: "no") that packages and
+  deploys backend/processor/handler.py as a real Lambda function inside
+  LocalStack and wires it to the SQS queue via an event source mapping.
+- dashboard - the dashboard API and static frontend. Host port 8093 maps
+  to container port 8000. Open http://localhost:8093 in a browser.
+- 10 sensor containers (sensor-occupied-a, sensor-occupied-b,
+  sensor-entry-a, sensor-entry-b, sensor-exit-a, sensor-exit-b,
+  sensor-dwell-a, sensor-dwell-b, sensor-gatefault-a,
+  sensor-gatefault-b) - no published ports; each posts simulated
+  readings to the fog node's /ingest endpoint.
+
+To stop the stack:
+docker compose down
+(add -v to also remove the LocalStack volume/state)
+
+6. AWS DEPLOYMENT STEPS
+
+No terraform/deployments/*.tfvars file exists yet for this project. Follow
+these steps to deploy it using the Terraform module in terraform/:
+
+1) Obtain AWS credentials for the target account and configure them:
+   aws configure
+   (enter the access key, secret key, and session token if using
+   temporary/session credentials)
+
+2) Confirm the credentials point at the intended account:
+   aws sts get-caller-identity
+
+3) From the repository root, create and switch to a dedicated Terraform
+   workspace for this project, so the apply cannot be planned against
+   different tracked state:
+   cd terraform
+   terraform workspace new spm
+   terraform workspace list
+   (confirm spm is marked as the current workspace)
+
+4) Create terraform/deployments/spm.tfvars, following the variable names
+   and structure of the other .tfvars files already in that directory
+   (use their FORMAT as a reference only, not their values), setting:
+   - prefix: spm
+   - project_root: ../projects/14-smart-parking-management
+   - table_name: spm-readings
+   - queue_name: spm-lot-agg
+   - processor_lambda_name: spm-processor
+   - processor_build_command: a command that installs
+     backend/processor/requirements.txt into a build directory, copies
+     handler.py and transform.py into it, and zips the result to
+     lambda.zip
+   - processor_zip_path: backend/processor/lambda.zip
+   - processor_handler: handler.lambda_handler
+   - processor_runtime: python3.12
+   - dashboard_lambda_name: spm-dashboard-api
+   - dashboard_build_command: a command that installs
+     backend/dashboard/requirements.txt into a build directory, copies the
+     dashboard's Lambda entry-point module and its supporting files into
+     it, and zips the result to lambda.zip. backend/dashboard/app.py
+     currently runs as a WSGI server, not an API-Gateway-shaped Lambda
+     handler -- write a Lambda entry point that maps API Gateway
+     proxy-integration events onto the existing data_access.py/status.py/
+     thresholds_proxy.py logic before this step.
+   - dashboard_zip_path: backend/dashboard/lambda.zip
+   - dashboard_handler: the module.function path of that new Lambda entry
+     point
+   - dashboard_runtime: python3.12
+   - frontend_local_dir: backend/dashboard/static
+   - api_base_placeholder: a placeholder token to substitute the deployed
+     API Gateway URL into at upload time (add it to
+     static/index.html or static/dashboard.js wherever the frontend reads
+     its API base -- neither file currently defines one)
+   - api_base_search_files: the file(s) containing that placeholder
+
+5) Build and apply:
+   cd terraform
+   ./build.sh deployments/spm.tfvars
+   terraform apply -var-file=deployments/spm.tfvars
+   Read the "Plan: N to add, 0 to change, 0 to destroy" line before
+   confirming; do not proceed if the destroy count is nonzero.
+
+6) After the apply completes, switch back to the default workspace:
+   terraform workspace select default
+
+7. TESTING INSTRUCTIONS
+
+From the project root, with requirements-dev.txt installed (see
+Installation Steps):
+pytest
+(pytest.ini sets testpaths=tests, so this is equivalent to
+python -m pytest tests/ -q)
+
+127 tests pass across 13 test files:
+- tests/test_aggregation.py: 5
+- tests/test_alerts.py: 10
+- tests/test_buffering.py: 9
+- tests/test_dashboard_http.py: 10
+- tests/test_data_access.py: 13
+- tests/test_fog_http.py: 13
+- tests/test_handler.py: 3
+- tests/test_publisher.py: 10
+- tests/test_sensor.py: 22
+- tests/test_status.py: 6
+- tests/test_thresholds_proxy.py: 2
+- tests/test_transform.py: 7
+- tests/test_validation.py: 17
+
+To run a single test file:
+pytest tests/test_aggregation.py -q
