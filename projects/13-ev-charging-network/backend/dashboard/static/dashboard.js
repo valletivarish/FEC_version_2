@@ -1,5 +1,15 @@
 const POLL_INTERVAL_MS = 2500;
 
+// API origin is read from a hidden anchor's href, substituted with the real
+// API Gateway origin at S3 upload time. Left as the literal placeholder in
+// local development, where Flask serves the API from the same origin, so a
+// relative "" base keeps those same-origin fetches working unchanged.
+const API_BASE = (() => {
+  const el = document.getElementById("api-base");
+  const href = el ? el.getAttribute("href") : "";
+  return href && !href.startsWith("__API_BASE__") ? href.replace(/\/$/, "") : "";
+})();
+
 const SENSOR_META = {
   charging_current_a: { label: "Charging Current", lo: 0, hi: 50 },
   battery_soc_pct: { label: "Battery SoC", lo: 0, hi: 100 },
@@ -79,13 +89,13 @@ function renderHubCard(hub) {
 }
 
 async function refreshHubs() {
-  const resp = await fetch("/api/hubs");
+  const resp = await fetch(API_BASE + "/api/hubs");
   const body = await resp.json();
   document.getElementById("hub-grid").innerHTML = body.hubs.map(renderHubCard).join("");
 }
 
 async function refreshHealth() {
-  const resp = await fetch("/api/health");
+  const resp = await fetch(API_BASE + "/api/health");
   const body = await resp.json();
   setDot("dot-gateway", !!body.gateway);
   setDot("dot-queue", !!body.queue);
@@ -98,7 +108,7 @@ async function refreshHealth() {
 }
 
 async function refreshBackendStats() {
-  const resp = await fetch("/api/backend-stats");
+  const resp = await fetch(API_BASE + "/api/backend-stats");
   const body = await resp.json();
   const queue = body.queue;
   document.getElementById("stat-queue-waiting").textContent =
@@ -112,7 +122,7 @@ let rulesLoaded = false;
 async function loadRulesOnce() {
   if (rulesLoaded) return;
   try {
-    const resp = await fetch("/api/thresholds");
+    const resp = await fetch(API_BASE + "/api/thresholds");
     const rules = await resp.json();
     const groups = Object.entries(rules).map(([sensorType, ruleList]) => {
       const lines = ruleList.map((rule) => `<p class="rule-line">${rule.field} ${rule.op} ${rule.limit} &rarr; ${rule.key}</p>`).join("");
@@ -128,8 +138,8 @@ async function loadRulesOnce() {
 let trendChart = null;
 async function refreshTrendChart() {
   const [hub1, hub2] = await Promise.all([
-    fetch("/api/readings?sensor_type=grid_load_kw&site_id=hub-1&limit=20").then((r) => r.json()),
-    fetch("/api/readings?sensor_type=grid_load_kw&site_id=hub-2&limit=20").then((r) => r.json()),
+    fetch(API_BASE + "/api/readings?sensor_type=grid_load_kw&site_id=hub-1&limit=20").then((r) => r.json()),
+    fetch(API_BASE + "/api/readings?sensor_type=grid_load_kw&site_id=hub-2&limit=20").then((r) => r.json()),
   ]);
 
   const labels = hub1.items.map((item) => new Date(item.window_end).toLocaleTimeString());

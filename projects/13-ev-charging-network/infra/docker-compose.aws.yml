@@ -1,0 +1,119 @@
+# Real-AWS compose: the fog node and ten sensor containers only. No
+# LocalStack, no processor and no dashboard (those run as Lambda functions
+# provisioned by Terraform). The fog node publishes to the real SQS queue
+# using the EC2 instance profile through boto3's default credential chain,
+# so no endpoint override and no static credentials are set here. Port 8000
+# is published so the dashboard Lambda can reach the fog health and
+# thresholds endpoints over the instance's Elastic IP.
+name: ecn-aws
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  fog:
+    build:
+      context: ../fog
+    environment:
+      AWS_REGION: us-east-1
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: ecn-hub-agg
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  sensor-current-h1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: charging_current_a
+      SITE_ID: hub-1
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  sensor-current-h2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: charging_current_a
+      SITE_ID: hub-2
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-soc-h1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: battery_soc_pct
+      SITE_ID: hub-1
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-soc-h2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: battery_soc_pct
+      SITE_ID: hub-2
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  sensor-temp-h1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: station_temp_c
+      SITE_ID: hub-1
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-temp-h2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: station_temp_c
+      SITE_ID: hub-2
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-gridload-h1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: grid_load_kw
+      SITE_ID: hub-1
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "12"
+
+  sensor-gridload-h2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: grid_load_kw
+      SITE_ID: hub-2
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "13"
+
+  sensor-session-h1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: session_duration_min
+      SITE_ID: hub-1
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "15"
+
+  sensor-session-h2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: session_duration_min
+      SITE_ID: hub-2
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "16"
