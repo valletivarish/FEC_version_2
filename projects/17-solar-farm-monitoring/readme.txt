@@ -127,12 +127,11 @@ From the repository root:
 2. Confirm the credentials resolve to the intended account:
    aws sts get-caller-identity
 
-3. Create terraform/deployments/sfm.tfvars. Follow the key layout already
-   used by the other files in that directory (prefix, project_root,
-   table_name, queue_name, then a processor_* block and a dashboard_* block
-   each carrying a lambda name/build_command/zip_path/handler/runtime, then
-   frontend_local_dir, api_base_placeholder, api_base_search_files) --
-   reference those files for the FORMAT only, not their content. Values
+3. Create terraform/deployments/sfm.tfvars with these keys: prefix,
+   project_root, table_name, queue_name, then a processor_* block and a
+   dashboard_* block each carrying a lambda name/build_command/zip_path/
+   handler/runtime, then frontend_local_dir, api_base_placeholder,
+   api_base_search_files. Values
    already fixed by this project's own code:
      prefix                = "sfm"
      project_root           = "../projects/17-solar-farm-monitoring"

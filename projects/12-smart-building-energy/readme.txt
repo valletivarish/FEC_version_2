@@ -151,10 +151,9 @@ one before deploying.
      Gateway), add an API base configuration mechanism to
      backend/dashboard/static/index.html and dashboard.js.
 
-  4. Create terraform/deployments/sbe.tfvars, following the same field
-     structure used by the other files in that directory (field names
-     shown below; fill in values matching this project's real files and
-     handler names once step 2's handler exists):
+  4. Create terraform/deployments/sbe.tfvars (field names shown below;
+     fill in values matching this project's real files and handler names
+     once step 2's handler exists):
        prefix                   = "sbe"
        project_root             = "../projects/12-smart-building-energy"
        table_name                = "sbe-readings"

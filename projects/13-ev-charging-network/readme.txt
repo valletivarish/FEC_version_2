@@ -98,8 +98,7 @@ repository root:
 1. Configure AWS credentials for the target account, then confirm them:
      aws sts get-caller-identity
 
-2. Create terraform/deployments/ecn.tfvars, using the same key/value
-   layout as the other .tfvars files already in that directory: prefix,
+2. Create terraform/deployments/ecn.tfvars with these keys: prefix,
    project_root, table_name, queue_name, processor_lambda_name,
    processor_build_command, processor_zip_path, processor_handler,
    processor_runtime, dashboard_lambda_name, dashboard_build_command,

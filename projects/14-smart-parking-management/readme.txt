@@ -151,9 +151,7 @@ these steps to deploy it using the Terraform module in terraform/:
    terraform workspace list
    (confirm spm is marked as the current workspace)
 
-4) Create terraform/deployments/spm.tfvars, following the variable names
-   and structure of the other .tfvars files already in that directory
-   (use their FORMAT as a reference only, not their values), setting:
+4) Create terraform/deployments/spm.tfvars, setting:
    - prefix: spm
    - project_root: ../projects/14-smart-parking-management
    - table_name: spm-readings

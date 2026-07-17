@@ -123,9 +123,8 @@ AWS DEPLOYMENT STEPS
 -----------------------
 No terraform/deployments/*.tfvars file exists yet for this project.
 Before deploying, create one (for example
-terraform/deployments/fei.tfvars) following the structure of the other
-files already in terraform/deployments/ -- use those files as a format
-reference only, not as values to copy. The file needs:
+terraform/deployments/fei.tfvars) with this project's own values. The
+file needs:
   - prefix              a short resource-name prefix (this project's own
                         code and docker-compose.yml already use "fei" for
                         its queue/table names, so reusing "fei" here

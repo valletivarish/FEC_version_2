@@ -127,9 +127,7 @@ following these steps:
      chain is used instead of the LocalStack override. Publish the fog
      container's port 8000.
 
-  3. Create terraform/deployments/rfi.tfvars, using the field layout of
-     the other files in terraform/deployments/ as a format reference
-     only (do not copy their values). The fields required by
+  3. Create terraform/deployments/rfi.tfvars. The fields required by
      terraform/variables.tf, with the real values known for this
      project, are:
        prefix                  = "rfi"

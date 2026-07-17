@@ -146,11 +146,11 @@ AWS DEPLOYMENT STEPS
 -----------------------
 This project is deployed using the Terraform module in
 terraform/ at the repository root. No terraform/deployments/ska.tfvars
-file exists yet -- create one first, following the field structure used
-by the other files in that directory (prefix, project_root, table_name,
-queue_name, processor_lambda_name/build_command/zip_path/handler/runtime,
+file exists yet -- create one first, with these fields: prefix,
+project_root, table_name, queue_name,
+processor_lambda_name/build_command/zip_path/handler/runtime,
 dashboard_lambda_name/build_command/zip_path/handler/runtime,
-frontend_local_dir, api_base_placeholder, api_base_search_files).
+frontend_local_dir, api_base_placeholder, api_base_search_files.
 
 1. Configure AWS CLI credentials for the target AWS account (access key,
    secret key, session token for an AWS Academy Learner Lab session):
