@@ -51,10 +51,7 @@ test("persistWindowBatch returns 0 for an empty record list without calling send
 });
 
 test("handler.exports.handler processes event.Records via the injected document client shape", async () => {
-  // handler.handler builds its own readingsWriterClient() lazily from env vars, so
-  // this only exercises that it tolerates an empty Records array without
-  // reaching out to AWS at all (no AWS_ENDPOINT_URL/AWS_ACCESS_KEY_ID set in
-  // the test environment).
+  // Empty Records means no AWS calls, so the lazily-built client is never exercised.
   const result = await handler({ Records: [] });
   assert.deepEqual(result, { written: 0 });
 });

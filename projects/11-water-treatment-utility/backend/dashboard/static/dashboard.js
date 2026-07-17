@@ -1,11 +1,7 @@
 const READING_KEYS = ["turbidity_ntu", "ph_level", "chlorine_ppm", "flow_rate_lps", "pressure_bar"];
 const PLANT_IDS = ["plant-1", "plant-2"];
 
-// API origin is carried as a query parameter on this script's own src
-// (?apiBase=...), substituted with the real API Gateway origin at S3 upload
-// time. In local development the placeholder is left untouched and the empty
-// base keeps same-origin fetches working, since the dashboard is served from
-// the same host as its API there.
+// API origin is the ?apiBase= param on this script's src, sed-substituted at S3 upload time; empty base = same-origin (local dev).
 const apiOrigin = (() => {
   const el = document.getElementById("dashboard-script") || document.currentScript;
   try {
@@ -24,9 +20,6 @@ const READING_TITLES = {
   pressure_bar: "Pressure",
 };
 
-// Alert display text is a small local map -- the frontend does not call
-// /api/thresholds directly (that proxy exists for API completeness and is
-// covered by its own backend test; see readme.txt).
 const FAULT_TITLES = {
   turbidity_alert: "Turbidity alert",
   under_chlorination: "Under-chlorination",
@@ -37,8 +30,7 @@ const FAULT_TITLES = {
 const SERIES_COLOURS = { "plant-1": "#1c6ea4", "plant-2": "#b3402b" };
 const seriesCharts = {};
 
-// Axis bounds -- the range each reading's <meter> is drawn against, not a
-// decision threshold. Real alert thresholds come from fog/alerts.js.
+// <meter> display range only, not alert thresholds (those live in fog/alerts.js).
 const METER_BOUNDS = {
   turbidity_ntu: { lo: 0, hi: 15 },
   ph_level: { lo: 5.5, hi: 9 },
@@ -65,8 +57,6 @@ function plantCell(sensorType, metric) {
   </td>`;
 }
 
-// Rows = readings, columns = plants, so each row lets you compare the same
-// reading across both plants at a glance.
 function paintReadingsGrid(plants) {
   const bySite = Object.fromEntries(plants.map((p) => [p.site_id, p]));
   const body = document.getElementById("matrix-body");

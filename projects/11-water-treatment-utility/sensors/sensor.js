@@ -2,7 +2,6 @@
 
 const { PLANT_SENSOR_SPECS, advanceReading } = require("./profiles");
 
-// Dispatch is opportunistic/event-loop-driven rather than timer-driven -- a recursive setImmediate loop only sends when the outbox is non-empty and Date.now() - lastDispatch >= dispatchIntervalMs, the 4th distinct scheduling idiom in this portfolio (vs 03's single setInterval, 06's polled "rig" object, 10's two setTimeout loops).
 function createSamplerState(sensorType, siteId, profile, dispatchIntervalMs) {
   return {
     sensorType,
@@ -24,10 +23,6 @@ function beginSampling(sampler, sampleIntervalMs) {
   return sampler.sampleTimer;
 }
 
-// One check-and-maybe-drain step. Kept separate from the recursive loop
-// below so tests can call it directly against a controlled state object
-// instead of racing real timers. Uses Array.prototype.shift() to drain the
-// outbox in strict arrival order.
 async function flushOutboxOnce(sampler, dispatch) {
   const dispatchDue = sampler.outbox.length > 0 && Date.now() - sampler.lastDispatch >= sampler.dispatchIntervalMs;
   if (!dispatchDue) return false;
@@ -40,16 +35,12 @@ async function flushOutboxOnce(sampler, dispatch) {
     sampler.lastDispatch = Date.now();
     return true;
   } catch (err) {
-    // Put the undelivered batch back in front of anything sampled while the
-    // dispatch attempt was in flight, preserving arrival order.
+    // Requeue the undelivered batch ahead of newer samples to keep arrival order.
     sampler.outbox = drainedReadings.concat(sampler.outbox);
     throw err;
   }
 }
 
-// The perpetual opportunistic loop: reschedule via setImmediate forever,
-// only ever doing real work when flushOutboxOnce() decides it is due. Returns a
-// stop function so callers (and tests) can halt it cleanly.
 function beginDispatchLoop(sampler, dispatch, onError) {
   let halted = false;
 

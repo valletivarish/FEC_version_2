@@ -4,10 +4,6 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { buildRouteTable } = require("./router");
 
-// All of these tests exercise dispatch() directly against plain method +
-// pathname strings -- no http.createServer, no real socket, no fetch --
-// proving the routing table logic is independently testable.
-
 test("dispatch matches a route by method and exact pathname", () => {
   const router = buildRouteTable();
   const handler = () => "health-handler";

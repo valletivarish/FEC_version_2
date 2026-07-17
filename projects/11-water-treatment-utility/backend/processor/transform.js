@@ -1,9 +1,6 @@
 "use strict";
 
-// sort_key = window_end#site_id prevents plant-1 and plant-2 readings for
-// the same sensor_type in the same flush cycle from colliding on the
-// DynamoDB primary key (sensor_type is the partition key, sort_key the
-// range key).
+// window_end#site_id keeps same-sensor readings from different plants from colliding on the shared partition key.
 function composePlantRangeKey(windowEnd, plantId) {
   return `${windowEnd}#${plantId}`;
 }

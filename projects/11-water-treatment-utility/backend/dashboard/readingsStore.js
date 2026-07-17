@@ -20,12 +20,7 @@ function blankPlantRecord(siteId) {
   return { site_id: siteId, metrics: {}, alerts: [], compliant: true };
 }
 
-// Builds the per-plant grouping endpoint: one entry per treatment plant,
-// each carrying the latest window for all 5 sensor types plus a plain
-// `compliant` boolean -- true only when none of that plant's latest windows
-// currently carry an alert. This is computed on read, directly from the
-// same latest-window items already fetched for the metrics themselves; it
-// is never stored in DynamoDB as its own attribute.
+// `compliant` is derived on read (no alerts in the latest windows), never stored.
 async function assemblePlantSummaries(doc, tableName) {
   const plants = new Map(PLANT_IDS.map((id) => [id, blankPlantRecord(id)]));
 

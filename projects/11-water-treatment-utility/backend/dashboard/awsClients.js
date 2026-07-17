@@ -7,11 +7,7 @@ const { LambdaClient } = require("@aws-sdk/client-lambda");
 
 function sdkConnectionSettings() {
   const settings = { region: process.env.AWS_REGION || "eu-west-1" };
-  // AWS_ENDPOINT_URL is only ever set by the LocalStack profile, so it is
-  // the signal for static emulator credentials. Real Lambda always injects
-  // AWS_ACCESS_KEY_ID for its own execution-role credentials, so gating on
-  // that variable instead would rebuild an incomplete static credential
-  // object (missing the role's session token) and break real authentication.
+  // Gate on AWS_ENDPOINT_URL (LocalStack-only), not AWS_ACCESS_KEY_ID, which real Lambda also injects.
   if (process.env.AWS_ENDPOINT_URL) {
     settings.endpoint = process.env.AWS_ENDPOINT_URL;
     settings.credentials = {

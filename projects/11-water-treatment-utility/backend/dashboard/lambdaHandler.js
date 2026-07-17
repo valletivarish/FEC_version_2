@@ -1,12 +1,5 @@
 "use strict";
 
-// AWS Lambda entry point for the dashboard behind an API Gateway REST API.
-// Dispatch is a single switch(true) statement whose cases are compound
-// method-and-path boolean expressions. It reuses the same data functions the
-// local HTTP server (server.js) calls, so both front doors serve identical
-// responses from one set of query logic, with a wildcard cross-origin header on
-// every response so the S3-hosted frontend can call it cross-origin.
-
 const { openAwsClients } = require("./awsClients");
 const {
   PLANT_SENSOR_TYPES,
@@ -37,14 +30,9 @@ const CORS = {
   "Access-Control-Allow-Headers": "*",
 };
 
-// Clients and derived deps are built once per container and reused across
-// invocations. A pre-built clients object may be injected for unit tests.
 let cachedDeps = null;
 function resolveDeps(injected) {
-  // Only a unit-test clients object (shaped {doc,sqs,lambda}) counts as injection.
-  // AWS Lambda invokes the handler as (event, context, callback), so the third
-  // arg is the runtime callback in production -- guard on the client shape so
-  // that callback is never mistaken for injected clients.
+  // Guard on client shape: Lambda's real 3rd arg is the callback, not injected clients.
   if (injected && injected.doc) return depsFromClients(injected);
   if (!cachedDeps) cachedDeps = depsFromClients(openAwsClients());
   return cachedDeps;
@@ -62,7 +50,6 @@ function depsFromClients(clients) {
   };
 }
 
-// Each endpoint returns a plain {status, body}; the caller renders it.
 async function readingsQuery(d, query) {
   const sensorType = query.sensor_type;
   const limit = parseInt(query.limit || "60", 10);

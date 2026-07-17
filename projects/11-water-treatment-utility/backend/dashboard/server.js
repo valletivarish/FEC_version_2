@@ -45,11 +45,6 @@ function streamStaticFile(res, filePath, contentType) {
   });
 }
 
-// Static assets are served by resolving the request path under STATIC_ROOT
-// and rejecting anything that escapes it, kept as a fallback outside the
-// declarative route table below (a wildcard-per-file-extension entry in the
-// table would be more awkward than useful here) rather than pulling in a
-// static-file middleware package.
 function attemptStaticServe(req, res, pathname) {
   const relativePath = pathname === "/" ? "index.html" : pathname.replace(/^\/static\//, "").replace(/^\//, "");
   const resolvedPath = path.join(STATIC_ROOT, relativePath);
@@ -85,9 +80,6 @@ async function serveReadings(url, deps, res) {
   writeJson(res, 200, { sensor_type: sensorType, items });
 }
 
-// Project-specific per-site grouping endpoint: GET /api/plants lists both
-// treatment plants, GET /api/plants/:plantId (path parameter captured by
-// the router below) returns just one.
 async function servePlants(deps, res) {
   writeJson(res, 200, { plants: await assemblePlantSummaries(deps.doc, deps.tableName) });
 }
@@ -138,8 +130,6 @@ function wireRoutes(deps) {
   return router;
 }
 
-// Every request passes through this outer try/catch, translating any
-// uncaught exception into a structured 500 rather than a killed request.
 function makeRequestListener(router) {
   return async function onRequest(req, res) {
     try {

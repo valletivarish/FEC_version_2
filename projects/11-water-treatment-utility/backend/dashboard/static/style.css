@@ -1,8 +1,4 @@
-/* Water Treatment Utility Monitor -- light engineering/blueprint theme.
-   Primary view is a compact matrix table (rows = readings, columns =
-   plants) with a native <meter> per cell against that reading's configured
-   range, styled with thin blue linework rather than any hand-illustrated
-   diagram, using standard/native building blocks only. */
+/* Water Treatment Utility Monitor -- light engineering/blueprint theme. */
 
 :root {
   --bg: #eef4f9;
@@ -66,10 +62,6 @@ body {
 }
 .brand-sub { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-dim); }
 
-/* Pipeline health as a connected left-to-right flow track (Gateway -> Queue ->
-   Lambda -> Pipeline): each stage is a boxed node with a square status LED and a
-   status underline, joined by short connector lines. A deliberately distinct
-   readout from the round-dot pill strips used on the other dashboards. */
 .health-strip { display: flex; align-items: center; gap: 0; flex-wrap: wrap; }
 .flow-node {
   display: inline-flex;
@@ -235,10 +227,7 @@ meter.cell-meter.danger { accent-color: var(--alert); }
 @media (max-width: 480px) {
   .topbar { padding: 16px 18px; }
   .content { padding: 14px; gap: 22px; }
-  /* Below ~480px the matrix table shrinks to fit both plant columns in the
-     viewport at once (min-width dropped) rather than relying solely on the
-     wrapper's horizontal scroll -- both readings stay visible side by side
-     even on a 375px-wide phone. */
+  /* Drop min-width so both plant columns fit a phone viewport instead of scrolling. */
   table.matrix-table { min-width: 0; }
   table.matrix-table th, table.matrix-table td { padding: 8px 6px; }
   table.matrix-table th.row-head-col, table.matrix-table td:first-child { width: 32%; }

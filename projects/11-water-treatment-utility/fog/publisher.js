@@ -2,7 +2,6 @@
 
 const { SQSClient, GetQueueUrlCommand, SendMessageCommand, SendMessageBatchCommand } = require("@aws-sdk/client-sqs");
 
-// Module export is itself a single Object.freeze()'d gateway object (not a class instance, closure-factory, or param-passed stateless function) with a live `queueEndpoint` getter over closed-over private state -- the 4th distinct fog-publisher idiom in this portfolio.
 let _sqsClient = null;
 let _urlLookup = null;
 let _cachedQueueUrl = null;
@@ -10,12 +9,7 @@ let _cachedQueueUrl = null;
 const MAX_BATCH_ENTRIES = 10;
 
 function openGateway(endpoint, region) {
-  // The static test/test pair is a LocalStack convention, so it only
-  // applies when an explicit emulator endpoint is configured. Outside
-  // LocalStack (a real EC2/Lambda deployment) endpoint is undefined and the
-  // SDK's default credential chain supplies real credentials instead --
-  // building the static provider unconditionally would misauthenticate
-  // every real SQS call.
+  // Static test/test creds only for LocalStack; real deployments use the SDK default chain.
   const config = { region };
   if (endpoint) {
     config.endpoint = endpoint;
@@ -27,8 +21,6 @@ function openGateway(endpoint, region) {
   return plantQueueGateway;
 }
 
-// Test seam: inject a hand-written fake client ({ send: async (cmd) => ... })
-// instead of a real SQSClient.
 function attachClient(client) {
   _sqsClient = client;
   _urlLookup = null;
@@ -65,9 +57,7 @@ async function sendOne(queueName, payload, retries, delayMs) {
   await _sqsClient.send(new SendMessageCommand({ QueueUrl: queueUrl, MessageBody: JSON.stringify(payload) }));
 }
 
-// SendMessageBatch accepts at most ten entries per call, so a whole flush
-// window's aggregates go out in ceil(n/10) batch calls instead of one
-// SendMessage per aggregate. Returns the number of batch calls made.
+// SendMessageBatch caps at ten entries per call; returns the number of batch calls made.
 async function sendWindow(queueName, payloads, retries, delayMs) {
   if (!_sqsClient) throw new Error("publisher gateway not configured -- call openGateway() or attachClient() first");
   if (!payloads.length) return 0;
@@ -84,8 +74,6 @@ async function sendWindow(queueName, payloads, retries, delayMs) {
   return calls;
 }
 
-// Test seam: drop the cached client/queue-url so each test file starts from
-// a clean slate.
 function clearGateway() {
   _sqsClient = null;
   _urlLookup = null;
@@ -98,10 +86,7 @@ const plantQueueGateway = Object.freeze({
   sendOne,
   sendWindow,
   clearGateway,
-  // Deliberately a getter rather than a stored value: freezing this object
-  // locks its property descriptors, not the value a getter computes, so
-  // reads always reflect the current private cache above (null until the
-  // first successful queue-url lookup resolves).
+  // A getter, so a frozen object still reflects the current cached value.
   get queueEndpoint() {
     return _cachedQueueUrl;
   },

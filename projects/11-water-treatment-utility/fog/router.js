@@ -1,6 +1,5 @@
 "use strict";
 
-// Declarative [method, regex, handler] table matched via RegExp.exec() for capture-group path params -- the fourth distinct dispatch mechanism in this portfolio, unlike 10-wildfire-forest-monitoring's hand-written if/else chain.
 function buildRouteTable() {
   const routeList = [];
 

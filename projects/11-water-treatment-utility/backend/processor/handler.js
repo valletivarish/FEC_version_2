@@ -10,11 +10,7 @@ let cachedWriterClient;
 function readingsWriterClient() {
   if (cachedWriterClient) return cachedWriterClient;
   const clientOptions = { region: process.env.AWS_REGION || "eu-west-1" };
-  // Gate on AWS_ENDPOINT_URL (LocalStack-only), not AWS_ACCESS_KEY_ID: real
-  // Lambda always sets AWS_ACCESS_KEY_ID for its own execution-role
-  // credentials, so gating on its presence would rebuild a static
-  // credential object missing the role's session token and break real
-  // DynamoDB authentication.
+  // Gate on AWS_ENDPOINT_URL, not AWS_ACCESS_KEY_ID: Lambda always sets the latter, so gating on it would drop the role's session token.
   if (process.env.AWS_ENDPOINT_URL) {
     clientOptions.endpoint = process.env.AWS_ENDPOINT_URL;
     clientOptions.credentials = {
@@ -35,8 +31,6 @@ async function persistWindowBatch(windows, doc, tableName) {
   return storedCount;
 }
 
-// SQS event-source-mapping invokes this per batch of messages; each record
-// is one aggregated window from the fog gateway.
 exports.handler = async (event) => {
   const storedCount = await persistWindowBatch(event.Records || [], readingsWriterClient(), TABLE_NAME);
   return { written: storedCount };

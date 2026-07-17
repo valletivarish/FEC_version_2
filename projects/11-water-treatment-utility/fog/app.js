@@ -99,9 +99,6 @@ function wireRoutes(ledger) {
   return router;
 }
 
-// Every request passes through this outer try/catch: a validation problem
-// is already turned into a 400 inside ingestReadings, so anything reaching
-// this boundary is a genuine unexpected failure and is reported as a 500.
 function wrapHandler(router) {
   return async function respond(req, res) {
     try {
@@ -121,9 +118,6 @@ function finalizeGroup(group, windowStart, windowEnd) {
   return summary;
 }
 
-// Two-phase flush: drain the flat ledger, group by (sensor_type, site_id)
-// only now, then seal each group into a window summary. See ledger.js for
-// why grouping/aggregation is deferred to exactly this call.
 function harvestWindow(ledger, windowStart, windowEnd) {
   const entries = flushBuffer(ledger);
   const groups = clusterByPlantSensor(entries);

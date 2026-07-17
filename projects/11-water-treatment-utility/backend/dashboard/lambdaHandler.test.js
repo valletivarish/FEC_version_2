@@ -3,8 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-// Point the fog health/thresholds URLs at a closed local port so the health
-// check fails fast (gateway:false) instead of hanging on DNS for "fog".
+// Closed local port so the gateway health check fails fast instead of hanging on DNS for "fog".
 process.env.FOG_HEALTH_URL = "http://127.0.0.1:1/health";
 process.env.FOG_THRESHOLDS_URL = "http://127.0.0.1:1/thresholds";
 

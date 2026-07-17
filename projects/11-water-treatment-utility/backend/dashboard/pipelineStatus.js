@@ -41,10 +41,7 @@ async function sampleQueueDepth(sqs, queueName) {
   }
 }
 
-// A single Scan(Select=COUNT) call only reports the count for one ~1MB page,
-// so a table past that size would be silently undercounted. Follow
-// LastEvaluatedKey until DynamoDB stops returning one, summing Count across
-// every page.
+// Scan COUNT only counts one ~1MB page, so page through LastEvaluatedKey to avoid undercounting.
 async function tallyStoredReadings(doc, tableName) {
   let total = 0;
   let lastKey;

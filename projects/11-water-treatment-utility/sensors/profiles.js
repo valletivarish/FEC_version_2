@@ -1,10 +1,6 @@
 "use strict";
 
-// Random-walk profile per sensor type: a start value plus a per-tick swing
-// bounded to [lo, hi]. Hydraulic readings (flow, pressure) are given larger
-// step sizes than the chemistry readings (pH, chlorine) because a plant's
-// flow/pressure genuinely swings faster tick-to-tick (pumps cycling, demand
-// changes) than water chemistry, which drifts slowly by comparison.
+// Hydraulic readings (flow, pressure) use larger step sizes than chemistry because they swing faster tick-to-tick.
 const PLANT_SENSOR_SPECS = {
   turbidity_ntu: { unit: "NTU", lo: 0, hi: 15, start: 1.5, step: 0.4 },
   ph_level: { unit: "pH", lo: 5.5, hi: 9, start: 7.0, step: 0.15 },
