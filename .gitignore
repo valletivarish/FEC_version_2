@@ -23,3 +23,11 @@ test-results/
 test-results.xml
 junit.xml
 npm-debug.log*
+
+# latex build artifacts (transient; the report.zip + .tex/.bib are the deliverables)
+documents/**/*.aux
+documents/**/*.bbl
+documents/**/*.blg
+documents/**/*.log
+documents/**/*.out
+documents/**/*.pdf
