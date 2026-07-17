@@ -116,9 +116,9 @@ Stop and remove the stack:
 
 AWS DEPLOYMENT STEPS
 ----------------------
-This project deploys via the Terraform module in terraform/. The resource
-naming prefix is "bam" (used in infra/docker-compose.yml and the backend
-code -- bam-readings, bam-apiary-agg, bam-processor).
+This project deploys via the Terraform module in the repo root's terraform/
+directory, using terraform/deployments/bam.tfvars. The resource naming prefix
+is "bam" (bam-readings, bam-apiary-agg, bam-processor, bam-dashboard-api).
 
 1. Configure AWS credentials for the target account:
      aws configure
@@ -126,33 +126,19 @@ code -- bam-readings, bam-apiary-agg, bam-processor).
    temporary credentials)
 2. Confirm you are targeting the correct account:
      aws sts get-caller-identity
-3. Create terraform/deployments/bam.tfvars defining the variables.
-   The file needs:
-     prefix
-     project_root
-     table_name
-     queue_name
-     processor_lambda_name, processor_build_command, processor_zip_path,
-       processor_handler, processor_runtime
-     dashboard_lambda_name, dashboard_build_command, dashboard_zip_path,
-       dashboard_handler, dashboard_runtime
-     frontend_local_dir, api_base_placeholder, api_base_search_files
-   The Terraform module's ec2_compose_file variable defaults to
-   "docker-compose.aws.yml" under infra/, which does not currently exist in
-   the infra/ directory -- either add that file (fog node and
-   sensor containers only, no LocalStack) or set ec2_compose_file in the
-   tfvars to point at a compose file that does exist.
-4. From the terraform/ directory, create and switch to a dedicated workspace
+3. From the terraform/ directory, create and switch to a dedicated workspace
    before ever applying:
+     cd terraform
      terraform workspace new bam
      terraform workspace list
-5. Build the Lambda deployment artifacts and the sensors/fog/infra source
+4. Build the Lambda deployment artifacts and the sensors/fog/infra source
    tarball:
      ./build.sh deployments/bam.tfvars
-6. Review the plan, then apply:
+5. Review the plan and confirm it only adds resources (0 to destroy), then
+   apply:
      terraform plan -var-file=deployments/bam.tfvars
      terraform apply -var-file=deployments/bam.tfvars
-7. After the apply completes, switch back to the default workspace:
+6. After the apply completes, switch back to the default workspace:
      terraform workspace select default
 
 TESTING INSTRUCTIONS
@@ -162,9 +148,9 @@ built-in test runner (node --test):
   cd sensors && npm install && npm test               (14 tests)
   cd fog && npm install && npm test                    (64 tests)
   cd backend/processor && npm install && npm test      (12 tests)
-  cd backend/dashboard && npm install && npm test      (43 tests)
+  cd backend/dashboard && npm install && npm test      (48 tests)
 
-Total: 133 tests, all passing (verified by running each suite directly).
+Total: 138 tests, all passing (verified by running each suite directly).
 
 Without a local Node.js install, run any module's tests in a container, for
 example:
