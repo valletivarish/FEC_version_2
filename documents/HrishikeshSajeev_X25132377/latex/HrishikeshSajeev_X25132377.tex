@@ -117,7 +117,7 @@ Jackson handles JSON throughout: parsing ingest payloads, rendering the threshol
 
 Each Maven module carries its own JUnit 5 test suite: 7 tests for sensors, 44 for the fog layer, 5 for the backend processor, and 26 for the dashboard, all currently passing. The gateway and router tests exercise the ingest endpoint and the reflection-driven route dispatch over a real Java HTTP server bound to an ephemeral port, not a unit test of validation logic in isolation. A 16-thread concurrent-ingest test proves the compare-and-swap retry loop never drops a reading under real contention. The thresholds-proxy tests cover both the success path and an unreachable-upstream path for the dashboard's fog-thresholds proxy.
 
-Two tests specifically target the defects described in the next subsection. Two of them assert that a four-page fake DynamoDB scan (400, 400, 400, and 87 items) sums to exactly 1287 through the paginated item count, not just the first page's count. Another asserts that a 23-message flush window batches into sends of size ten, ten, and three, not twenty-three individual single-message sends.
+Three tests specifically target the defects described in the next subsection. Two of them assert that a four-page fake DynamoDB scan (400, 400, 400, and 87 items) sums to exactly 1287 through the paginated item count, not just the first page's count. Another asserts that a 23-message flush window batches into sends of size ten, ten, and three, not twenty-three individual single-message sends.
 
 \subsection{Continuous Integration and Deployment}
 
