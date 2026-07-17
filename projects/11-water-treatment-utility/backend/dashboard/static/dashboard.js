@@ -1,6 +1,21 @@
 const SENSOR_TYPES = ["turbidity_ntu", "ph_level", "chlorine_ppm", "flow_rate_lps", "pressure_bar"];
 const SITE_IDS = ["plant-1", "plant-2"];
 
+// API origin is carried as a query parameter on this script's own src
+// (?apiBase=...), substituted with the real API Gateway origin at S3 upload
+// time. In local development the placeholder is left untouched and the empty
+// base keeps same-origin fetches working, since the dashboard is served from
+// the same host as its API there.
+const API_BASE = (() => {
+  const el = document.getElementById("dashboard-script") || document.currentScript;
+  try {
+    const v = new URL(el.src).searchParams.get("apiBase");
+    return v && !v.startsWith("__API_BASE__") ? v.replace(/\/$/, "") : "";
+  } catch {
+    return "";
+  }
+})();
+
 const METRIC_LABELS = {
   turbidity_ntu: "Turbidity",
   ph_level: "pH Level",
@@ -114,7 +129,7 @@ function renderBackendStats(backendStats) {
 }
 
 async function fetchTrend(sensorType) {
-  const res = await fetch(`/api/readings?sensor_type=${sensorType}&limit=20`);
+  const res = await fetch(`${API_BASE}/api/readings?sensor_type=${sensorType}&limit=20`);
   return res.json();
 }
 
@@ -175,9 +190,9 @@ function renderTrendGrid() {
 async function tick() {
   try {
     const [plantsResp, health, backendStats] = await Promise.all([
-      fetch("/api/plants").then((r) => r.json()),
-      fetch("/api/health").then((r) => r.json()),
-      fetch("/api/backend-stats").then((r) => r.json()),
+      fetch(`${API_BASE}/api/plants`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/health`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/backend-stats`).then((r) => r.json()),
     ]);
 
     const plants = plantsResp.plants || [];
