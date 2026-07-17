@@ -2,53 +2,53 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createRouter } = require("./router");
+const { makeApiaryRouter } = require("./router");
 
-test("route() stores the handler as a nested plain object, table[method][path]", () => {
-  const router = createRouter();
+test("pinExact stores the handler as a nested plain object, exactTable[method][path]", () => {
+  const router = makeApiaryRouter();
   const handler = () => "health-handler";
-  router.route("GET", "/api/health", handler);
-  assert.equal(router.table.GET["/api/health"], handler);
+  router.pinExact("GET", "/api/health", handler);
+  assert.equal(router.exactTable.GET["/api/health"], handler);
 });
 
-test("dispatch matches a route by exact method + pathname via O(1) object lookup", () => {
-  const router = createRouter();
+test("resolveRoute matches a route by exact method + pathname via O(1) object lookup", () => {
+  const router = makeApiaryRouter();
   const handler = () => "health-handler";
-  router.route("GET", "/api/health", handler);
+  router.pinExact("GET", "/api/health", handler);
 
-  const found = router.dispatch("GET", "/api/health");
+  const found = router.resolveRoute("GET", "/api/health");
   assert.ok(found);
   assert.equal(found.handler, handler);
   assert.equal(found.match, null);
 });
 
-test("dispatch returns null when the pathname matches but the method does not", () => {
-  const router = createRouter();
-  router.route("GET", "/api/readings", () => {});
-  assert.equal(router.dispatch("POST", "/api/readings"), null);
+test("resolveRoute returns null when the pathname matches but the method does not", () => {
+  const router = makeApiaryRouter();
+  router.pinExact("GET", "/api/readings", () => {});
+  assert.equal(router.resolveRoute("POST", "/api/readings"), null);
 });
 
-test("dispatch returns null for a pathname with no matching entry", () => {
-  const router = createRouter();
-  router.route("GET", "/api/health", () => {});
-  assert.equal(router.dispatch("GET", "/nope"), null);
+test("resolveRoute returns null for a pathname with no matching entry", () => {
+  const router = makeApiaryRouter();
+  router.pinExact("GET", "/api/health", () => {});
+  assert.equal(router.resolveRoute("GET", "/nope"), null);
 });
 
-test("routeParam falls back to a regex match only when the exact table misses", () => {
-  const router = createRouter();
-  router.route("GET", "/api/apiaries", () => "all-apiaries");
-  router.routeParam("GET", /^\/api\/apiaries\/([a-z0-9-]+)$/, () => "one-apiary");
+test("pinPattern falls back to a regex match only when the exact table misses", () => {
+  const router = makeApiaryRouter();
+  router.pinExact("GET", "/api/apiaries", () => "all-apiaries");
+  router.pinPattern("GET", /^\/api\/apiaries\/([a-z0-9-]+)$/, () => "one-apiary");
 
-  const allFound = router.dispatch("GET", "/api/apiaries");
+  const allFound = router.resolveRoute("GET", "/api/apiaries");
   assert.equal(allFound.handler(), "all-apiaries");
   assert.equal(allFound.match, null);
 
-  const oneFound = router.dispatch("GET", "/api/apiaries/apiary-a");
+  const oneFound = router.resolveRoute("GET", "/api/apiaries/apiary-a");
   assert.ok(oneFound);
   assert.equal(oneFound.match[1], "apiary-a");
 });
 
 test("an empty router matches nothing", () => {
-  const router = createRouter();
-  assert.equal(router.dispatch("GET", "/anything"), null);
+  const router = makeApiaryRouter();
+  assert.equal(router.resolveRoute("GET", "/anything"), null);
 });

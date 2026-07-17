@@ -2,20 +2,20 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const gateway = require("./publisher");
+const hiveGateway = require("./publisher");
 
-test.beforeEach(() => gateway.reset());
+test.beforeEach(() => hiveGateway.resetGateway());
 
-test("publishBatches is an async generator function", () => {
-  assert.equal(gateway.publishBatches.constructor.name, "AsyncGeneratorFunction");
+test("streamHiveSends is an async generator function", () => {
+  assert.equal(hiveGateway.streamHiveSends.constructor.name, "AsyncGeneratorFunction");
 });
 
-test("publishBatches throws when the publisher has not been configured", async () => {
-  const iterator = gateway.publishBatches("some-queue", [{ a: 1 }]);
+test("streamHiveSends throws when the publisher has not been configured", async () => {
+  const iterator = hiveGateway.streamHiveSends("some-queue", [{ a: 1 }]);
   await assert.rejects(() => iterator.next());
 });
 
-test("publishBatches yields one result per payload, in order, via for-await", async () => {
+test("streamHiveSends yields one result per payload, in order, via for-await", async () => {
   const sent = [];
   const client = {
     send: async (command) => {
@@ -24,11 +24,11 @@ test("publishBatches yields one result per payload, in order, via for-await", as
       return {};
     },
   };
-  gateway.useClient(client);
+  hiveGateway.injectClient(client);
 
   const payloads = [{ sensor_type: "hive_weight_kg", avg: 35 }, { sensor_type: "internal_hive_temp_c", avg: 34 }];
   const results = [];
-  for await (const result of gateway.publishBatches("bam-apiary-agg", payloads, 3, 0)) {
+  for await (const result of hiveGateway.streamHiveSends("bam-apiary-agg", payloads, 3, 0)) {
     results.push(result);
   }
   assert.equal(results.length, 2);
@@ -36,7 +36,7 @@ test("publishBatches yields one result per payload, in order, via for-await", as
   assert.deepEqual(sent, payloads);
 });
 
-test("publishBatches resolves the queue url once and memoizes it across payloads", async () => {
+test("streamHiveSends resolves the queue url once and memoizes it across payloads", async () => {
   let lookups = 0;
   const client = {
     send: async (command) => {
@@ -47,17 +47,17 @@ test("publishBatches resolves the queue url once and memoizes it across payloads
       return {};
     },
   };
-  gateway.useClient(client);
+  hiveGateway.injectClient(client);
 
   const results = [];
-  for await (const result of gateway.publishBatches("bam-apiary-agg", [{ a: 1 }, { a: 2 }, { a: 3 }], 3, 0)) {
+  for await (const result of hiveGateway.streamHiveSends("bam-apiary-agg", [{ a: 1 }, { a: 2 }, { a: 3 }], 3, 0)) {
     results.push(result);
   }
   assert.equal(lookups, 1, "the queue url lookup should be memoized across every payload in the same generator run");
-  assert.equal(gateway.getQueueUrl(), "http://q/bam-apiary-agg");
+  assert.equal(hiveGateway.currentQueueUrl(), "http://q/bam-apiary-agg");
 });
 
-test("publishBatches gives natural backpressure: the second SQS send has not happened until the caller pulls the first result", async () => {
+test("streamHiveSends gives natural backpressure: the second SQS send has not happened until the caller pulls the first result", async () => {
   const sendOrder = [];
   let resolveFirstSend;
   const firstSendGate = new Promise((resolve) => { resolveFirstSend = resolve; });
@@ -71,9 +71,9 @@ test("publishBatches gives natural backpressure: the second SQS send has not hap
       return {};
     },
   };
-  gateway.useClient(client);
+  hiveGateway.injectClient(client);
 
-  const iterator = gateway.publishBatches("bam-apiary-agg", [{ i: 1 }, { i: 2 }], 3, 0);
+  const iterator = hiveGateway.streamHiveSends("bam-apiary-agg", [{ i: 1 }, { i: 2 }], 3, 0);
   const firstNext = iterator.next();
   // Give the generator a turn; the second send must NOT have happened yet
   // because the generator is suspended awaiting the first client.send() call.
@@ -93,13 +93,13 @@ test("publish failure rejects the in-flight iteration rather than yielding a fai
       throw new Error("send failed");
     },
   };
-  gateway.useClient(client);
+  hiveGateway.injectClient(client);
 
-  const iterator = gateway.publishBatches("bam-apiary-agg", [{ a: 1 }], 3, 0);
+  const iterator = hiveGateway.streamHiveSends("bam-apiary-agg", [{ a: 1 }], 3, 0);
   await assert.rejects(() => iterator.next(), /send failed/);
 });
 
-test("resolveQueueUrl-backed retries succeed before publishBatches yields", async () => {
+test("lookupQueueUrl-backed retries succeed before streamHiveSends yields", async () => {
   let attempts = 0;
   const client = {
     send: async (command) => {
@@ -111,30 +111,30 @@ test("resolveQueueUrl-backed retries succeed before publishBatches yields", asyn
       return {};
     },
   };
-  gateway.useClient(client);
+  hiveGateway.injectClient(client);
 
   const results = [];
-  for await (const result of gateway.publishBatches("bam-apiary-agg", [{ a: 1 }], 5, 0)) {
+  for await (const result of hiveGateway.streamHiveSends("bam-apiary-agg", [{ a: 1 }], 5, 0)) {
     results.push(result);
   }
   assert.equal(attempts, 3);
   assert.equal(results.length, 1);
 });
 
-test("getQueueUrl is null before any successful lookup", () => {
-  assert.equal(gateway.getQueueUrl(), null);
+test("currentQueueUrl is null before any successful lookup", () => {
+  assert.equal(hiveGateway.currentQueueUrl(), null);
 });
 
-test("publishBatch is an async generator function", () => {
-  assert.equal(gateway.publishBatch.constructor.name, "AsyncGeneratorFunction");
+test("dispatchHiveBatches is an async generator function", () => {
+  assert.equal(hiveGateway.dispatchHiveBatches.constructor.name, "AsyncGeneratorFunction");
 });
 
-test("publishBatch throws when the publisher has not been configured", async () => {
-  const iterator = gateway.publishBatch("some-queue", [{ a: 1 }]);
+test("dispatchHiveBatches throws when the publisher has not been configured", async () => {
+  const iterator = hiveGateway.dispatchHiveBatches("some-queue", [{ a: 1 }]);
   await assert.rejects(() => iterator.next());
 });
 
-test("publishBatch sends one real SendMessageBatchCommand covering every payload up to the 10-entry limit", async () => {
+test("dispatchHiveBatches sends one real SendMessageBatchCommand covering every payload up to the 10-entry limit", async () => {
   const batchCalls = [];
   const client = {
     send: async (command) => {
@@ -143,11 +143,11 @@ test("publishBatch sends one real SendMessageBatchCommand covering every payload
       return {};
     },
   };
-  gateway.useClient(client);
+  hiveGateway.injectClient(client);
 
   const payloads = [{ sensor_type: "hive_weight_kg", avg: 35 }, { sensor_type: "internal_hive_temp_c", avg: 34 }];
   const results = [];
-  for await (const result of gateway.publishBatch("bam-apiary-agg", payloads, 3, 0)) {
+  for await (const result of hiveGateway.dispatchHiveBatches("bam-apiary-agg", payloads, 3, 0)) {
     results.push(result);
   }
   assert.equal(batchCalls.length, 1, "two payloads fit in a single SendMessageBatch call");
@@ -157,7 +157,7 @@ test("publishBatch sends one real SendMessageBatchCommand covering every payload
   assert.deepEqual(results.map((r) => r.payload), payloads);
 });
 
-test("publishBatch chunks at the 10-entry SendMessageBatch limit across multiple calls", async () => {
+test("dispatchHiveBatches chunks at the 10-entry SendMessageBatch limit across multiple calls", async () => {
   const batchSizes = [];
   const client = {
     send: async (command) => {
@@ -166,11 +166,11 @@ test("publishBatch chunks at the 10-entry SendMessageBatch limit across multiple
       return {};
     },
   };
-  gateway.useClient(client);
+  hiveGateway.injectClient(client);
 
   const payloads = Array.from({ length: 11 }, (_, i) => ({ i }));
   const results = [];
-  for await (const result of gateway.publishBatch("bam-apiary-agg", payloads, 3, 0)) {
+  for await (const result of hiveGateway.dispatchHiveBatches("bam-apiary-agg", payloads, 3, 0)) {
     results.push(result);
   }
   assert.deepEqual(batchSizes, [10, 1], "11 payloads split into a 10-entry batch and a 1-entry batch");
@@ -178,7 +178,7 @@ test("publishBatch chunks at the 10-entry SendMessageBatch limit across multiple
   assert.deepEqual(results.map((r) => r.payload.i), payloads.map((p) => p.i));
 });
 
-test("publishBatch resolves the queue url once and memoizes it across every batch call", async () => {
+test("dispatchHiveBatches resolves the queue url once and memoizes it across every batch call", async () => {
   let lookups = 0;
   const client = {
     send: async (command) => {
@@ -189,39 +189,39 @@ test("publishBatch resolves the queue url once and memoizes it across every batc
       return {};
     },
   };
-  gateway.useClient(client);
+  hiveGateway.injectClient(client);
 
   const payloads = Array.from({ length: 12 }, (_, i) => ({ i }));
   const results = [];
-  for await (const result of gateway.publishBatch("bam-apiary-agg", payloads, 3, 0)) {
+  for await (const result of hiveGateway.dispatchHiveBatches("bam-apiary-agg", payloads, 3, 0)) {
     results.push(result);
   }
   assert.equal(lookups, 1, "the queue url lookup should be memoized across every batch in the same generator run");
   assert.equal(results.length, 12);
 });
 
-test("publishBatch rejects the in-flight iteration when SendMessageBatch itself rejects", async () => {
+test("dispatchHiveBatches rejects the in-flight iteration when SendMessageBatch itself rejects", async () => {
   const client = {
     send: async (command) => {
       if (command.constructor.name === "GetQueueUrlCommand") return { QueueUrl: "http://q/bam-apiary-agg" };
       throw new Error("batch send failed");
     },
   };
-  gateway.useClient(client);
+  hiveGateway.injectClient(client);
 
-  const iterator = gateway.publishBatch("bam-apiary-agg", [{ a: 1 }], 3, 0);
+  const iterator = hiveGateway.dispatchHiveBatches("bam-apiary-agg", [{ a: 1 }], 3, 0);
   await assert.rejects(() => iterator.next(), /batch send failed/);
 });
 
-test("publishBatch throws when SendMessageBatch reports partial failures via its Failed array", async () => {
+test("dispatchHiveBatches throws when SendMessageBatch reports partial failures via its Failed array", async () => {
   const client = {
     send: async (command) => {
       if (command.constructor.name === "GetQueueUrlCommand") return { QueueUrl: "http://q/bam-apiary-agg" };
       return { Failed: [{ Id: "1", Message: "throttled" }] };
     },
   };
-  gateway.useClient(client);
+  hiveGateway.injectClient(client);
 
-  const iterator = gateway.publishBatch("bam-apiary-agg", [{ a: 1 }, { a: 2 }], 3, 0);
+  const iterator = hiveGateway.dispatchHiveBatches("bam-apiary-agg", [{ a: 1 }, { a: 2 }], 3, 0);
   await assert.rejects(() => iterator.next(), /throttled/);
 });

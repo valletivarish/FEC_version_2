@@ -2,10 +2,10 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { SENSOR_PROFILES, clampToRange, nextReading } = require("./profiles");
+const { HIVE_SIGNAL_SPECS, confineToBand, stepHiveSignal } = require("./profiles");
 
-test("SENSOR_PROFILES defines exactly the five beehive sensors", () => {
-  assert.deepEqual(Object.keys(SENSOR_PROFILES).sort(), [
+test("HIVE_SIGNAL_SPECS defines exactly the five beehive sensors", () => {
+  assert.deepEqual(Object.keys(HIVE_SIGNAL_SPECS).sort(), [
     "acoustic_buzz_frequency_hz",
     "entrance_traffic_count",
     "hive_weight_kg",
@@ -14,32 +14,32 @@ test("SENSOR_PROFILES defines exactly the five beehive sensors", () => {
   ].sort());
 });
 
-test("clampToRange leaves in-range values untouched", () => {
-  assert.equal(clampToRange(34, 20, 40), 34);
+test("confineToBand leaves in-range values untouched", () => {
+  assert.equal(confineToBand(34, 20, 40), 34);
 });
 
-test("clampToRange clamps below lo and above hi", () => {
-  assert.equal(clampToRange(-5, 0, 80), 0);
-  assert.equal(clampToRange(999, 0, 80), 80);
+test("confineToBand clamps below lo and above hi", () => {
+  assert.equal(confineToBand(-5, 0, 80), 0);
+  assert.equal(confineToBand(999, 0, 80), 80);
 });
 
-test("nextReading always stays within [lo, hi] over many iterations", () => {
-  const profile = SENSOR_PROFILES.acoustic_buzz_frequency_hz;
+test("stepHiveSignal always stays within [lo, hi] over many iterations", () => {
+  const profile = HIVE_SIGNAL_SPECS.acoustic_buzz_frequency_hz;
   let value = profile.start;
   for (let i = 0; i < 500; i++) {
-    value = nextReading(value, profile);
+    value = stepHiveSignal(value, profile);
     assert.ok(value >= profile.lo && value <= profile.hi, `value ${value} out of range`);
   }
 });
 
-test("nextReading rounds to 2 decimal places", () => {
+test("stepHiveSignal rounds to 2 decimal places", () => {
   const profile = { lo: 0, hi: 100, start: 50, step: 0.001 };
-  const value = nextReading(50, profile);
+  const value = stepHiveSignal(50, profile);
   assert.equal(value, Math.round(value * 100) / 100);
 });
 
 test("hive_weight_kg profile matches the brief's configured range and start", () => {
-  const p = SENSOR_PROFILES.hive_weight_kg;
+  const p = HIVE_SIGNAL_SPECS.hive_weight_kg;
   assert.equal(p.unit, "kg");
   assert.equal(p.lo, 0);
   assert.equal(p.hi, 80);
@@ -48,7 +48,7 @@ test("hive_weight_kg profile matches the brief's configured range and start", ()
 });
 
 test("internal_hive_temp_c profile matches the brief", () => {
-  const p = SENSOR_PROFILES.internal_hive_temp_c;
+  const p = HIVE_SIGNAL_SPECS.internal_hive_temp_c;
   assert.equal(p.unit, "C");
   assert.equal(p.lo, 20);
   assert.equal(p.hi, 40);
@@ -57,7 +57,7 @@ test("internal_hive_temp_c profile matches the brief", () => {
 });
 
 test("entrance_traffic_count profile matches the brief", () => {
-  const p = SENSOR_PROFILES.entrance_traffic_count;
+  const p = HIVE_SIGNAL_SPECS.entrance_traffic_count;
   assert.equal(p.unit, "count");
   assert.equal(p.lo, 0);
   assert.equal(p.hi, 500);

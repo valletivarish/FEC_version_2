@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { SENSOR_TYPES, latestWindowsFor, buildApiarySummaries, getApiarySummary, freshestAgeSeconds } = require("./readingsStore");
+const { HIVE_SENSOR_TYPES, pullRecentWindows, assembleApiaryCards, findApiaryCard, youngestReadingAge } = require("./readingsStore");
 
 function fakeDoc(itemsBySensorType) {
   return {
@@ -14,14 +14,14 @@ function fakeDoc(itemsBySensorType) {
   };
 }
 
-test("latestWindowsFor queries by sensor_type and returns items in chronological order", async () => {
+test("pullRecentWindows queries by sensor_type and returns items in chronological order", async () => {
   const doc = fakeDoc({ hive_weight_kg: [{ sensor_type: "hive_weight_kg", site_id: "apiary-a", avg: 35.0 }, { sensor_type: "hive_weight_kg", site_id: "apiary-a", avg: 35.5 }] });
-  const items = await latestWindowsFor(doc, "bam-readings", "hive_weight_kg", 10);
+  const items = await pullRecentWindows(doc, "bam-readings", "hive_weight_kg", 10);
   assert.equal(items.length, 2);
   assert.equal(items[0].avg, 35.0);
 });
 
-test("buildApiarySummaries groups the latest window per sensor type into each apiary", async () => {
+test("assembleApiaryCards groups the latest window per sensor type into each apiary", async () => {
   const doc = fakeDoc({
     hive_weight_kg: [
       { sensor_type: "hive_weight_kg", site_id: "apiary-a", unit: "kg", latest: 35.0, min: 34.0, max: 36.0, avg: 35.0, window_end: "e1", alerts: [] },
@@ -30,7 +30,7 @@ test("buildApiarySummaries groups the latest window per sensor type into each ap
     internal_hive_temp_c: [], internal_humidity_pct: [], acoustic_buzz_frequency_hz: [], entrance_traffic_count: [],
   });
 
-  const apiaries = await buildApiarySummaries(doc, "bam-readings");
+  const apiaries = await assembleApiaryCards(doc, "bam-readings");
   assert.equal(apiaries.length, 2);
   const a = apiaries.find((p) => p.site_id === "apiary-a");
   const b = apiaries.find((p) => p.site_id === "apiary-b");
@@ -40,7 +40,7 @@ test("buildApiarySummaries groups the latest window per sensor type into each ap
   assert.deepEqual(b.alerts, [{ sensor_type: "hive_weight_kg", key: "colony_starvation_risk" }]);
 });
 
-test("buildApiarySummaries attaches a colony health narrative sentence to every apiary", async () => {
+test("assembleApiaryCards attaches a colony health narrative sentence to every apiary", async () => {
   const doc = fakeDoc({
     hive_weight_kg: [
       { sensor_type: "hive_weight_kg", site_id: "apiary-a", unit: "kg", latest: 36.0, min: 34.0, max: 36.0, avg: 34.0, window_end: "e1", alerts: [] },
@@ -52,35 +52,35 @@ test("buildApiarySummaries attaches a colony health narrative sentence to every 
     internal_humidity_pct: [], acoustic_buzz_frequency_hz: [], entrance_traffic_count: [],
   });
 
-  const apiaries = await buildApiarySummaries(doc, "bam-readings");
+  const apiaries = await assembleApiaryCards(doc, "bam-readings");
   const a = apiaries.find((p) => p.site_id === "apiary-a");
   assert.equal(a.health.trend, "rising");
   assert.equal(a.health.stability, "stable");
   assert.match(a.health.sentence, /^apiary-a:/);
 });
 
-test("buildApiarySummaries returns both apiaries even with no data yet, sorted by site_id", async () => {
+test("assembleApiaryCards returns both apiaries even with no data yet, sorted by site_id", async () => {
   const doc = fakeDoc({});
-  const apiaries = await buildApiarySummaries(doc, "bam-readings");
+  const apiaries = await assembleApiaryCards(doc, "bam-readings");
   assert.deepEqual(apiaries.map((p) => p.site_id), ["apiary-a", "apiary-b"]);
   assert.deepEqual(apiaries[0].metrics, {});
   assert.equal(apiaries[0].compliant, true);
   assert.equal(apiaries[0].health.trend, "steady");
 });
 
-test("getApiarySummary returns a single apiary by site_id, or null when unknown", async () => {
+test("findApiaryCard returns a single apiary by site_id, or null when unknown", async () => {
   const doc = fakeDoc({});
-  const apiary = await getApiarySummary(doc, "bam-readings", "apiary-a");
+  const apiary = await findApiaryCard(doc, "bam-readings", "apiary-a");
   assert.equal(apiary.site_id, "apiary-a");
-  assert.equal(await getApiarySummary(doc, "bam-readings", "apiary-z"), null);
+  assert.equal(await findApiaryCard(doc, "bam-readings", "apiary-z"), null);
 });
 
-test("freshestAgeSeconds returns null when the table is entirely empty", async () => {
+test("youngestReadingAge returns null when the table is entirely empty", async () => {
   const doc = fakeDoc({});
-  assert.equal(await freshestAgeSeconds(doc, "bam-readings"), null);
+  assert.equal(await youngestReadingAge(doc, "bam-readings"), null);
 });
 
-test("freshestAgeSeconds returns the smallest age across all sensor types", async () => {
+test("youngestReadingAge returns the smallest age across all sensor types", async () => {
   const now = Date.now();
   const recentEnd = new Date(now - 2000).toISOString();
   const staleEnd = new Date(now - 50_000).toISOString();
@@ -88,12 +88,12 @@ test("freshestAgeSeconds returns the smallest age across all sensor types", asyn
     hive_weight_kg: [{ sensor_type: "hive_weight_kg", site_id: "apiary-a", window_end: staleEnd }],
     internal_hive_temp_c: [{ sensor_type: "internal_hive_temp_c", site_id: "apiary-a", window_end: recentEnd }],
   });
-  const age = await freshestAgeSeconds(doc, "bam-readings");
+  const age = await youngestReadingAge(doc, "bam-readings");
   assert.ok(age !== null && age < 5, `expected the freshest age to reflect the recent window, got ${age}`);
 });
 
-test("SENSOR_TYPES lists all five beehive sensors", () => {
-  assert.deepEqual(SENSOR_TYPES, [
+test("HIVE_SENSOR_TYPES lists all five beehive sensors", () => {
+  assert.deepEqual(HIVE_SENSOR_TYPES, [
     "hive_weight_kg",
     "internal_hive_temp_c",
     "internal_humidity_pct",

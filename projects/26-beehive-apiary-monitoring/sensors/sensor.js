@@ -1,73 +1,67 @@
 "use strict";
 
-const { SENSOR_PROFILES, nextReading } = require("./profiles");
+const { HIVE_SIGNAL_SPECS, stepHiveSignal } = require("./profiles");
 
-// Two-phase tick loop -- setTimeout arms the real SAMPLE_INTERVAL macrotask delay, whose callback then hands the actual sampling/dispatch work to queueMicrotask so it always drains before the next timer fires; distinct from the flat-setInterval, dual-setInterval, drift-corrected-setTimeout, and setInterval+setImmediate loops used by sibling Node sensor projects in this portfolio.
-function buildState(sensorType, siteId, profile, dispatchIntervalMs) {
+function initHiveProbe(sensorType, siteId, spec, dispatchIntervalMs) {
   return {
     sensorType,
     siteId,
-    profile,
-    value: profile.start,
+    spec,
+    value: spec.start,
     outbox: [],
     lastDispatch: Date.now(),
     dispatchIntervalMs,
   };
 }
 
-// The microtask-phase body: one random-walk step, then an opportunistic
-// dispatch check (a plain Date.now() comparison, not a countdown). Kept as
-// a standalone function with no timer of its own so tests can call it
-// directly instead of racing real setTimeout/queueMicrotask scheduling.
-// Returns the in-flight dispatch promise when a send was attempted, or null
-// when this tick only sampled.
-function sampleAndMaybeDispatch(state, dispatch) {
-  state.value = nextReading(state.value, state.profile);
-  state.outbox.push({ ts: new Date().toISOString(), value: state.value });
+// One random-walk step, then an opportunistic dispatch check (a Date.now()
+// comparison, not a countdown). Returns the in-flight dispatch promise when a
+// send was attempted, or null when this tick only sampled.
+function sampleAndFlushHive(probe, dispatch) {
+  probe.value = stepHiveSignal(probe.value, probe.spec);
+  probe.outbox.push({ ts: new Date().toISOString(), value: probe.value });
 
-  const due = state.outbox.length > 0 && Date.now() - state.lastDispatch >= state.dispatchIntervalMs;
-  if (!due) return null;
+  const flushDue = probe.outbox.length > 0 && Date.now() - probe.lastDispatch >= probe.dispatchIntervalMs;
+  if (!flushDue) return null;
 
-  const batch = state.outbox;
-  state.outbox = [];
-  return dispatch(batch).then(
+  const queued = probe.outbox;
+  probe.outbox = [];
+  return dispatch(queued).then(
     () => {
-      state.lastDispatch = Date.now();
+      probe.lastDispatch = Date.now();
     },
     (err) => {
-      // Preserve arrival order: anything sampled while the failed dispatch
-      // was in flight goes after the batch being put back.
-      state.outbox = batch.concat(state.outbox);
+      // Preserve arrival order: samples taken while the failed send was in flight go after the restored batch.
+      probe.outbox = queued.concat(probe.outbox);
       throw err;
     }
   );
 }
 
-// Wires the two-phase pattern described above. Returns a stop function.
-function startTickLoop(state, sampleIntervalMs, dispatch, onError) {
-  let stopped = false;
-  let timer = null;
+function runHiveSamplerLoop(probe, sampleIntervalMs, dispatch, onError) {
+  let halted = false;
+  let pendingTimer = null;
 
-  function armNext() {
-    if (stopped) return;
-    timer = setTimeout(() => {
+  function armHiveTick() {
+    if (halted) return;
+    pendingTimer = setTimeout(() => {
       queueMicrotask(() => {
-        if (stopped) return;
-        const pending = sampleAndMaybeDispatch(state, dispatch);
-        if (pending) pending.catch((err) => onError && onError(err));
-        armNext();
+        if (halted) return;
+        const inFlight = sampleAndFlushHive(probe, dispatch);
+        if (inFlight) inFlight.catch((err) => onError && onError(err));
+        armHiveTick();
       });
     }, sampleIntervalMs);
   }
 
-  armNext();
+  armHiveTick();
   return function stop() {
-    stopped = true;
-    if (timer) clearTimeout(timer);
+    halted = true;
+    if (pendingTimer) clearTimeout(pendingTimer);
   };
 }
 
-function postBatch(gatewayUrl, sensorType, siteId, unit, batch) {
+function shipBatchToFog(gatewayUrl, sensorType, siteId, unit, batch) {
   return fetch(gatewayUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -75,27 +69,27 @@ function postBatch(gatewayUrl, sensorType, siteId, unit, batch) {
   });
 }
 
-function start() {
+function launchHiveProbe() {
   const sensorType = process.env.SENSOR_TYPE;
   if (!sensorType) throw new Error("SENSOR_TYPE env var is required");
-  const profile = SENSOR_PROFILES[sensorType];
-  if (!profile) throw new Error(`unknown SENSOR_TYPE: ${sensorType}`);
+  const spec = HIVE_SIGNAL_SPECS[sensorType];
+  if (!spec) throw new Error(`unknown SENSOR_TYPE: ${sensorType}`);
 
   const siteId = process.env.SITE_ID || "apiary-a";
   const sampleInterval = parseFloat(process.env.SAMPLE_INTERVAL || "2");
   const dispatchInterval = parseFloat(process.env.DISPATCH_INTERVAL || "10");
   const gatewayUrl = process.env.FOG_URL || "http://fog:8000/ingest";
 
-  const state = buildState(sensorType, siteId, profile, dispatchInterval * 1000);
+  const probe = initHiveProbe(sensorType, siteId, spec, dispatchInterval * 1000);
   console.log(
     `${sensorType}@${siteId} sampling every ${sampleInterval}s (setTimeout macrotask + queueMicrotask tick), ` +
       `dispatching opportunistically (>= ${dispatchInterval}s since last send)`
   );
 
-  startTickLoop(
-    state,
+  runHiveSamplerLoop(
+    probe,
     sampleInterval * 1000,
-    (batch) => postBatch(gatewayUrl, sensorType, siteId, profile.unit, batch).then(() => {
+    (batch) => shipBatchToFog(gatewayUrl, sensorType, siteId, spec.unit, batch).then(() => {
       console.log(`${sensorType}@${siteId} dispatched ${batch.length} reading(s)`);
     }),
     (err) => console.log(`${sensorType}@${siteId} dispatch failed, retaining batch: ${err.message}`)
@@ -103,7 +97,7 @@ function start() {
 }
 
 if (require.main === module) {
-  start();
+  launchHiveProbe();
 }
 
-module.exports = { buildState, sampleAndMaybeDispatch, startTickLoop, postBatch };
+module.exports = { initHiveProbe, sampleAndFlushHive, runHiveSamplerLoop, shipBatchToFog };

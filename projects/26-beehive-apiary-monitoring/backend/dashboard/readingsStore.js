@@ -1,19 +1,19 @@
 "use strict";
 
 const { QueryCommand } = require("@aws-sdk/lib-dynamodb");
-const { describeColonyHealth } = require("./colonyNarrative");
+const { summarizeColonyHealth } = require("./colonyNarrative");
 
-const SENSOR_TYPES = [
+const HIVE_SENSOR_TYPES = [
   "hive_weight_kg",
   "internal_hive_temp_c",
   "internal_humidity_pct",
   "acoustic_buzz_frequency_hz",
   "entrance_traffic_count",
 ];
-const SITE_IDS = ["apiary-a", "apiary-b"];
-const NARRATIVE_HISTORY_LIMIT = 12;
+const APIARY_IDS = ["apiary-a", "apiary-b"];
+const COLONY_HISTORY_SPAN = 12;
 
-async function latestWindowsFor(doc, tableName, sensorType, limit) {
+async function pullRecentWindows(doc, tableName, sensorType, limit) {
   const resp = await doc.send(new QueryCommand({
     TableName: tableName,
     KeyConditionExpression: "sensor_type = :st",
@@ -24,26 +24,19 @@ async function latestWindowsFor(doc, tableName, sensorType, limit) {
   return (resp.Items || []).slice().reverse();
 }
 
-function emptyApiary(siteId) {
+function blankApiaryCard(siteId) {
   return { site_id: siteId, metrics: {}, alerts: [], compliant: true };
 }
 
-// Builds the per-apiary grouping endpoint: one entry per apiary, each
-// carrying the latest window for all 5 sensor types, a plain `compliant`
-// boolean (true only when none of that apiary's latest windows currently
-// carry an alert), and a `health` narrative sentence combining recent
-// hive-weight trend with recent brood-temperature stability (see
-// colonyNarrative.js). Everything here is computed on read from windows
-// already fetched for the metrics themselves; none of it is stored in
-// DynamoDB as its own attribute.
-async function buildApiarySummaries(doc, tableName) {
-  const apiaries = new Map(SITE_IDS.map((id) => [id, emptyApiary(id)]));
+// Every field here is derived on read from the same windows fetched for the metrics; none of it is stored in DynamoDB.
+async function assembleApiaryCards(doc, tableName) {
+  const apiaries = new Map(APIARY_IDS.map((id) => [id, blankApiaryCard(id)]));
   const weightHistoryBySite = new Map();
   const tempHistoryBySite = new Map();
 
-  for (const sensorType of SENSOR_TYPES) {
+  for (const sensorType of HIVE_SENSOR_TYPES) {
     const needsHistory = sensorType === "hive_weight_kg" || sensorType === "internal_hive_temp_c";
-    const windows = await latestWindowsFor(doc, tableName, sensorType, needsHistory ? NARRATIVE_HISTORY_LIMIT * 2 : 30);
+    const windows = await pullRecentWindows(doc, tableName, sensorType, needsHistory ? COLONY_HISTORY_SPAN * 2 : 30);
 
     const bySite = new Map();
     for (const item of windows) {
@@ -52,7 +45,7 @@ async function buildApiarySummaries(doc, tableName) {
     }
 
     for (const [siteId, items] of bySite) {
-      if (!apiaries.has(siteId)) apiaries.set(siteId, emptyApiary(siteId));
+      if (!apiaries.has(siteId)) apiaries.set(siteId, blankApiaryCard(siteId));
       const apiary = apiaries.get(siteId);
       const latest = items[items.length - 1];
       apiary.metrics[sensorType] = {
@@ -67,14 +60,14 @@ async function buildApiarySummaries(doc, tableName) {
       for (const alertKey of latest.alerts || []) {
         apiary.alerts.push({ sensor_type: sensorType, key: alertKey });
       }
-      if (sensorType === "hive_weight_kg") weightHistoryBySite.set(siteId, items.slice(-NARRATIVE_HISTORY_LIMIT));
-      if (sensorType === "internal_hive_temp_c") tempHistoryBySite.set(siteId, items.slice(-NARRATIVE_HISTORY_LIMIT));
+      if (sensorType === "hive_weight_kg") weightHistoryBySite.set(siteId, items.slice(-COLONY_HISTORY_SPAN));
+      if (sensorType === "internal_hive_temp_c") tempHistoryBySite.set(siteId, items.slice(-COLONY_HISTORY_SPAN));
     }
   }
 
   for (const apiary of apiaries.values()) {
     apiary.compliant = apiary.alerts.length === 0;
-    apiary.health = describeColonyHealth(
+    apiary.health = summarizeColonyHealth(
       apiary.site_id,
       weightHistoryBySite.get(apiary.site_id) || [],
       tempHistoryBySite.get(apiary.site_id) || [],
@@ -85,15 +78,15 @@ async function buildApiarySummaries(doc, tableName) {
   return Array.from(apiaries.values()).sort((a, b) => a.site_id.localeCompare(b.site_id));
 }
 
-async function getApiarySummary(doc, tableName, siteId) {
-  const summaries = await buildApiarySummaries(doc, tableName);
+async function findApiaryCard(doc, tableName, siteId) {
+  const summaries = await assembleApiaryCards(doc, tableName);
   return summaries.find((apiary) => apiary.site_id === siteId) || null;
 }
 
-async function freshestAgeSeconds(doc, tableName) {
+async function youngestReadingAge(doc, tableName) {
   let freshest = null;
-  for (const sensorType of SENSOR_TYPES) {
-    const windows = await latestWindowsFor(doc, tableName, sensorType, 1);
+  for (const sensorType of HIVE_SENSOR_TYPES) {
+    const windows = await pullRecentWindows(doc, tableName, sensorType, 1);
     if (!windows.length) continue;
     const ageSeconds = (Date.now() - new Date(windows[windows.length - 1].window_end).getTime()) / 1000;
     if (freshest === null || ageSeconds < freshest) freshest = ageSeconds;
@@ -102,10 +95,10 @@ async function freshestAgeSeconds(doc, tableName) {
 }
 
 module.exports = {
-  SENSOR_TYPES,
-  SITE_IDS,
-  latestWindowsFor,
-  buildApiarySummaries,
-  getApiarySummary,
-  freshestAgeSeconds,
+  HIVE_SENSOR_TYPES,
+  APIARY_IDS,
+  pullRecentWindows,
+  assembleApiaryCards,
+  findApiaryCard,
+  youngestReadingAge,
 };

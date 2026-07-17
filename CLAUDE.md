@@ -23,6 +23,7 @@ All dashboard URLs re-checked live on 2026-07-15 (HTTP status of the index page)
 | 20 smart-port-container-terminal | Uday Kiran Reddy Dodda | `https://spc-frontend-659211701832.s3.us-east-1.amazonaws.com/index.html` | `https://93xrytbtkb.execute-api.us-east-1.amazonaws.com/prod` | 200 OK |
 | 13 ev-charging-network | Nemi Ishwarlal Vikani | `https://ecn-frontend-350600740537.s3.us-east-1.amazonaws.com/index.html` | `https://8fu3l2spz0.execute-api.us-east-1.amazonaws.com/prod` | 200 OK |
 | 11 water-treatment-utility | Rakesh Kunchala | `https://wtu-frontend-824792629641.s3.us-east-1.amazonaws.com/index.html` | `https://p0ljcrhlj2.execute-api.us-east-1.amazonaws.com/prod` | 200 OK |
+| 26 beehive-apiary-monitoring | Bhaskar | `https://bam-frontend-881865707591.s3.us-east-1.amazonaws.com/index.html` | `https://0hodaq59re.execute-api.us-east-1.amazonaws.com/prod` | 200 OK |
 
 ## AWS deployment guardrail
 
@@ -253,6 +254,23 @@ Live resources in this account (as of 2026-07-17, project 11 only, provisioned v
 
 Live URLs: dashboard at `https://wtu-frontend-824792629641.s3.us-east-1.amazonaws.com/index.html`, its API at `https://p0ljcrhlj2.execute-api.us-east-1.amazonaws.com/prod`. The dashboard and its API are fully serverless (S3 + Lambda + API Gateway) and do not depend on the EC2 instance being up; only `/api/health`'s `gateway` field and fresh sensor data depend on fog/sensors running on EC2.
 
+Project 26 (beehive-apiary-monitoring) is deployed to a separate real AWS account:
+
+- **Account ID: 881865707591** (AWS Academy Learner Lab, Vocareum-provisioned, student `x24262404@student.ncirl.ie`)
+- Region: `us-east-1` only (same region-lock pattern as the other accounts)
+- Role: `voclabs` (session), reuse `LabRole` / `LabInstanceProfile` for anything needing an IAM role or instance profile
+- Credentials are temporary (`ASIA`-prefixed) and expire in ~4 hours, same as the other accounts
+
+**Before running any `aws`/deploy command for project 26: confirm `aws sts get-caller-identity` returns account `881865707591`.** If it returns any other account, STOP and flag it to the user — never deploy project 26 into another project's account or vice versa.
+
+**This account is not a shared or general-purpose sandbox.** It is Bhaskar's (X24262404) personal AWS Academy Learner Lab. Project 26 is not available for any other student in this portfolio to deploy into, redeploy, or reuse as a template against this account.
+
+Deployed via the shared Terraform module (`terraform/`) in a single `terraform apply` in an isolated `bam` workspace created before the apply (per the guardrail above; `aws sts get-caller-identity` was confirmed to return the brand-new account 881865707591 matching Bhaskar's `x24262404` login, not colliding with any account already in use, before anything was applied; the working dir was switched back to `default` afterward). `terraform plan` reported "24 to add, 0 to change, 0 to destroy".
+
+Live resources in this account (as of 2026-07-17, project 26 only, provisioned via `terraform/`): DynamoDB table `bam-readings`, SQS queue `bam-apiary-agg`, Lambda `bam-processor` (SQS-triggered ingestion, nodejs20.x) and Lambda `bam-dashboard-api` (behind API Gateway REST API `0hodaq59re`), EC2 instance `i-04d86643d8710a44e` (tagged `bam-fog-host`, runs the fog node + 10 sensor containers, security group `sg-07598a7e2a3f141a4` allows only inbound TCP 8000), Elastic IP `3.230.213.186` (allocation `eipalloc-07ba2a4130f8b33f8`, associated with that instance), S3 bucket `bam-frontend-881865707591` (static dashboard frontend, public read-only, static website hosting enabled) and S3 staging bucket `bam-deploy-881865707591`. All are prefixed `bam-`. The dashboard Lambda's `FOG_HEALTH_URL`/`FOG_THRESHOLDS_URL` env vars point at this Elastic IP; if it's ever released and reallocated, they need updating.
+
+Live URLs: dashboard at `https://bam-frontend-881865707591.s3.us-east-1.amazonaws.com/index.html`, its API at `https://0hodaq59re.execute-api.us-east-1.amazonaws.com/prod`. The dashboard and its API are fully serverless (S3 + Lambda + API Gateway) and do not depend on the EC2 instance being up; only `/api/health`'s `gateway` field and fresh sensor data depend on fog/sensors running on EC2.
+
 ## Attribution
 
 Some projects in this portfolio are individual CA submissions for different students, not all belonging to the same person:
@@ -272,6 +290,7 @@ Some projects in this portfolio are individual CA submissions for different stud
 - Project 13 (ev-charging-network): Nemi Ishwarlal Vikani, Student ID X24303046 (Group A)
 - Project 11 (water-treatment-utility): Rakesh Kunchala, Student ID X25176862 (Group B)
 - Project 09 (aquaculture-fish-farm): Anjaneya Reddy Gurram, Student ID 24288853
+- Project 26 (beehive-apiary-monitoring): Bhaskar, Student ID X24262404 (Group A)
 
 Each project is an independent submission for the student named above.
 

@@ -1,0 +1,118 @@
+# Real-AWS compose: the fog node and ten sensor containers only. No
+# LocalStack, processor, or dashboard (those run as Terraform-provisioned
+# Lambdas). The fog node publishes to the real SQS queue via the EC2 instance
+# profile through the SDK's default credential chain, so no endpoint override
+# or static credentials are set. Port 8000 is published so the dashboard
+# Lambda can reach the fog health/thresholds endpoints over the Elastic IP.
+name: bam-aws
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  fog:
+    build:
+      context: ../fog
+    environment:
+      AWS_REGION: us-east-1
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: bam-apiary-agg
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  sensor-weight-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: hive_weight_kg
+      SITE_ID: apiary-a
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "12"
+
+  sensor-weight-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: hive_weight_kg
+      SITE_ID: apiary-b
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "13"
+
+  sensor-temp-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: internal_hive_temp_c
+      SITE_ID: apiary-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  sensor-temp-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: internal_hive_temp_c
+      SITE_ID: apiary-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-humidity-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: internal_humidity_pct
+      SITE_ID: apiary-a
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-humidity-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: internal_humidity_pct
+      SITE_ID: apiary-b
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  sensor-buzz-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: acoustic_buzz_frequency_hz
+      SITE_ID: apiary-a
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "6"
+
+  sensor-buzz-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: acoustic_buzz_frequency_hz
+      SITE_ID: apiary-b
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "7"
+
+  sensor-traffic-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: entrance_traffic_count
+      SITE_ID: apiary-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-traffic-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: entrance_traffic_count
+      SITE_ID: apiary-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"

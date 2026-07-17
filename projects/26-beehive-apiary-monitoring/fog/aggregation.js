@@ -1,12 +1,6 @@
 "use strict";
 
-// Pure window-aggregate math, kept separate from ringBuffer.js's storage
-// mechanics so it can be unit tested against plain arrays of readings
-// without touching the ring/typed-array plumbing at all. Runs once per
-// group at flush time, over whatever readings snapshotAndClear() handed
-// back (already zipped from the Float64Array + parallel timestamp array
-// into plain {ts, value} objects, oldest first).
-function summarizeWindow(sensorType, siteId, unit, readings, windowStart, windowEnd) {
+function condenseHiveWindow(sensorType, siteId, unit, readings, windowStart, windowEnd) {
   const values = readings.map((r) => r.value);
   const sum = values.reduce((acc, v) => acc + v, 0);
   return {
@@ -23,4 +17,4 @@ function summarizeWindow(sensorType, siteId, unit, readings, windowStart, window
   };
 }
 
-module.exports = { summarizeWindow };
+module.exports = { condenseHiveWindow };

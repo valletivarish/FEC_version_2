@@ -1,24 +1,24 @@
 "use strict";
 
 const http = require("node:http");
-const { createStation, submit, snapshotAndClear } = require("./ringBuffer");
-const { summarizeWindow } = require("./aggregation");
-const { evaluateAlerts, THRESHOLD_TABLE } = require("./alerts");
-const { createRouter } = require("./router");
-const gateway = require("./publisher");
+const { createApiaryStation, depositReadings, harvestAndReset } = require("./ringBuffer");
+const { condenseHiveWindow } = require("./aggregation");
+const { detectHiveAlerts, HIVE_THRESHOLD_SHEET } = require("./alerts");
+const { createApiaryRouter } = require("./router");
+const hiveGateway = require("./publisher");
 
 const WINDOW_SECONDS = parseFloat(process.env.WINDOW_SECONDS || "10");
 const QUEUE_NAME = process.env.SQS_QUEUE_NAME || "bam-apiary-agg";
 const ENDPOINT = process.env.AWS_ENDPOINT_URL;
 const REGION = process.env.AWS_REGION || "eu-west-1";
 
-const REQUIRED_FIELDS = ["sensor_type", "site_id", "readings"];
+const REQUIRED_INGEST_FIELDS = ["sensor_type", "site_id", "readings"];
 
-function validateIngestBody(body) {
+function checkIngestPayload(body) {
   if (body === null || typeof body !== "object" || Array.isArray(body)) {
     return "request body must be a JSON object";
   }
-  for (const field of REQUIRED_FIELDS) {
+  for (const field of REQUIRED_INGEST_FIELDS) {
     if (!(field in body)) return `missing required field: ${field}`;
   }
   if (typeof body.sensor_type !== "string" || body.sensor_type.length === 0) {
@@ -40,7 +40,7 @@ function validateIngestBody(body) {
   return null;
 }
 
-function readJsonBody(req) {
+function readJsonRequest(req) {
   return new Promise((resolve, reject) => {
     let raw = "";
     req.on("data", (chunk) => {
@@ -62,99 +62,90 @@ function readJsonBody(req) {
   });
 }
 
-function sendJson(res, status, body) {
+function respondJson(res, status, body) {
   const text = JSON.stringify(body);
   res.writeHead(status, { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(text) });
   res.end(text);
 }
 
-async function handleIngest(req, res, station) {
+async function ingestReadings(req, res, station) {
   let body;
   try {
-    body = await readJsonBody(req);
+    body = await readJsonRequest(req);
   } catch (err) {
-    return sendJson(res, 400, { error: err.message });
+    return respondJson(res, 400, { error: err.message });
   }
-  const validationError = validateIngestBody(body);
-  if (validationError) {
-    return sendJson(res, 400, { error: validationError });
+  const payloadError = checkIngestPayload(body);
+  if (payloadError) {
+    return respondJson(res, 400, { error: payloadError });
   }
-  submit(station, body.sensor_type, body.site_id, body.unit, body.readings);
-  return sendJson(res, 202, { accepted: body.readings.length });
+  depositReadings(station, body.sensor_type, body.site_id, body.unit, body.readings);
+  return respondJson(res, 202, { accepted: body.readings.length });
 }
 
-function buildRouter(station) {
-  const router = createRouter();
-  router.route("GET", "/health", async (req, res) => sendJson(res, 200, { status: "ok" }));
-  router.route("GET", "/thresholds", async (req, res) => sendJson(res, 200, THRESHOLD_TABLE));
-  router.route("POST", "/ingest", async (req, res) => handleIngest(req, res, station));
+function wireApiaryRoutes(station) {
+  const router = createApiaryRouter();
+  router.addRoute("GET", "/health", async (req, res) => respondJson(res, 200, { status: "ok" }));
+  router.addRoute("GET", "/thresholds", async (req, res) => respondJson(res, 200, HIVE_THRESHOLD_SHEET));
+  router.addRoute("POST", "/ingest", async (req, res) => ingestReadings(req, res, station));
   return router;
 }
 
-// Every request passes through this outer try/catch: a validation problem
-// is already turned into a 400 inside handleIngest, so anything reaching
-// this boundary is a genuine unexpected failure and is reported as a 500.
-function buildHandler(router) {
-  return async function handler(req, res) {
+// Validation already returned a 400 inside ingestReadings, so anything reaching this boundary is a genuine unexpected failure and becomes a 500.
+function wrapRequestHandler(router) {
+  return async function serveApiaryRequest(req, res) {
     try {
       const url = new URL(req.url, "http://localhost");
-      const found = router.dispatch(req.method, url.pathname);
-      if (!found) return sendJson(res, 404, { error: "not found" });
+      const found = router.resolveRoute(req.method, url.pathname);
+      if (!found) return respondJson(res, 404, { error: "not found" });
       await found.handler(req, res, url, found.match);
     } catch (err) {
-      sendJson(res, 500, { error: err.message || "internal error" });
+      respondJson(res, 500, { error: err.message || "internal error" });
     }
   };
 }
 
-function sealGroup(group, windowStart, windowEnd) {
-  const summary = summarizeWindow(group.sensorType, group.siteId, group.unit, group.readings, windowStart, windowEnd);
-  summary.alerts = evaluateAlerts(summary);
+function sealHiveWindow(group, windowStart, windowEnd) {
+  const summary = condenseHiveWindow(group.sensorType, group.siteId, group.unit, group.readings, windowStart, windowEnd);
+  summary.alerts = detectHiveAlerts(summary);
   return summary;
 }
 
-function drainWindow(station, windowStart, windowEnd) {
-  return snapshotAndClear(station).map((group) => sealGroup(group, windowStart, windowEnd));
+function harvestWindow(station, windowStart, windowEnd) {
+  return harvestAndReset(station).map((group) => sealHiveWindow(group, windowStart, windowEnd));
 }
 
-// Consumes gateway.publishBatch() with a real for-await loop, so the
-// async-generator's own suspended state provides backpressure between
-// SendMessageBatch calls -- see publisher.js for why no separate
-// queue/pump is needed here. A window's messages (at most one per
-// sensor_type/site_id pair) are dispatched as real SQS batches instead of
-// one SendMessage call per message.
-async function flushOnce(station) {
+// A window's messages (at most one per sensor_type/site_id pair) go out as real SQS batches; the generator's suspended state is the backpressure between SendMessageBatch calls.
+async function emitWindowBatch(station) {
   const windowEnd = new Date().toISOString();
   const windowStart = new Date(Date.now() - WINDOW_SECONDS * 1000).toISOString();
-  const messages = drainWindow(station, windowStart, windowEnd);
-  for await (const result of gateway.publishBatch(QUEUE_NAME, messages)) {
-    // result.sent is true for every yielded item; a failed send throws out
-    // of the generator and is caught by start()'s flush error handler.
+  const messages = harvestWindow(station, windowStart, windowEnd);
+  for await (const result of hiveGateway.dispatchHiveBatches(QUEUE_NAME, messages)) {
     void result;
   }
   return messages;
 }
 
-function createApp(station = createStation()) {
-  const router = buildRouter(station);
-  const server = http.createServer(buildHandler(router));
+function createFogServer(station = createApiaryStation()) {
+  const router = wireApiaryRoutes(station);
+  const server = http.createServer(wrapRequestHandler(router));
   server.station = station;
   return server;
 }
 
-function start() {
-  const app = createApp();
-  gateway.configure(ENDPOINT, REGION);
+function startFogNode() {
+  const app = createFogServer();
+  hiveGateway.configureGateway(ENDPOINT, REGION);
 
   setInterval(() => {
-    flushOnce(app.station).catch((err) => console.log(`window flush error: ${err.message}`));
+    emitWindowBatch(app.station).catch((err) => console.log(`window flush error: ${err.message}`));
   }, WINDOW_SECONDS * 1000);
 
   app.listen(8000, () => console.log("fog listening on :8000"));
 }
 
 if (require.main === module) {
-  start();
+  startFogNode();
 }
 
-module.exports = { createApp, validateIngestBody, drainWindow, sealGroup, flushOnce, buildRouter };
+module.exports = { createFogServer, checkIngestPayload, harvestWindow, sealHiveWindow, emitWindowBatch, wireApiaryRoutes };

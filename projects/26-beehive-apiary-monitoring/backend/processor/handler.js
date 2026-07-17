@@ -2,44 +2,38 @@
 
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
 const { DynamoDBDocumentClient, PutCommand } = require("@aws-sdk/lib-dynamodb");
-const { toItem } = require("./transform");
+const { toHiveReadingItem } = require("./transform");
 
 const TABLE_NAME = process.env.TABLE_NAME || "bam-readings";
 
-let client;
-function documentClient() {
-  if (client) return client;
-  const config = { region: process.env.AWS_REGION || "eu-west-1" };
-  // Gate on the LocalStack-only endpoint override, not on AWS_ACCESS_KEY_ID:
-  // real Lambda always injects that variable for its own execution-role
-  // credentials, so branching on its presence would rebuild an incomplete
-  // static credentials object (no session token) and break auth in
-  // production instead of letting the SDK's default chain handle it.
+let cachedApiaryDoc;
+function apiaryDocClient() {
+  if (cachedApiaryDoc) return cachedApiaryDoc;
+  const docConfig = { region: process.env.AWS_REGION || "eu-west-1" };
+  // Gate on the LocalStack-only endpoint, not AWS_ACCESS_KEY_ID: real Lambda always injects that variable, so branching on it would break execution-role auth.
   if (process.env.AWS_ENDPOINT_URL) {
-    config.endpoint = process.env.AWS_ENDPOINT_URL;
-    config.credentials = {
+    docConfig.endpoint = process.env.AWS_ENDPOINT_URL;
+    docConfig.credentials = {
       accessKeyId: process.env.AWS_ACCESS_KEY_ID || "test",
       secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "test",
     };
   }
-  client = DynamoDBDocumentClient.from(new DynamoDBClient(config));
-  return client;
+  cachedApiaryDoc = DynamoDBDocumentClient.from(new DynamoDBClient(docConfig));
+  return cachedApiaryDoc;
 }
 
-async function writeBatch(records, doc, tableName) {
-  let written = 0;
-  for (const record of records) {
-    await doc.send(new PutCommand({ TableName: tableName, Item: toItem(record.body) }));
-    written += 1;
+async function persistHiveWindows(windows, apiaryDoc, readingsTable) {
+  let storedCount = 0;
+  for (const window of windows) {
+    await apiaryDoc.send(new PutCommand({ TableName: readingsTable, Item: toHiveReadingItem(window.body) }));
+    storedCount += 1;
   }
-  return written;
+  return storedCount;
 }
 
-// SQS event-source-mapping invokes this per batch of messages; each record
-// is one aggregated window from the fog gateway.
 exports.handler = async (event) => {
-  const written = await writeBatch(event.Records || [], documentClient(), TABLE_NAME);
-  return { written };
+  const storedCount = await persistHiveWindows(event.Records || [], apiaryDocClient(), TABLE_NAME);
+  return { written: storedCount };
 };
 
-exports.writeBatch = writeBatch;
+exports.persistHiveWindows = persistHiveWindows;

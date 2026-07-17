@@ -2,8 +2,8 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createApp, validateIngestBody, drainWindow, sealGroup } = require("./app");
-const { createStation, submit } = require("./ringBuffer");
+const { createFogServer, checkIngestPayload, harvestWindow, sealHiveWindow } = require("./app");
+const { createApiaryStation, depositReadings } = require("./ringBuffer");
 
 function withServer(app, fn) {
   return new Promise((resolve, reject) => {
@@ -22,7 +22,7 @@ function withServer(app, fn) {
 }
 
 test("GET /health returns 200 ok", async () => {
-  await withServer(createApp(), async (base) => {
+  await withServer(createFogServer(), async (base) => {
     const res = await fetch(`${base}/health`);
     assert.equal(res.status, 200);
     assert.deepEqual(await res.json(), { status: "ok" });
@@ -30,7 +30,7 @@ test("GET /health returns 200 ok", async () => {
 });
 
 test("GET /thresholds exposes the real hard-alert limits", async () => {
-  await withServer(createApp(), async (base) => {
+  await withServer(createFogServer(), async (base) => {
     const res = await fetch(`${base}/thresholds`);
     const body = await res.json();
     assert.equal(body.internal_hive_temp_c[0].limit, 36);
@@ -43,14 +43,14 @@ test("GET /thresholds exposes the real hard-alert limits", async () => {
 });
 
 test("GET /unknown-path returns 404 json", async () => {
-  await withServer(createApp(), async (base) => {
+  await withServer(createFogServer(), async (base) => {
     const res = await fetch(`${base}/nope`);
     assert.equal(res.status, 404);
   });
 });
 
 test("POST /ingest accepts a well-formed payload with 202 (real HTTP-level test)", async () => {
-  await withServer(createApp(), async (base) => {
+  await withServer(createFogServer(), async (base) => {
     const res = await fetch(`${base}/ingest`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -67,9 +67,9 @@ test("POST /ingest accepts a well-formed payload with 202 (real HTTP-level test)
 });
 
 // Real HTTP request against a real local server on an ephemeral port -- not
-// only a unit test of validateIngestBody() in isolation.
+// only a unit test of checkIngestPayload() in isolation.
 test("POST /ingest rejects a payload missing a required field with 400 (real HTTP request)", async () => {
-  await withServer(createApp(), async (base) => {
+  await withServer(createFogServer(), async (base) => {
     const res = await fetch(`${base}/ingest`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -82,7 +82,7 @@ test("POST /ingest rejects a payload missing a required field with 400 (real HTT
 });
 
 test("POST /ingest rejects malformed JSON body with 400 (real HTTP request)", async () => {
-  await withServer(createApp(), async (base) => {
+  await withServer(createFogServer(), async (base) => {
     const res = await fetch(`${base}/ingest`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -93,7 +93,7 @@ test("POST /ingest rejects malformed JSON body with 400 (real HTTP request)", as
 });
 
 test("POST /ingest rejects readings with a non-numeric value with 400 (real HTTP request)", async () => {
-  await withServer(createApp(), async (base) => {
+  await withServer(createFogServer(), async (base) => {
     const res = await fetch(`${base}/ingest`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -108,7 +108,7 @@ test("POST /ingest rejects readings with a non-numeric value with 400 (real HTTP
 });
 
 test("POST /ingest rejects an empty readings array with 400 (real HTTP request)", async () => {
-  await withServer(createApp(), async (base) => {
+  await withServer(createFogServer(), async (base) => {
     const res = await fetch(`${base}/ingest`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -119,7 +119,7 @@ test("POST /ingest rejects an empty readings array with 400 (real HTTP request)"
 });
 
 test("POST /ingest rejects a non-object body with 400 (real HTTP request)", async () => {
-  await withServer(createApp(), async (base) => {
+  await withServer(createFogServer(), async (base) => {
     const res = await fetch(`${base}/ingest`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -129,42 +129,42 @@ test("POST /ingest rejects a non-object body with 400 (real HTTP request)", asyn
   });
 });
 
-test("validateIngestBody unit-level checks", () => {
-  assert.equal(validateIngestBody(null), "request body must be a JSON object");
-  assert.equal(validateIngestBody({}), "missing required field: sensor_type");
+test("checkIngestPayload unit-level checks", () => {
+  assert.equal(checkIngestPayload(null), "request body must be a JSON object");
+  assert.equal(checkIngestPayload({}), "missing required field: sensor_type");
   assert.equal(
-    validateIngestBody({ sensor_type: "hive_weight_kg", site_id: "apiary-a", readings: [{ ts: "t0", value: 1 }] }),
+    checkIngestPayload({ sensor_type: "hive_weight_kg", site_id: "apiary-a", readings: [{ ts: "t0", value: 1 }] }),
     null
   );
 });
 
-test("drainWindow seals accumulated readings and attaches alerts", () => {
-  const station = createStation();
-  submit(station, "acoustic_buzz_frequency_hz", "apiary-a", "Hz", [
+test("harvestWindow seals accumulated readings and attaches alerts", () => {
+  const station = createApiaryStation();
+  depositReadings(station, "acoustic_buzz_frequency_hz", "apiary-a", "Hz", [
     { ts: "t0", value: 360 },
     { ts: "t1", value: 370 },
   ]);
-  const messages = drainWindow(station, "start", "end");
+  const messages = harvestWindow(station, "start", "end");
   assert.equal(messages.length, 1);
   assert.equal(messages[0].avg, 365);
   assert.deepEqual(messages[0].alerts, ["swarming_precursor_detected"]);
 });
 
-test("drainWindow handles multiple sensor/site groups independently and empties every ring", () => {
-  const station = createStation();
-  submit(station, "hive_weight_kg", "apiary-a", "kg", [{ ts: "t0", value: 40 }]);
-  submit(station, "hive_weight_kg", "apiary-b", "kg", [{ ts: "t0", value: 15 }]);
-  const messages = drainWindow(station, "s", "e");
+test("harvestWindow handles multiple sensor/site groups independently and empties every ring", () => {
+  const station = createApiaryStation();
+  depositReadings(station, "hive_weight_kg", "apiary-a", "kg", [{ ts: "t0", value: 40 }]);
+  depositReadings(station, "hive_weight_kg", "apiary-b", "kg", [{ ts: "t0", value: 15 }]);
+  const messages = harvestWindow(station, "s", "e");
   assert.equal(messages.length, 2);
   const apiaryB = messages.find((m) => m.site_id === "apiary-b");
   assert.deepEqual(apiaryB.alerts, ["colony_starvation_risk"]);
 
-  const secondPass = drainWindow(station, "s2", "e2");
+  const secondPass = harvestWindow(station, "s2", "e2");
   assert.equal(secondPass.length, 0, "rings should be empty on the very next drain");
 });
 
-test("sealGroup carries sensor_type/site_id/unit through to the summary", () => {
-  const summary = sealGroup(
+test("sealHiveWindow carries sensor_type/site_id/unit through to the summary", () => {
+  const summary = sealHiveWindow(
     { sensorType: "internal_hive_temp_c", siteId: "apiary-a", unit: "C", readings: [{ ts: "t0", value: 37.5 }] },
     "s",
     "e"

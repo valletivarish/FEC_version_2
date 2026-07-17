@@ -5,13 +5,9 @@ const { DynamoDBDocumentClient } = require("@aws-sdk/lib-dynamodb");
 const { SQSClient } = require("@aws-sdk/client-sqs");
 const { LambdaClient } = require("@aws-sdk/client-lambda");
 
-function baseConfig() {
+function hiveSdkConfig() {
   const config = { region: process.env.AWS_REGION || "eu-west-1" };
-  // Gate on the LocalStack-only endpoint override, not on AWS_ACCESS_KEY_ID:
-  // a real Lambda execution environment always injects that variable for its
-  // own role credentials, so branching on its mere presence would rebuild an
-  // incomplete static credentials object (missing the session token) and
-  // shadow the SDK's own default credential provider chain in production.
+  // Gotcha: gate on the LocalStack endpoint override, not AWS_ACCESS_KEY_ID (real Lambda injects that), or we shadow the SDK's own credential chain with a token-less static one.
   if (process.env.AWS_ENDPOINT_URL) {
     config.endpoint = process.env.AWS_ENDPOINT_URL;
     config.credentials = {
@@ -22,8 +18,8 @@ function baseConfig() {
   return config;
 }
 
-function buildClients() {
-  const config = baseConfig();
+function openHiveClients() {
+  const config = hiveSdkConfig();
   return {
     doc: DynamoDBDocumentClient.from(new DynamoDBClient(config)),
     sqs: new SQSClient(config),
@@ -31,4 +27,4 @@ function buildClients() {
   };
 }
 
-module.exports = { buildClients, baseConfig };
+module.exports = { openHiveClients, hiveSdkConfig };

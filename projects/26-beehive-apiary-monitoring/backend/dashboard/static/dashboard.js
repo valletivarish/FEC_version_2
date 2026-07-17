@@ -1,3 +1,10 @@
+// API origin, sed-substituted into this script tag's data-api-base at S3 upload time; unsubstituted means same-origin for local dev.
+const API_BASE = (() => {
+  const el = document.getElementById("app");
+  const v = (el && el.dataset.apiBase) || "";
+  return v.startsWith("__API_BASE__") ? "" : v.replace(/\/$/, "");
+})();
+
 const SENSOR_TYPES = [
   "hive_weight_kg",
   "internal_hive_temp_c",
@@ -17,9 +24,6 @@ const METRIC_LABELS = {
 
 const APIARY_LABELS = { "apiary-a": "Apiary A", "apiary-b": "Apiary B" };
 
-// Alert display text is a small local map -- the frontend does not call
-// /api/thresholds directly (that proxy exists for API completeness and is
-// covered by its own backend test; see readme.txt).
 const ALERT_LABELS = {
   brood_overheat_risk: "Brood overheat risk",
   brood_chilling_risk: "Brood chilling risk",
@@ -27,8 +31,7 @@ const ALERT_LABELS = {
   swarming_precursor_detected: "Swarming precursor detected",
 };
 
-// Axis bounds -- the range each reading's <meter> is drawn against, not a
-// decision threshold. Real alert thresholds come from fog/alerts.js.
+// Axis bounds each reading's <meter> is drawn against, not a decision threshold (real thresholds live in fog/alerts.js).
 const AXIS_RANGE = {
   hive_weight_kg: { lo: 0, hi: 80 },
   internal_hive_temp_c: { lo: 20, hi: 40 },
@@ -40,12 +43,12 @@ const AXIS_RANGE = {
 const TREND_COLORS = { "apiary-a": "#a35a12", "apiary-b": "#5f7a9c" };
 const trendCharts = {};
 
-function metricLabel(sensorType) {
+function metricTitle(sensorType) {
   return METRIC_LABELS[sensorType] || sensorType;
 }
 
-function readingRow(sensorType, metric) {
-  const label = metricLabel(sensorType);
+function combReadingRow(sensorType, metric) {
+  const label = metricTitle(sensorType);
   if (!metric) {
     return `<li class="reading-row"><span class="reading-label">${label}</span><span class="reading-empty">no data yet</span></li>`;
   }
@@ -58,21 +61,14 @@ function readingRow(sensorType, metric) {
   </li>`;
 }
 
-// Primary structural view: one narrative card per apiary. A plain
-// sentence-style readout (colony health summary) combining hive-weight
-// trend direction with brood-temperature stability leads each card; the 5
-// raw readings follow underneath as secondary rows with a native <meter>
-// per reading. This is deliberately not a tile grid, badge set, heatmap,
-// dial, status-line, priority-list, matrix table, scorecard, or a
-// labeled-scale gauge -- see readme.txt.
-function renderNarrativeList(apiaries) {
+function paintApiaryCards(apiaries) {
   const list = document.getElementById("narrative-list");
   list.innerHTML = apiaries
     .map((apiary) => {
       const alertNote = apiary.compliant
         ? ""
         : `<span class="narrative-alert-flag">${apiary.alerts.map((a) => ALERT_LABELS[a.key] || a.key).join(", ")}</span>`;
-      const rows = SENSOR_TYPES.map((sensorType) => readingRow(sensorType, apiary.metrics[sensorType])).join("");
+      const rows = SENSOR_TYPES.map((sensorType) => combReadingRow(sensorType, apiary.metrics[sensorType])).join("");
       return `<article class="narrative-card${apiary.compliant ? "" : " flagged"}">
         <h3 class="narrative-heading">${APIARY_LABELS[apiary.site_id] || apiary.site_id}</h3>
         <p class="narrative-sentence">${apiary.health.sentence}</p>
@@ -83,7 +79,7 @@ function renderNarrativeList(apiaries) {
     .join("");
 }
 
-function renderAlertBanner(apiaries) {
+function paintAlertBanner(apiaries) {
   const banner = document.getElementById("alert-banner");
   const active = [];
   for (const apiary of apiaries) {
@@ -99,7 +95,7 @@ function renderAlertBanner(apiaries) {
   banner.textContent = `${active.length} active alert(s) -- ${active.join(" | ")}`;
 }
 
-function renderHealth(health) {
+function paintHealthStrip(health) {
   const strip = document.getElementById("health-strip");
   const pill = (label, ok) => `<span class="health-pill ${ok ? "" : "down"}"><span class="swatch"></span>${label}</span>`;
   strip.innerHTML =
@@ -109,7 +105,7 @@ function renderHealth(health) {
     pill("Pipeline", health.pipeline);
 }
 
-function renderBackendStats(backendStats) {
+function paintBackendStats(backendStats) {
   const el = document.getElementById("backend-stats");
   const queueInfo = backendStats.queue
     ? `${backendStats.queue.waiting} waiting / ${backendStats.queue.in_flight} in-flight`
@@ -117,12 +113,12 @@ function renderBackendStats(backendStats) {
   el.textContent = `${backendStats.items_in_table ?? 0} records stored -- ${queueInfo}`;
 }
 
-async function fetchTrend(sensorType) {
-  const res = await fetch(`/api/readings?sensor_type=${sensorType}&limit=20`);
+async function pullTrendSeries(sensorType) {
+  const res = await fetch(`${API_BASE}/api/readings?sensor_type=${sensorType}&limit=20`);
   return res.json();
 }
 
-function renderTrendChart(sensorType, items) {
+function paintTrendChart(sensorType, items) {
   const canvasId = `trend-${sensorType}`;
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
@@ -164,41 +160,41 @@ function renderTrendChart(sensorType, items) {
   });
 }
 
-function renderTrendGrid() {
+function paintTrendGrid() {
   const grid = document.getElementById("trend-grid");
   if (grid.childElementCount === 0) {
     grid.innerHTML = SENSOR_TYPES.map(
       (sensorType) => `<div class="trend-card">
-        <h4>${metricLabel(sensorType)}</h4>
+        <h4>${metricTitle(sensorType)}</h4>
         <canvas id="trend-${sensorType}" width="260" height="140"></canvas>
       </div>`
     ).join("");
   }
 }
 
-async function tick() {
+async function refreshDashboard() {
   try {
     const [apiariesResp, health, backendStats] = await Promise.all([
-      fetch("/api/apiaries").then((r) => r.json()),
-      fetch("/api/health").then((r) => r.json()),
-      fetch("/api/backend-stats").then((r) => r.json()),
+      fetch(`${API_BASE}/api/apiaries`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/health`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/backend-stats`).then((r) => r.json()),
     ]);
 
     const apiaries = apiariesResp.apiaries || [];
-    renderNarrativeList(apiaries);
-    renderAlertBanner(apiaries);
-    renderHealth(health);
-    renderBackendStats(backendStats);
+    paintApiaryCards(apiaries);
+    paintAlertBanner(apiaries);
+    paintHealthStrip(health);
+    paintBackendStats(backendStats);
 
-    renderTrendGrid();
+    paintTrendGrid();
     for (const sensorType of SENSOR_TYPES) {
-      const trend = await fetchTrend(sensorType);
-      renderTrendChart(sensorType, trend.items || []);
+      const trend = await pullTrendSeries(sensorType);
+      paintTrendChart(sensorType, trend.items || []);
     }
   } catch (e) {
     // backend not ready yet; next tick retries
   }
 }
 
-tick();
-setInterval(tick, 2500);
+refreshDashboard();
+setInterval(refreshDashboard, 2500);
