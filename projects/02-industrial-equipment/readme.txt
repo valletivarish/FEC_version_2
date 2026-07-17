@@ -125,12 +125,8 @@ No terraform/deployments/*.tfvars file exists yet for this project.
 Before deploying, create one (for example
 terraform/deployments/fei.tfvars) with the values below. The
 file needs:
-  - prefix              a short resource-name prefix (the code and
-                        docker-compose.yml already use "fei" for the
-                        queue/table names, so keeping "fei" here
-                        keeps naming consistent)
-  - project_root         path to this project's folder relative to
-                        terraform/, e.g. "../projects/02-industrial-equipment"
+  - prefix                "fei"
+  - project_root          "../projects/02-industrial-equipment"
   - table_name            "fei-readings"
   - queue_name            "fei-sensor-agg"
   - processor_lambda_name, processor_build_command, processor_zip_path,
