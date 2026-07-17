@@ -1,15 +1,15 @@
 "use strict";
 
 // Two-phase buffering: raw entries append to a flat array at ingest with grouping/aggregation deferred entirely to flush -- the fourth distinct fog-buffering idiom in this portfolio, vs. 03/06/10's group-at-ingest, live-fold, and event-dispatched approaches.
-function createLedger() {
+function openReadingBuffer() {
   return { entries: [] };
 }
 
-function appendEntry(ledger, entry) {
+function bufferReading(ledger, entry) {
   ledger.entries.push(entry);
 }
 
-function drainEntries(ledger) {
+function flushBuffer(ledger) {
   const taken = ledger.entries;
   ledger.entries = [];
   return taken;
@@ -17,7 +17,7 @@ function drainEntries(ledger) {
 
 // Pure grouping function run once at flush time over the whole drained
 // entry list, never incrementally maintained during ingest.
-function groupByKey(entries) {
+function clusterByPlantSensor(entries) {
   const groups = new Map();
   for (const entry of entries) {
     const key = `${entry.sensorType}::${entry.siteId}`;
@@ -29,4 +29,4 @@ function groupByKey(entries) {
   return Array.from(groups.values());
 }
 
-module.exports = { createLedger, appendEntry, drainEntries, groupByKey };
+module.exports = { openReadingBuffer, bufferReading, flushBuffer, clusterByPlantSensor };

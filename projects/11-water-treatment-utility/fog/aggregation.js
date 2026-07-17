@@ -3,9 +3,9 @@
 // Pure window-aggregate math, kept separate from ledger.js's buffering
 // mechanics so it can be unit tested against plain arrays of readings
 // without touching the ledger/grouping plumbing at all. Runs once per
-// group at flush time, over whatever readings groupByKey() handed back --
+// group at flush time, over whatever readings clusterByPlantSensor() handed back --
 // never incrementally maintained during ingest.
-function summarizeWindow(sensorType, siteId, unit, readings, windowStart, windowEnd) {
+function condensePlantWindow(sensorType, siteId, unit, readings, windowStart, windowEnd) {
   const values = readings.map((r) => r.value);
   const sum = values.reduce((acc, v) => acc + v, 0);
   return {
@@ -22,4 +22,4 @@ function summarizeWindow(sensorType, siteId, unit, readings, windowStart, window
   };
 }
 
-module.exports = { summarizeWindow };
+module.exports = { condensePlantWindow };

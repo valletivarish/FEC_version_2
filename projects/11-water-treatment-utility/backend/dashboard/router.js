@@ -6,23 +6,23 @@
 // path parameters. Used here for the per-plant grouping endpoint
 // (/api/plants/:plantId) below, exercised in router.test.js independently
 // of http.createServer.
-function createRouter() {
-  const table = [];
+function makeRouteTable() {
+  const entries = [];
 
-  function route(method, pattern, handler) {
-    table.push([method, pattern, handler]);
+  function register(method, pattern, handler) {
+    entries.push([method, pattern, handler]);
   }
 
-  function dispatch(method, pathname) {
-    for (const [routeMethod, pattern, handler] of table) {
+  function resolve(method, pathname) {
+    for (const [routeMethod, pattern, handler] of entries) {
       if (routeMethod !== method) continue;
-      const match = pattern.exec(pathname);
-      if (match) return { handler, match };
+      const captures = pattern.exec(pathname);
+      if (captures) return { handler, captures };
     }
     return null;
   }
 
-  return { route, dispatch, table };
+  return { register, resolve, entries };
 }
 
-module.exports = { createRouter };
+module.exports = { makeRouteTable };

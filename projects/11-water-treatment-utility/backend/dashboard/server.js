@@ -3,24 +3,24 @@
 const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
-const { buildClients } = require("./awsClients");
-const { createRouter } = require("./router");
+const { openAwsClients } = require("./awsClients");
+const { makeRouteTable } = require("./router");
 const {
-  SENSOR_TYPES,
-  latestWindowsFor,
-  buildPlantSummaries,
-  getPlantSummary,
-  freshestAgeSeconds,
+  PLANT_SENSOR_TYPES,
+  recentWindowsFor,
+  assemblePlantSummaries,
+  findPlantSummary,
+  newestReadingAgeSeconds,
 } = require("./readingsStore");
 const {
-  isQueueReachable,
-  isLambdaActive,
-  readQueueCounters,
-  countTableItems,
-  checkGateway,
-  isPipelineFlowing,
+  probeQueueReachable,
+  probeProcessorActive,
+  sampleQueueDepth,
+  tallyStoredReadings,
+  probeGatewayHealth,
+  pipelineIsCurrent,
 } = require("./pipelineStatus");
-const { fetchThresholds } = require("./thresholdsProxy");
+const { fetchGatewayThresholds } = require("./thresholdsProxy");
 
 const TABLE_NAME = process.env.TABLE_NAME || "wtu-readings";
 const QUEUE_NAME = process.env.SQS_QUEUE_NAME || "wtu-plant-agg";
@@ -28,39 +28,39 @@ const FUNCTION_NAME = process.env.LAMBDA_FUNCTION_NAME || "wtu-processor";
 const FOG_HEALTH_URL = process.env.FOG_HEALTH_URL || "http://fog:8000/health";
 const FOG_THRESHOLDS_URL = process.env.FOG_THRESHOLDS_URL || "http://fog:8000/thresholds";
 
-const STATIC_DIR = path.join(__dirname, "static");
-const CONTENT_TYPES = { ".html": "text/html", ".css": "text/css", ".js": "application/javascript" };
+const STATIC_ROOT = path.join(__dirname, "static");
+const MIME_BY_EXT = { ".html": "text/html", ".css": "text/css", ".js": "application/javascript" };
 
-function sendJson(res, status, body) {
+function writeJson(res, status, body) {
   const text = JSON.stringify(body);
   res.writeHead(status, { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(text) });
   res.end(text);
 }
 
-function serveStaticFile(res, filePath, contentType) {
+function streamStaticFile(res, filePath, contentType) {
   fs.readFile(filePath, (err, data) => {
-    if (err) return sendJson(res, 404, { error: "not found" });
+    if (err) return writeJson(res, 404, { error: "not found" });
     res.writeHead(200, { "Content-Type": contentType, "Cache-Control": "no-store" });
     res.end(data);
   });
 }
 
-// Static assets are served by resolving the request path under STATIC_DIR
+// Static assets are served by resolving the request path under STATIC_ROOT
 // and rejecting anything that escapes it, kept as a fallback outside the
 // declarative route table below (a wildcard-per-file-extension entry in the
 // table would be more awkward than useful here) rather than pulling in a
 // static-file middleware package.
-function tryServeStatic(req, res, pathname) {
-  const relPath = pathname === "/" ? "index.html" : pathname.replace(/^\/static\//, "").replace(/^\//, "");
-  const resolved = path.join(STATIC_DIR, relPath);
-  if (!resolved.startsWith(STATIC_DIR)) return false;
-  if (!fs.existsSync(resolved) || fs.statSync(resolved).isDirectory()) return false;
-  const ext = path.extname(resolved);
-  serveStaticFile(res, resolved, CONTENT_TYPES[ext] || "application/octet-stream");
+function attemptStaticServe(req, res, pathname) {
+  const relativePath = pathname === "/" ? "index.html" : pathname.replace(/^\/static\//, "").replace(/^\//, "");
+  const resolvedPath = path.join(STATIC_ROOT, relativePath);
+  if (!resolvedPath.startsWith(STATIC_ROOT)) return false;
+  if (!fs.existsSync(resolvedPath) || fs.statSync(resolvedPath).isDirectory()) return false;
+  const ext = path.extname(resolvedPath);
+  streamStaticFile(res, resolvedPath, MIME_BY_EXT[ext] || "application/octet-stream");
   return true;
 }
 
-function buildDeps(clients) {
+function assembleDeps(clients) {
   return {
     doc: clients.doc,
     sqs: clients.sqs,
@@ -73,103 +73,103 @@ function buildDeps(clients) {
   };
 }
 
-async function handleReadings(url, deps, res) {
+async function serveReadings(url, deps, res) {
   const sensorType = url.searchParams.get("sensor_type");
   const limit = parseInt(url.searchParams.get("limit") || "60", 10);
-  if (!sensorType || !SENSOR_TYPES.includes(sensorType)) {
-    return sendJson(res, 400, { error: `sensor_type must be one of ${SENSOR_TYPES.join(", ")}` });
+  if (!sensorType || !PLANT_SENSOR_TYPES.includes(sensorType)) {
+    return writeJson(res, 400, { error: `sensor_type must be one of ${PLANT_SENSOR_TYPES.join(", ")}` });
   }
   const siteId = url.searchParams.get("site_id");
-  let items = await latestWindowsFor(deps.doc, deps.tableName, sensorType, siteId ? limit * 4 : limit);
+  let items = await recentWindowsFor(deps.doc, deps.tableName, sensorType, siteId ? limit * 4 : limit);
   if (siteId) items = items.filter((item) => item.site_id === siteId).slice(-limit);
-  sendJson(res, 200, { sensor_type: sensorType, items });
+  writeJson(res, 200, { sensor_type: sensorType, items });
 }
 
 // Project-specific per-site grouping endpoint: GET /api/plants lists both
 // treatment plants, GET /api/plants/:plantId (path parameter captured by
 // the router below) returns just one.
-async function handlePlants(deps, res) {
-  sendJson(res, 200, { plants: await buildPlantSummaries(deps.doc, deps.tableName) });
+async function servePlants(deps, res) {
+  writeJson(res, 200, { plants: await assemblePlantSummaries(deps.doc, deps.tableName) });
 }
 
-async function handlePlantDetail(deps, res, plantId) {
-  const plant = await getPlantSummary(deps.doc, deps.tableName, plantId);
-  if (!plant) return sendJson(res, 404, { error: `unknown plant: ${plantId}` });
-  sendJson(res, 200, plant);
+async function servePlantDetail(deps, res, plantId) {
+  const plant = await findPlantSummary(deps.doc, deps.tableName, plantId);
+  if (!plant) return writeJson(res, 404, { error: `unknown plant: ${plantId}` });
+  writeJson(res, 200, plant);
 }
 
-async function handleHealth(deps, res) {
+async function serveHealth(deps, res) {
   const [gatewayUp, queueUp, lambdaUp, freshestAge] = await Promise.all([
-    checkGateway(deps.gatewayHealthUrl),
-    isQueueReachable(deps.sqs, deps.queueName),
-    isLambdaActive(deps.lambda, deps.functionName),
-    freshestAgeSeconds(deps.doc, deps.tableName),
+    probeGatewayHealth(deps.gatewayHealthUrl),
+    probeQueueReachable(deps.sqs, deps.queueName),
+    probeProcessorActive(deps.lambda, deps.functionName),
+    newestReadingAgeSeconds(deps.doc, deps.tableName),
   ]);
-  sendJson(res, 200, {
+  writeJson(res, 200, {
     gateway: gatewayUp,
     queue: queueUp,
     lambda: lambdaUp,
-    pipeline: isPipelineFlowing(freshestAge),
+    pipeline: pipelineIsCurrent(freshestAge),
     freshest_age_seconds: freshestAge,
   });
 }
 
-async function handleBackendStats(deps, res) {
+async function serveBackendStats(deps, res) {
   const [queue, itemsInTable] = await Promise.all([
-    readQueueCounters(deps.sqs, deps.queueName),
-    countTableItems(deps.doc, deps.tableName),
+    sampleQueueDepth(deps.sqs, deps.queueName),
+    tallyStoredReadings(deps.doc, deps.tableName),
   ]);
-  sendJson(res, 200, { queue, items_in_table: itemsInTable });
+  writeJson(res, 200, { queue, items_in_table: itemsInTable });
 }
 
-async function handleThresholds(deps, res) {
-  const result = await fetchThresholds(deps.gatewayThresholdsUrl);
-  sendJson(res, result.status, result.body);
+async function serveThresholds(deps, res) {
+  const result = await fetchGatewayThresholds(deps.gatewayThresholdsUrl);
+  writeJson(res, result.status, result.body);
 }
 
-function buildRouter(deps) {
-  const router = createRouter();
-  router.route("GET", /^\/api\/readings$/, async (req, res, url) => handleReadings(url, deps, res));
-  router.route("GET", /^\/api\/plants$/, async (req, res) => handlePlants(deps, res));
-  router.route("GET", /^\/api\/plants\/([a-z0-9-]+)$/, async (req, res, url, match) => handlePlantDetail(deps, res, match[1]));
-  router.route("GET", /^\/api\/health$/, async (req, res) => handleHealth(deps, res));
-  router.route("GET", /^\/api\/backend-stats$/, async (req, res) => handleBackendStats(deps, res));
-  router.route("GET", /^\/api\/thresholds$/, async (req, res) => handleThresholds(deps, res));
+function wireRoutes(deps) {
+  const router = makeRouteTable();
+  router.register("GET", /^\/api\/readings$/, async (req, res, url) => serveReadings(url, deps, res));
+  router.register("GET", /^\/api\/plants$/, async (req, res) => servePlants(deps, res));
+  router.register("GET", /^\/api\/plants\/([a-z0-9-]+)$/, async (req, res, url, captures) => servePlantDetail(deps, res, captures[1]));
+  router.register("GET", /^\/api\/health$/, async (req, res) => serveHealth(deps, res));
+  router.register("GET", /^\/api\/backend-stats$/, async (req, res) => serveBackendStats(deps, res));
+  router.register("GET", /^\/api\/thresholds$/, async (req, res) => serveThresholds(deps, res));
   return router;
 }
 
 // Every request passes through this outer try/catch, translating any
 // uncaught exception into a structured 500 rather than a killed request.
-function buildRequestHandler(router) {
-  return async function handler(req, res) {
+function makeRequestListener(router) {
+  return async function onRequest(req, res) {
     try {
       const url = new URL(req.url, "http://localhost");
-      const found = router.dispatch(req.method, url.pathname);
+      const found = router.resolve(req.method, url.pathname);
       if (found) {
-        await found.handler(req, res, url, found.match);
+        await found.handler(req, res, url, found.captures);
         return;
       }
-      if (req.method === "GET" && tryServeStatic(req, res, url.pathname)) return;
-      return sendJson(res, 404, { error: "not found" });
+      if (req.method === "GET" && attemptStaticServe(req, res, url.pathname)) return;
+      return writeJson(res, 404, { error: "not found" });
     } catch (err) {
-      sendJson(res, 500, { error: err.message || "internal error" });
+      writeJson(res, 500, { error: err.message || "internal error" });
     }
   };
 }
 
-function createApp(clients = buildClients()) {
-  const deps = buildDeps(clients);
-  const router = buildRouter(deps);
-  return http.createServer(buildRequestHandler(router));
+function createDashboardServer(clients = openAwsClients()) {
+  const deps = assembleDeps(clients);
+  const router = wireRoutes(deps);
+  return http.createServer(makeRequestListener(router));
 }
 
-function start() {
-  const app = createApp();
+function launch() {
+  const app = createDashboardServer();
   app.listen(8000, () => console.log("dashboard listening on :8000"));
 }
 
 if (require.main === module) {
-  start();
+  launch();
 }
 
-module.exports = { createApp, buildDeps, buildRouter };
+module.exports = { createDashboardServer, assembleDeps, wireRoutes };

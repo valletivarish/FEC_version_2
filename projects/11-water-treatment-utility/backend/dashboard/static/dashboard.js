@@ -1,12 +1,12 @@
-const SENSOR_TYPES = ["turbidity_ntu", "ph_level", "chlorine_ppm", "flow_rate_lps", "pressure_bar"];
-const SITE_IDS = ["plant-1", "plant-2"];
+const READING_KEYS = ["turbidity_ntu", "ph_level", "chlorine_ppm", "flow_rate_lps", "pressure_bar"];
+const PLANT_IDS = ["plant-1", "plant-2"];
 
 // API origin is carried as a query parameter on this script's own src
 // (?apiBase=...), substituted with the real API Gateway origin at S3 upload
 // time. In local development the placeholder is left untouched and the empty
 // base keeps same-origin fetches working, since the dashboard is served from
 // the same host as its API there.
-const API_BASE = (() => {
+const apiOrigin = (() => {
   const el = document.getElementById("dashboard-script") || document.currentScript;
   try {
     const v = new URL(el.src).searchParams.get("apiBase");
@@ -16,7 +16,7 @@ const API_BASE = (() => {
   }
 })();
 
-const METRIC_LABELS = {
+const READING_TITLES = {
   turbidity_ntu: "Turbidity",
   ph_level: "pH Level",
   chlorine_ppm: "Chlorine",
@@ -27,19 +27,19 @@ const METRIC_LABELS = {
 // Alert display text is a small local map -- the frontend does not call
 // /api/thresholds directly (that proxy exists for API completeness and is
 // covered by its own backend test; see readme.txt).
-const ALERT_LABELS = {
+const FAULT_TITLES = {
   turbidity_alert: "Turbidity alert",
   under_chlorination: "Under-chlorination",
   low_pressure_fault: "Low pressure fault",
   acidic_violation: "Acidic violation",
 };
 
-const TREND_COLORS = { "plant-1": "#1c6ea4", "plant-2": "#b3402b" };
-const trendCharts = {};
+const SERIES_COLOURS = { "plant-1": "#1c6ea4", "plant-2": "#b3402b" };
+const seriesCharts = {};
 
 // Axis bounds -- the range each reading's <meter> is drawn against, not a
 // decision threshold. Real alert thresholds come from fog/alerts.js.
-const AXIS_RANGE = {
+const METER_BOUNDS = {
   turbidity_ntu: { lo: 0, hi: 15 },
   ph_level: { lo: 5.5, hi: 9 },
   chlorine_ppm: { lo: 0, hi: 3 },
@@ -47,17 +47,17 @@ const AXIS_RANGE = {
   pressure_bar: { lo: 0.5, hi: 8 },
 };
 
-function metricLabel(sensorType) {
-  return METRIC_LABELS[sensorType] || sensorType;
+function readingTitle(sensorType) {
+  return READING_TITLES[sensorType] || sensorType;
 }
 
-function readingCell(sensorType, metric) {
+function plantCell(sensorType, metric) {
   if (!metric) {
     return `<td class="reading-cell" data-site-empty="true"><span class="empty">&ndash;&ndash;</span></td>`;
   }
   const flagged = metric.alerts && metric.alerts.length > 0;
-  const { lo, hi } = AXIS_RANGE[sensorType];
-  const alertText = flagged ? metric.alerts.map((a) => ALERT_LABELS[a] || a).join(", ") : "";
+  const { lo, hi } = METER_BOUNDS[sensorType];
+  const alertText = flagged ? metric.alerts.map((a) => FAULT_TITLES[a] || a).join(", ") : "";
   return `<td class="reading-cell${flagged ? " flagged" : ""}">
     <span class="value">${metric.latest}<span class="unit">${metric.unit}</span></span>
     <meter class="cell-meter${flagged ? " danger" : ""}" min="${lo}" max="${hi}" value="${metric.latest}"></meter>
@@ -65,24 +65,22 @@ function readingCell(sensorType, metric) {
   </td>`;
 }
 
-// Rows = readings, columns = plants -- the inverse orientation of a
-// per-plant card listing its own metrics as rows (contrast
-// 09-aquaculture-fish-farm's pond cards), so each row lets you compare the
-// same reading across both plants at a glance.
-function renderMatrix(plants) {
+// Rows = readings, columns = plants, so each row lets you compare the same
+// reading across both plants at a glance.
+function paintReadingsGrid(plants) {
   const bySite = Object.fromEntries(plants.map((p) => [p.site_id, p]));
   const body = document.getElementById("matrix-body");
 
-  body.innerHTML = SENSOR_TYPES.map((sensorType) => {
-    const cells = SITE_IDS.map((siteId) => readingCell(sensorType, (bySite[siteId] || {}).metrics && bySite[siteId].metrics[sensorType])).join("");
+  body.innerHTML = READING_KEYS.map((sensorType) => {
+    const cells = PLANT_IDS.map((siteId) => plantCell(sensorType, (bySite[siteId] || {}).metrics && bySite[siteId].metrics[sensorType])).join("");
     return `<tr>
-      <th scope="row">${metricLabel(sensorType)}<span class="unit-tag">${AXIS_RANGE[sensorType].lo}&ndash;${AXIS_RANGE[sensorType].hi} ${(bySite[SITE_IDS[0]] && bySite[SITE_IDS[0]].metrics[sensorType] && bySite[SITE_IDS[0]].metrics[sensorType].unit) || ""}</span></th>
+      <th scope="row">${readingTitle(sensorType)}<span class="unit-tag">${METER_BOUNDS[sensorType].lo}&ndash;${METER_BOUNDS[sensorType].hi} ${(bySite[PLANT_IDS[0]] && bySite[PLANT_IDS[0]].metrics[sensorType] && bySite[PLANT_IDS[0]].metrics[sensorType].unit) || ""}</span></th>
       ${cells}
     </tr>`;
   }).join("");
 }
 
-function renderComplianceStrip(plants) {
+function paintPlantChips(plants) {
   const strip = document.getElementById("compliance-strip");
   strip.innerHTML = plants
     .map((plant) => {
@@ -94,12 +92,12 @@ function renderComplianceStrip(plants) {
     .join("");
 }
 
-function renderAlertBanner(plants) {
+function paintAlertBar(plants) {
   const banner = document.getElementById("alert-banner");
   const active = [];
   for (const plant of plants) {
     for (const alert of plant.alerts || []) {
-      active.push(`${plant.site_id}: ${ALERT_LABELS[alert.key] || alert.key}`);
+      active.push(`${plant.site_id}: ${FAULT_TITLES[alert.key] || alert.key}`);
     }
   }
   if (active.length === 0) {
@@ -110,7 +108,7 @@ function renderAlertBanner(plants) {
   banner.textContent = `${active.length} active alert(s) -- ${active.join(" | ")}`;
 }
 
-function renderHealth(health) {
+function paintFlowTrack(health) {
   const strip = document.getElementById("health-strip");
   const stages = [
     ["Gateway", health.gateway],
@@ -125,7 +123,7 @@ function renderHealth(health) {
     .join("");
 }
 
-function renderBackendStats(backendStats) {
+function paintStoreLine(backendStats) {
   const el = document.getElementById("backend-stats");
   const queueInfo = backendStats.queue
     ? `${backendStats.queue.waiting} waiting / ${backendStats.queue.in_flight} in-flight`
@@ -133,12 +131,12 @@ function renderBackendStats(backendStats) {
   el.textContent = `${backendStats.items_in_table ?? 0} records stored -- ${queueInfo}`;
 }
 
-async function fetchTrend(sensorType) {
-  const res = await fetch(`${API_BASE}/api/readings?sensor_type=${sensorType}&limit=20`);
+async function pullSeries(sensorType) {
+  const res = await fetch(`${apiOrigin}/api/readings?sensor_type=${sensorType}&limit=20`);
   return res.json();
 }
 
-function renderTrendChart(sensorType, items) {
+function drawSeriesChart(sensorType, items) {
   const canvasId = `trend-${sensorType}`;
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
@@ -152,20 +150,20 @@ function renderTrendChart(sensorType, items) {
   const datasets = Object.entries(bySite).map(([siteId, points]) => ({
     label: siteId,
     data: points.map((p) => p.avg),
-    borderColor: TREND_COLORS[siteId] || "#999",
+    borderColor: SERIES_COLOURS[siteId] || "#999",
     backgroundColor: "transparent",
     borderWidth: 2,
     pointRadius: 0,
     tension: 0.3,
   }));
 
-  if (trendCharts[sensorType]) {
-    trendCharts[sensorType].data.datasets = datasets;
-    trendCharts[sensorType].update();
+  if (seriesCharts[sensorType]) {
+    seriesCharts[sensorType].data.datasets = datasets;
+    seriesCharts[sensorType].update();
     return;
   }
 
-  trendCharts[sensorType] = new Chart(canvas, {
+  seriesCharts[sensorType] = new Chart(canvas, {
     type: "line",
     data: { labels: labels.length ? labels : [0], datasets },
     options: {
@@ -180,42 +178,42 @@ function renderTrendChart(sensorType, items) {
   });
 }
 
-function renderTrendGrid() {
+function buildChartCards() {
   const grid = document.getElementById("trend-grid");
   if (grid.childElementCount === 0) {
-    grid.innerHTML = SENSOR_TYPES.map(
+    grid.innerHTML = READING_KEYS.map(
       (sensorType) => `<div class="trend-card">
-        <h4>${metricLabel(sensorType)}</h4>
+        <h4>${readingTitle(sensorType)}</h4>
         <canvas id="trend-${sensorType}" width="260" height="140"></canvas>
       </div>`
     ).join("");
   }
 }
 
-async function tick() {
+async function refreshCycle() {
   try {
     const [plantsResp, health, backendStats] = await Promise.all([
-      fetch(`${API_BASE}/api/plants`).then((r) => r.json()),
-      fetch(`${API_BASE}/api/health`).then((r) => r.json()),
-      fetch(`${API_BASE}/api/backend-stats`).then((r) => r.json()),
+      fetch(`${apiOrigin}/api/plants`).then((r) => r.json()),
+      fetch(`${apiOrigin}/api/health`).then((r) => r.json()),
+      fetch(`${apiOrigin}/api/backend-stats`).then((r) => r.json()),
     ]);
 
     const plants = plantsResp.plants || [];
-    renderMatrix(plants);
-    renderComplianceStrip(plants);
-    renderAlertBanner(plants);
-    renderHealth(health);
-    renderBackendStats(backendStats);
+    paintReadingsGrid(plants);
+    paintPlantChips(plants);
+    paintAlertBar(plants);
+    paintFlowTrack(health);
+    paintStoreLine(backendStats);
 
-    renderTrendGrid();
-    for (const sensorType of SENSOR_TYPES) {
-      const trend = await fetchTrend(sensorType);
-      renderTrendChart(sensorType, trend.items || []);
+    buildChartCards();
+    for (const sensorType of READING_KEYS) {
+      const trend = await pullSeries(sensorType);
+      drawSeriesChart(sensorType, trend.items || []);
     }
   } catch (e) {
-    // backend not ready yet; next tick retries
+    // backend not ready yet; next refreshCycle retries
   }
 }
 
-tick();
-setInterval(tick, 2500);
+refreshCycle();
+setInterval(refreshCycle, 2500);

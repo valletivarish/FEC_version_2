@@ -4,27 +4,27 @@
 // the same sensor_type in the same flush cycle from colliding on the
 // DynamoDB primary key (sensor_type is the partition key, sort_key the
 // range key).
-function buildSortKey(windowEnd, siteId) {
-  return `${windowEnd}#${siteId}`;
+function composePlantRangeKey(windowEnd, plantId) {
+  return `${windowEnd}#${plantId}`;
 }
 
-function toItem(messageBody) {
-  const payload = typeof messageBody === "string" ? JSON.parse(messageBody) : messageBody;
-  const siteId = payload.site_id || "plant-1";
+function windowToReadingItem(rawWindow) {
+  const windowData = typeof rawWindow === "string" ? JSON.parse(rawWindow) : rawWindow;
+  const siteId = windowData.site_id || "plant-1";
   return {
-    sensor_type: payload.sensor_type,
-    sort_key: buildSortKey(payload.window_end, siteId),
-    window_end: payload.window_end,
-    window_start: payload.window_start,
+    sensor_type: windowData.sensor_type,
+    sort_key: composePlantRangeKey(windowData.window_end, siteId),
+    window_end: windowData.window_end,
+    window_start: windowData.window_start,
     site_id: siteId,
-    unit: payload.unit || "",
-    count: payload.count,
-    min: payload.min,
-    max: payload.max,
-    avg: payload.avg,
-    latest: payload.latest,
-    alerts: payload.alerts || [],
+    unit: windowData.unit || "",
+    count: windowData.count,
+    min: windowData.min,
+    max: windowData.max,
+    avg: windowData.avg,
+    latest: windowData.latest,
+    alerts: windowData.alerts || [],
   };
 }
 
-module.exports = { toItem, buildSortKey };
+module.exports = { windowToReadingItem, composePlantRangeKey };

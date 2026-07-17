@@ -3,7 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const http = require("node:http");
-const { fetchThresholds } = require("./thresholdsProxy");
+const { fetchGatewayThresholds } = require("./thresholdsProxy");
 
 function withUpstream(handler, fn) {
   return new Promise((resolve, reject) => {
@@ -22,14 +22,14 @@ function withUpstream(handler, fn) {
   });
 }
 
-test("fetchThresholds returns the real upstream JSON on success (real HTTP request)", async () => {
+test("fetchGatewayThresholds returns the real upstream JSON on success (real HTTP request)", async () => {
   await withUpstream(
     (req, res) => {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ph_level: [{ field: "avg", op: "<", limit: 6.5, key: "acidic_violation" }] }));
     },
     async (base) => {
-      const result = await fetchThresholds(`${base}/thresholds`);
+      const result = await fetchGatewayThresholds(`${base}/thresholds`);
       assert.equal(result.ok, true);
       assert.equal(result.status, 200);
       assert.equal(result.body.ph_level[0].limit, 6.5);
@@ -37,22 +37,22 @@ test("fetchThresholds returns the real upstream JSON on success (real HTTP reque
   );
 });
 
-test("fetchThresholds returns a 502 shape when the upstream responds with an error status", async () => {
+test("fetchGatewayThresholds returns a 502 shape when the upstream responds with an error status", async () => {
   await withUpstream(
     (req, res) => {
       res.writeHead(500);
       res.end("boom");
     },
     async (base) => {
-      const result = await fetchThresholds(`${base}/thresholds`);
+      const result = await fetchGatewayThresholds(`${base}/thresholds`);
       assert.equal(result.ok, false);
       assert.equal(result.status, 502);
     }
   );
 });
 
-test("fetchThresholds returns a 502 shape when the upstream is unreachable (real connection failure)", async () => {
-  const result = await fetchThresholds("http://127.0.0.1:1/thresholds");
+test("fetchGatewayThresholds returns a 502 shape when the upstream is unreachable (real connection failure)", async () => {
+  const result = await fetchGatewayThresholds("http://127.0.0.1:1/thresholds");
   assert.equal(result.ok, false);
   assert.equal(result.status, 502);
   assert.match(result.body.error, /unavailable/);

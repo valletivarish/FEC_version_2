@@ -1,32 +1,29 @@
 "use strict";
 
 // AWS Lambda entry point for the dashboard behind an API Gateway REST API.
-// Dispatch here is a single switch(true) statement whose cases are compound
-// method-and-path boolean expressions -- a distinct shape from every other
-// project's dashboard router (flat method+path map, template-segment matcher,
-// ordered regex list, string/pattern switch, enum/sealed registry, chain of
-// responsibility, or an Express/WSGI/Mangum bridge). It reuses the same data
-// functions the local HTTP server (server.js) calls, so both front doors serve
-// identical responses from one set of query logic, with a wildcard cross-origin
-// header on every response so the S3-hosted frontend can call it cross-origin.
+// Dispatch is a single switch(true) statement whose cases are compound
+// method-and-path boolean expressions. It reuses the same data functions the
+// local HTTP server (server.js) calls, so both front doors serve identical
+// responses from one set of query logic, with a wildcard cross-origin header on
+// every response so the S3-hosted frontend can call it cross-origin.
 
-const { buildClients } = require("./awsClients");
+const { openAwsClients } = require("./awsClients");
 const {
-  SENSOR_TYPES,
-  latestWindowsFor,
-  buildPlantSummaries,
-  getPlantSummary,
-  freshestAgeSeconds,
+  PLANT_SENSOR_TYPES,
+  recentWindowsFor,
+  assemblePlantSummaries,
+  findPlantSummary,
+  newestReadingAgeSeconds,
 } = require("./readingsStore");
 const {
-  isQueueReachable,
-  isLambdaActive,
-  readQueueCounters,
-  countTableItems,
-  checkGateway,
-  isPipelineFlowing,
+  probeQueueReachable,
+  probeProcessorActive,
+  sampleQueueDepth,
+  tallyStoredReadings,
+  probeGatewayHealth,
+  pipelineIsCurrent,
 } = require("./pipelineStatus");
-const { fetchThresholds } = require("./thresholdsProxy");
+const { fetchGatewayThresholds } = require("./thresholdsProxy");
 
 const TABLE_NAME = process.env.TABLE_NAME || "wtu-readings";
 const QUEUE_NAME = process.env.SQS_QUEUE_NAME || "wtu-plant-agg";
@@ -42,17 +39,17 @@ const CORS = {
 
 // Clients and derived deps are built once per container and reused across
 // invocations. A pre-built clients object may be injected for unit tests.
-let cached = null;
-function getDeps(injected) {
+let cachedDeps = null;
+function resolveDeps(injected) {
   // Only a unit-test clients object (shaped {doc,sqs,lambda}) counts as injection.
   // AWS Lambda invokes the handler as (event, context, callback), so the third
   // arg is the runtime callback in production -- guard on the client shape so
   // that callback is never mistaken for injected clients.
-  if (injected && injected.doc) return depsFrom(injected);
-  if (!cached) cached = depsFrom(buildClients());
-  return cached;
+  if (injected && injected.doc) return depsFromClients(injected);
+  if (!cachedDeps) cachedDeps = depsFromClients(openAwsClients());
+  return cachedDeps;
 }
-function depsFrom(clients) {
+function depsFromClients(clients) {
   return {
     doc: clients.doc,
     sqs: clients.sqs,
@@ -66,52 +63,52 @@ function depsFrom(clients) {
 }
 
 // Each endpoint returns a plain {status, body}; the caller renders it.
-async function readings(d, query) {
+async function readingsQuery(d, query) {
   const sensorType = query.sensor_type;
   const limit = parseInt(query.limit || "60", 10);
-  if (!sensorType || !SENSOR_TYPES.includes(sensorType)) {
-    return { status: 400, body: { error: `sensor_type must be one of ${SENSOR_TYPES.join(", ")}` } };
+  if (!sensorType || !PLANT_SENSOR_TYPES.includes(sensorType)) {
+    return { status: 400, body: { error: `sensor_type must be one of ${PLANT_SENSOR_TYPES.join(", ")}` } };
   }
   const siteId = query.site_id;
-  let items = await latestWindowsFor(d.doc, d.tableName, sensorType, siteId ? limit * 4 : limit);
+  let items = await recentWindowsFor(d.doc, d.tableName, sensorType, siteId ? limit * 4 : limit);
   if (siteId) items = items.filter((item) => item.site_id === siteId).slice(-limit);
   return { status: 200, body: { sensor_type: sensorType, items } };
 }
 
-async function plants(d) {
-  return { status: 200, body: { plants: await buildPlantSummaries(d.doc, d.tableName) } };
+async function plantsQuery(d) {
+  return { status: 200, body: { plants: await assemblePlantSummaries(d.doc, d.tableName) } };
 }
 
-async function plantDetail(d, plantId) {
-  const plant = await getPlantSummary(d.doc, d.tableName, plantId);
+async function plantDetailQuery(d, plantId) {
+  const plant = await findPlantSummary(d.doc, d.tableName, plantId);
   if (!plant) return { status: 404, body: { error: `unknown plant: ${plantId}` } };
   return { status: 200, body: plant };
 }
 
-async function health(d) {
+async function healthQuery(d) {
   const [gateway, queue, lambda, freshestAge] = await Promise.all([
-    checkGateway(d.gatewayHealthUrl),
-    isQueueReachable(d.sqs, d.queueName),
-    isLambdaActive(d.lambda, d.functionName),
-    freshestAgeSeconds(d.doc, d.tableName),
+    probeGatewayHealth(d.gatewayHealthUrl),
+    probeQueueReachable(d.sqs, d.queueName),
+    probeProcessorActive(d.lambda, d.functionName),
+    newestReadingAgeSeconds(d.doc, d.tableName),
   ]);
-  return { status: 200, body: { gateway, queue, lambda, pipeline: isPipelineFlowing(freshestAge), freshest_age_seconds: freshestAge } };
+  return { status: 200, body: { gateway, queue, lambda, pipeline: pipelineIsCurrent(freshestAge), freshest_age_seconds: freshestAge } };
 }
 
-async function backendStats(d) {
+async function backendStatsQuery(d) {
   const [queue, itemsInTable] = await Promise.all([
-    readQueueCounters(d.sqs, d.queueName),
-    countTableItems(d.doc, d.tableName),
+    sampleQueueDepth(d.sqs, d.queueName),
+    tallyStoredReadings(d.doc, d.tableName),
   ]);
   return { status: 200, body: { queue, items_in_table: itemsInTable } };
 }
 
-async function thresholds(d) {
-  const result = await fetchThresholds(d.gatewayThresholdsUrl);
+async function thresholdsQuery(d) {
+  const result = await fetchGatewayThresholds(d.gatewayThresholdsUrl);
   return { status: result.status, body: result.body };
 }
 
-function respond(status, body) {
+function apiResponse(status, body) {
   return {
     statusCode: status,
     headers: { "Content-Type": "application/json", ...CORS },
@@ -125,29 +122,29 @@ async function handler(event, _context, injectedClients) {
   const query = event.queryStringParameters || {};
   if (method === "OPTIONS") return { statusCode: 200, headers: CORS, body: "" };
 
-  const d = getDeps(injectedClients);
-  const plantPath = /^\/api\/plants\/([a-z0-9-]+)$/.exec(path);
+  const d = resolveDeps(injectedClients);
+  const plantMatch = /^\/api\/plants\/([a-z0-9-]+)$/.exec(path);
   try {
     let result;
     switch (true) {
       case method === "GET" && path === "/api/readings":
-        result = await readings(d, query); break;
+        result = await readingsQuery(d, query); break;
       case method === "GET" && path === "/api/plants":
-        result = await plants(d); break;
-      case method === "GET" && plantPath !== null:
-        result = await plantDetail(d, plantPath[1]); break;
+        result = await plantsQuery(d); break;
+      case method === "GET" && plantMatch !== null:
+        result = await plantDetailQuery(d, plantMatch[1]); break;
       case method === "GET" && path === "/api/health":
-        result = await health(d); break;
+        result = await healthQuery(d); break;
       case method === "GET" && path === "/api/backend-stats":
-        result = await backendStats(d); break;
+        result = await backendStatsQuery(d); break;
       case method === "GET" && path === "/api/thresholds":
-        result = await thresholds(d); break;
+        result = await thresholdsQuery(d); break;
       default:
         result = { status: 404, body: { error: "not found" } };
     }
-    return respond(result.status, result.body);
+    return apiResponse(result.status, result.body);
   } catch (err) {
-    return respond(500, { error: err.message || "internal error" });
+    return apiResponse(500, { error: err.message || "internal error" });
   }
 }
 

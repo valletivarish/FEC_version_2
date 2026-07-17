@@ -4,9 +4,9 @@ const { GetQueueUrlCommand, GetQueueAttributesCommand } = require("@aws-sdk/clie
 const { GetFunctionCommand } = require("@aws-sdk/client-lambda");
 const { ScanCommand } = require("@aws-sdk/lib-dynamodb");
 
-const PIPELINE_FRESH_SECONDS = 30;
+const FRESH_WINDOW_SECONDS = 30;
 
-async function isQueueReachable(sqs, queueName) {
+async function probeQueueReachable(sqs, queueName) {
   try {
     const { QueueUrl } = await sqs.send(new GetQueueUrlCommand({ QueueName: queueName }));
     await sqs.send(new GetQueueAttributesCommand({ QueueUrl, AttributeNames: ["QueueArn"] }));
@@ -16,7 +16,7 @@ async function isQueueReachable(sqs, queueName) {
   }
 }
 
-async function isLambdaActive(lambda, functionName) {
+async function probeProcessorActive(lambda, functionName) {
   try {
     const resp = await lambda.send(new GetFunctionCommand({ FunctionName: functionName }));
     return resp.Configuration.State === "Active";
@@ -25,7 +25,7 @@ async function isLambdaActive(lambda, functionName) {
   }
 }
 
-async function readQueueCounters(sqs, queueName) {
+async function sampleQueueDepth(sqs, queueName) {
   try {
     const { QueueUrl } = await sqs.send(new GetQueueUrlCommand({ QueueName: queueName }));
     const { Attributes } = await sqs.send(new GetQueueAttributesCommand({
@@ -45,7 +45,7 @@ async function readQueueCounters(sqs, queueName) {
 // so a table past that size would be silently undercounted. Follow
 // LastEvaluatedKey until DynamoDB stops returning one, summing Count across
 // every page.
-async function countTableItems(doc, tableName) {
+async function tallyStoredReadings(doc, tableName) {
   let total = 0;
   let lastKey;
   while (true) {
@@ -61,7 +61,7 @@ async function countTableItems(doc, tableName) {
   return total;
 }
 
-async function checkGateway(healthUrl) {
+async function probeGatewayHealth(healthUrl) {
   try {
     const res = await fetch(healthUrl, { signal: AbortSignal.timeout(2000) });
     return res.status === 200;
@@ -70,16 +70,16 @@ async function checkGateway(healthUrl) {
   }
 }
 
-function isPipelineFlowing(freshestAge) {
-  return freshestAge !== null && freshestAge <= PIPELINE_FRESH_SECONDS;
+function pipelineIsCurrent(freshestAge) {
+  return freshestAge !== null && freshestAge <= FRESH_WINDOW_SECONDS;
 }
 
 module.exports = {
-  PIPELINE_FRESH_SECONDS,
-  isQueueReachable,
-  isLambdaActive,
-  readQueueCounters,
-  countTableItems,
-  checkGateway,
-  isPipelineFlowing,
+  FRESH_WINDOW_SECONDS,
+  probeQueueReachable,
+  probeProcessorActive,
+  sampleQueueDepth,
+  tallyStoredReadings,
+  probeGatewayHealth,
+  pipelineIsCurrent,
 };

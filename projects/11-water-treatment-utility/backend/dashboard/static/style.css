@@ -2,11 +2,7 @@
    Primary view is a compact matrix table (rows = readings, columns =
    plants) with a native <meter> per cell against that reading's configured
    range, styled with thin blue linework rather than any hand-illustrated
-   diagram. This is the inverse orientation of 05-cold-chain-logistics'
-   manifest table (many rows = shipments, columns = attributes) and a
-   different structure entirely from the per-site card layouts used by
-   02-industrial-equipment and 09-aquaculture-fish-farm, while still only
-   using standard/native building blocks per the brief. */
+   diagram, using standard/native building blocks only. */
 
 :root {
   --bg: #eef4f9;

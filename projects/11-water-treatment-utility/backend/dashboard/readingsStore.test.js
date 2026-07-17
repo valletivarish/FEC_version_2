@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { SENSOR_TYPES, latestWindowsFor, buildPlantSummaries, getPlantSummary, freshestAgeSeconds } = require("./readingsStore");
+const { PLANT_SENSOR_TYPES, recentWindowsFor, assemblePlantSummaries, findPlantSummary, newestReadingAgeSeconds } = require("./readingsStore");
 
 function fakeDoc(itemsBySensorType) {
   return {
@@ -14,14 +14,14 @@ function fakeDoc(itemsBySensorType) {
   };
 }
 
-test("latestWindowsFor queries by sensor_type and returns items in chronological order", async () => {
+test("recentWindowsFor queries by sensor_type and returns items in chronological order", async () => {
   const doc = fakeDoc({ ph_level: [{ sensor_type: "ph_level", site_id: "plant-1", avg: 7.0 }, { sensor_type: "ph_level", site_id: "plant-1", avg: 7.1 }] });
-  const items = await latestWindowsFor(doc, "wtu-readings", "ph_level", 10);
+  const items = await recentWindowsFor(doc, "wtu-readings", "ph_level", 10);
   assert.equal(items.length, 2);
   assert.equal(items[0].avg, 7.0);
 });
 
-test("buildPlantSummaries groups the latest window per sensor type into each plant", async () => {
+test("assemblePlantSummaries groups the latest window per sensor type into each plant", async () => {
   const doc = fakeDoc({
     turbidity_ntu: [
       { sensor_type: "turbidity_ntu", site_id: "plant-1", unit: "NTU", latest: 2.0, min: 1.0, max: 3.0, avg: 2.0, window_end: "e1", alerts: [] },
@@ -30,7 +30,7 @@ test("buildPlantSummaries groups the latest window per sensor type into each pla
     ph_level: [], chlorine_ppm: [], flow_rate_lps: [], pressure_bar: [],
   });
 
-  const plants = await buildPlantSummaries(doc, "wtu-readings");
+  const plants = await assemblePlantSummaries(doc, "wtu-readings");
   assert.equal(plants.length, 2);
   const p1 = plants.find((p) => p.site_id === "plant-1");
   const p2 = plants.find((p) => p.site_id === "plant-2");
@@ -40,27 +40,27 @@ test("buildPlantSummaries groups the latest window per sensor type into each pla
   assert.deepEqual(p2.alerts, [{ sensor_type: "turbidity_ntu", key: "turbidity_alert" }]);
 });
 
-test("buildPlantSummaries returns both plants even with no data yet, sorted by site_id", async () => {
+test("assemblePlantSummaries returns both plants even with no data yet, sorted by site_id", async () => {
   const doc = fakeDoc({});
-  const plants = await buildPlantSummaries(doc, "wtu-readings");
+  const plants = await assemblePlantSummaries(doc, "wtu-readings");
   assert.deepEqual(plants.map((p) => p.site_id), ["plant-1", "plant-2"]);
   assert.deepEqual(plants[0].metrics, {});
   assert.equal(plants[0].compliant, true);
 });
 
-test("getPlantSummary returns a single plant by site_id, or null when unknown", async () => {
+test("findPlantSummary returns a single plant by site_id, or null when unknown", async () => {
   const doc = fakeDoc({});
-  const plant = await getPlantSummary(doc, "wtu-readings", "plant-1");
+  const plant = await findPlantSummary(doc, "wtu-readings", "plant-1");
   assert.equal(plant.site_id, "plant-1");
-  assert.equal(await getPlantSummary(doc, "wtu-readings", "plant-9"), null);
+  assert.equal(await findPlantSummary(doc, "wtu-readings", "plant-9"), null);
 });
 
-test("freshestAgeSeconds returns null when the table is entirely empty", async () => {
+test("newestReadingAgeSeconds returns null when the table is entirely empty", async () => {
   const doc = fakeDoc({});
-  assert.equal(await freshestAgeSeconds(doc, "wtu-readings"), null);
+  assert.equal(await newestReadingAgeSeconds(doc, "wtu-readings"), null);
 });
 
-test("freshestAgeSeconds returns the smallest age across all sensor types", async () => {
+test("newestReadingAgeSeconds returns the smallest age across all sensor types", async () => {
   const now = Date.now();
   const recentEnd = new Date(now - 2000).toISOString();
   const staleEnd = new Date(now - 50_000).toISOString();
@@ -68,10 +68,10 @@ test("freshestAgeSeconds returns the smallest age across all sensor types", asyn
     turbidity_ntu: [{ sensor_type: "turbidity_ntu", site_id: "plant-1", window_end: staleEnd }],
     ph_level: [{ sensor_type: "ph_level", site_id: "plant-1", window_end: recentEnd }],
   });
-  const age = await freshestAgeSeconds(doc, "wtu-readings");
+  const age = await newestReadingAgeSeconds(doc, "wtu-readings");
   assert.ok(age !== null && age < 5, `expected the freshest age to reflect the recent window, got ${age}`);
 });
 
-test("SENSOR_TYPES lists all five water-treatment sensors", () => {
-  assert.deepEqual(SENSOR_TYPES, ["turbidity_ntu", "ph_level", "chlorine_ppm", "flow_rate_lps", "pressure_bar"]);
+test("PLANT_SENSOR_TYPES lists all five water-treatment sensors", () => {
+  assert.deepEqual(PLANT_SENSOR_TYPES, ["turbidity_ntu", "ph_level", "chlorine_ppm", "flow_rate_lps", "pressure_bar"]);
 });
