@@ -12,11 +12,11 @@ Why build it? Because avalanche danger moves faster than a ski patrol. A seismic
 
 ## Slide 3 (1:00-1:50)
 
-Here's how the data flows — just follow the numbers. Sensors post readings to a fog node on the mountain — the dark box: it buffers raw readings, closes a window on a timer, aggregates it, and checks the four alert rules right there. Only one compact summary per window travels to the cloud, onto an Amazon SQS queue. An AWS Lambda function wakes only when messages arrive and writes each aggregate into DynamoDB. The dashboard is a static page on Amazon S3, polling a second Lambda through API Gateway. So raw data never leaves the mountain, and everything past the fog node is serverless.
+Here's how the data flows — just follow the numbers. Sensors post readings to a fog node on the mountain — that node buffers raw readings, closes a window on a timer, aggregates it, and checks the four alert rules right there. Only one compact summary per window travels to the cloud, onto an Amazon SQS queue. An AWS Lambda function wakes only when messages arrive and writes each aggregate into DynamoDB. The dashboard is a static page on Amazon S3, polling a second Lambda through API Gateway. So raw data never leaves the mountain, and everything past the fog node is serverless.
 
 ## Slide 4 (1:50-2:30)
 
-This screenshot is the real deployed dashboard, served from S3 on a live AWS account. Top right, all four pipeline health checks are green: gateway, queue, Lambda, pipeline. Behind it, a hundred and twenty-one automated tests pass. During verification, DynamoDB climbed from zero to five hundred and sixty-nine records in about ninety seconds and kept going. And it caught a real event live: wind on slope-a hit a hundred and eleven kilometres per hour — you can see the gauge at HIGH and the lift-wind-halt alert firing.
+This screenshot is the real deployed dashboard, served from S3 on a live AWS account. Top right, all four pipeline health checks are green: gateway, queue, Lambda, pipeline. Behind it, a hundred and twenty-one automated tests pass. During verification, DynamoDB climbed from zero to five hundred and sixty-nine records in about ninety seconds and kept going. And it caught a real event live: wind on slope-a hit almost a hundred and twelve kilometres per hour — you can see the gauge at HIGH and the lift-wind-halt alert firing.
 
 ## Slide 5 (2:30-3:40)
 

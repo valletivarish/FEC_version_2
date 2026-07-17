@@ -24,4 +24,4 @@ Now the hardest part. Every ten seconds the fog node has to close the current wi
 
 ## Slide 6 (3:35-4:00)
 
-Three things this proved. Fog windowing turns ten raw telemetry streams into a handful of meaningful safety signals before anything reaches the cloud. The serverless backend absorbed a two-thousand-message burst with no servers to manage. And every alert on screen traces back to a real, code-defined threshold, verified end to end by ninety-five automated tests. Thank you, I am happy to take questions.
+Three points this proved. Fog windowing turns ten raw telemetry streams into a handful of meaningful safety signals before anything reaches the cloud. The serverless backend absorbed a two-thousand-message burst with no servers to manage. And every alert on screen traces back to a real, code-defined threshold, verified end to end by ninety-five automated tests. Thank you, I am happy to take questions.

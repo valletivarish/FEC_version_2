@@ -12,7 +12,7 @@ Here's the problem. A ranger on a fixed patrol learns about a poaching incident,
 
 ## Slide 3 (1:00-1:50)
 
-How does it work? Follow the top row. Ten sensor feeds post readings to a fog node at the reserve edge. It does the edge computing: windows the readings, reduces each window to a few summary figures, and evaluates the alert rules locally, so the raw stream never leaves the reserve. The compact summaries go onto an Amazon SQS queue, AWS Lambda drains it, and each aggregate lands in DynamoDB. The bottom row is the serve path: a second Lambda behind Amazon API Gateway reads everything back, and the dashboard is a static page on Amazon S3. Fully serverless, nothing for me to patch.
+How does it work? Follow the top row. Ten sensor feeds post readings to a fog node at the reserve edge. It does the edge computing: windows the readings, reduces each window to a compact summary, and evaluates the alert rules locally, so the raw stream never leaves the reserve. The compact summaries go onto an Amazon SQS queue, AWS Lambda drains it, and each aggregate lands in DynamoDB. The bottom row is the serve path: a second Lambda behind Amazon API Gateway reads everything back, and the dashboard is a static page on Amazon S3. Fully serverless, nothing for me to patch.
 
 ## Slide 4 (1:50-2:35)
 

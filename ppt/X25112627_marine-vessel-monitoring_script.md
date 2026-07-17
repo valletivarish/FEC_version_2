@@ -8,11 +8,11 @@ Good morning. I'm Gopi Krishnan, student ID X25112627, MSc in Cloud Computing at
 
 ## Slide 2 (0:20-1:00)
 
-Why this problem? On a ship, condition checks happen on a fixed rounds schedule, so a fuel-burn spike, a ballast imbalance, or rising hull vibration gets noticed at the next check - not when it starts. Continuous sensing fixes that, but creates a new problem: I'm modelling ten live sensor streams across two vessels, and a ship's link back to shore is narrow and unreliable - you can't stream every raw reading ashore. So the answer has to live on board, catching these four alert rules as they start.
+Why this problem? On a ship, condition checks happen on a fixed rounds schedule, so a fuel-burn spike, a ballast imbalance, or rising hull vibration is only caught at the next check - not when it starts. Continuous sensing fixes that, but creates a new problem: I'm modelling ten live sensor streams across two vessels, and a ship's link back to shore is narrow and unreliable - you can't stream every raw reading ashore. So the answer has to live on board, catching these four alert rules as they start.
 
 ## Slide 3 (1:00-1:45)
 
-Here's how it works, left to right. On board, ten sensors feed a fog node, which buffers readings into rolling windows, reduces each window to a few statistics - minimum, maximum, average, latest - and checks the alert rules on the vessel itself. Only those compact summaries cross the link, in batches of up to ten per call, into Amazon SQS. The queue triggers an AWS Lambda function that writes each window into DynamoDB, and a live dashboard - static files on Amazon S3, data through API Gateway - compares both vessels side by side. Everything right of the vessel is fully serverless.
+Here's how it works, left to right. On board, ten sensors feed a fog node, which buffers readings into rolling windows, reduces each window to four figures - minimum, maximum, average, latest - and checks the alert rules on the vessel itself. Only those compact summaries cross the link, in batches of up to ten per call, into Amazon SQS. The queue triggers an AWS Lambda function that writes each window into DynamoDB, and a live dashboard - static files on Amazon S3, data through API Gateway - compares both vessels side by side. Everything right of the vessel is fully serverless.
 
 ## Slide 4 (1:45-2:30)
 
@@ -24,4 +24,4 @@ Now - the hardest part. After deploying to the real account, I opened the dashbo
 
 ## Slide 6 (3:35-4:00)
 
-Three takeaways. Aggregate at the edge, so only compact summaries cross the ship-to-shore link. Go serverless where it counts - the backend scales per request, with nothing to patch. And always test the real thing: the live cloud and a real browser caught what green tests could not. Thank you - I'm happy to take questions.
+Three takeaways. Aggregate at the edge, so only compact summaries cross the ship-to-shore link. Go serverless where it counts - the backend scales per request, with nothing to patch. And always test on real infrastructure: the live cloud and a real browser caught what green tests could not. Thank you - I'm happy to take questions.

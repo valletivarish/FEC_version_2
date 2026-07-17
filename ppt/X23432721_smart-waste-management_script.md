@@ -8,7 +8,7 @@ Good morning, everyone. I'm Gundeti Sachin Reddy, student ID X23432721, MSc in C
 
 ## Slide 2 (0:20-1:00)
 
-Why does this matter? Municipal waste collection runs on a fixed schedule: the truck comes on Tuesday whether the bin is full or empty. That wastes runs on half-empty bins, and hazards stay invisible between visits. These four cards are what the system watches live: a bin passing eighty-five percent full, temperature above fifty-five degrees, gas above four hundred parts per million, and a lid opened more than eight times — likely tampering. A calendar catches none of these; live sensing catches them all.
+Why does this matter? Municipal waste collection runs on a fixed schedule: the truck comes on Tuesday whether the bin is full or empty. That wastes collection runs on half-empty bins, and hazards stay invisible between visits. These four cards are what the system watches live: a bin passing eighty-five percent full, temperature above fifty-five degrees, gas above four hundred parts per million, and a lid opened more than eight times — likely tampering. A calendar catches none of these; live sensing catches them all.
 
 ## Slide 3 (1:00-1:50)
 

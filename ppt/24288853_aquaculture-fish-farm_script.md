@@ -8,7 +8,7 @@ Good morning, everyone. My name is Anjaneya Reddy Gurram, student ID 24288853, f
 
 ## Slide 2 (0:20-1:00)
 
-On most pond farms, water quality is still checked by hand — a technician draws a sample and runs a test kit once, maybe twice a day. But dissolved oxygen and ammonia don't keep to that schedule. One warm, still night can crash oxygen and push ammonia up within hours — right inside the gap on this timeline between two samples. And with aquaculture now supplying the majority of the world's aquatic animal production, that blind spot is getting expensive.
+On most pond farms, water quality is still checked by hand — a technician draws a sample and runs a test kit once, maybe twice a day. But dissolved oxygen and ammonia don't keep to that schedule. One warm, still night can crash oxygen and push ammonia up within hours — right inside the gap between two samples. And with aquaculture now supplying the majority of the world's aquatic animal production, that blind spot is getting expensive.
 
 ## Slide 3 (1:00-1:45)
 
