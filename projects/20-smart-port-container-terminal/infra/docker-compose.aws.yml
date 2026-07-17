@@ -1,0 +1,120 @@
+name: spc
+
+# Real-AWS variant of docker-compose.yml: runs the fog node and every sensor
+# container against the live account instead of LocalStack. No
+# AWS_ACCESS_KEY_ID or AWS_ENDPOINT_URL is set anywhere in this file, so the
+# SDK's default credential provider chain picks up this EC2 instance's
+# attached instance profile automatically. Neither localstack, dashboard,
+# nor the one-shot processor job appear here: the DynamoDB table and both
+# Lambdas are provisioned directly against the account instead.
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  fog:
+    build:
+      context: ../fog
+    ports:
+      - "8000:8000"
+    environment:
+      AWS_REGION: us-east-1
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: spc-berth-agg
+    restart: unless-stopped
+
+  sensor-crane-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: crane_load_kg
+      SITE_ID: berth-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  sensor-crane-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: crane_load_kg
+      SITE_ID: berth-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-stack-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: container_stack_height
+      SITE_ID: berth-a
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "12"
+
+  sensor-stack-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: container_stack_height
+      SITE_ID: berth-b
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "13"
+
+  sensor-wind-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: wind_speed_knots
+      SITE_ID: berth-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-wind-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: wind_speed_knots
+      SITE_ID: berth-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "11"
+
+  sensor-occupancy-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: berth_occupancy_pct
+      SITE_ID: berth-a
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "14"
+
+  sensor-occupancy-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: berth_occupancy_pct
+      SITE_ID: berth-b
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "15"
+
+  sensor-reefer-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: reefer_temp_c
+      SITE_ID: berth-a
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-reefer-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: reefer_temp_c
+      SITE_ID: berth-b
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"

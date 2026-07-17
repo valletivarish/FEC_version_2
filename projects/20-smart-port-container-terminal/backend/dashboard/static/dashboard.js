@@ -1,3 +1,12 @@
+// The api-base template's text is sed-substituted with the real API Gateway
+// URL at S3 upload time; empty/placeholder means same-origin local dev.
+const API_BASE = (() => {
+  const el = document.getElementById("api-base");
+  if (!el) return "";
+  const value = el.content.textContent.trim();
+  return value.startsWith("__API_BASE__") ? "" : value;
+})();
+
 const SENSOR_TYPES = ["crane_load_kg", "container_stack_height", "wind_speed_knots", "berth_occupancy_pct", "reefer_temp_c"];
 
 const METRIC_LABELS = {
@@ -116,7 +125,7 @@ function renderBackendStats(backendStats) {
 }
 
 async function fetchTrend(sensorType) {
-  const res = await fetch(`/api/readings?sensor_type=${sensorType}&limit=20`);
+  const res = await fetch(`${API_BASE}/api/readings?sensor_type=${sensorType}&limit=20`);
   return res.json();
 }
 
@@ -165,9 +174,9 @@ function renderCraneTrend(items) {
 async function tick() {
   try {
     const [berthsResp, health, backendStats] = await Promise.all([
-      fetch("/api/berths").then((r) => r.json()),
-      fetch("/api/health").then((r) => r.json()),
-      fetch("/api/backend-stats").then((r) => r.json()),
+      fetch(`${API_BASE}/api/berths`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/health`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/backend-stats`).then((r) => r.json()),
     ]);
 
     const berths = berthsResp.berths || [];
