@@ -141,15 +141,15 @@ Stop the stack:
 6. AWS DEPLOYMENT STEPS
 ===============================================================================
 
-No terraform/deployments/*.tfvars file exists yet for this project. To
-deploy it with the Terraform module in terraform/:
+No terraform/deployments/*.tfvars file exists yet. To deploy it with the
+Terraform module in terraform/:
 
 1. Confirm the AWS Academy Learner Lab credentials in use are the intended
    account:
       aws sts get-caller-identity
 
 2. From the repository root, create and switch to an isolated Terraform
-   workspace for this project before ever applying:
+   workspace before ever applying:
       cd terraform
       terraform workspace new dce
       terraform workspace list

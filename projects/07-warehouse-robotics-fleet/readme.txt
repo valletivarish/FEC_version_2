@@ -112,7 +112,7 @@ docker compose -f infra/docker-compose.yml down
 6. AWS DEPLOYMENT STEPS
 
 Deployment to real AWS uses the Terraform module in terraform/ with
-the existing terraform/deployments/wrf.tfvars file for this project.
+the terraform/deployments/wrf.tfvars file.
 
 1. Configure AWS CLI credentials for the target AWS account (access key,
    secret key, and session token if using temporary credentials):
@@ -123,7 +123,7 @@ the existing terraform/deployments/wrf.tfvars file for this project.
 
 3. cd terraform
 
-4. Create and switch to an isolated workspace for this project (use
+4. Create and switch to an isolated workspace (use
    "select" instead of "new" if the workspace already exists):
    terraform workspace new wrf
    terraform workspace list

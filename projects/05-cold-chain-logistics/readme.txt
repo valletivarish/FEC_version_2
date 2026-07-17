@@ -6,8 +6,7 @@ Cold Chain Logistics
 
 - Docker and Docker Compose (v2 syntax; infra/docker-compose.yml uses the
   top-level "name:" key)
-- Python 3.12 (matches the python:3.12-slim base image used by every
-  Dockerfile in this project)
+- Python 3.12 (the python:3.12-slim base image used by the Dockerfiles)
 - pip
 - AWS CLI v2, configured with credentials for the target AWS account
   (needed only for section 6, AWS Deployment Steps)
@@ -81,8 +80,7 @@ Backend dashboard (backend/dashboard/routes.py, health.py):
                           alert-threshold URL.
 
 Standard AWS SDK credential variables (consumed by boto3's default
-credential chain, not read directly via os.getenv anywhere in this
-project's code): AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY. Local Docker
+credential chain): AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY. Local Docker
 Compose sets both to "test" for LocalStack; real AWS deployment relies on
 the IAM role/instance profile or configured CLI credentials instead.
 
@@ -140,7 +138,7 @@ To stop everything:
 6. AWS DEPLOYMENT STEPS
 ===========================================================================
 
-No terraform/deployments/*.tfvars file exists yet for this project.
+No terraform/deployments/*.tfvars file exists yet.
 Follow these steps to prepare and deploy it:
 
 1. Confirm AWS credentials are configured for the target account:
@@ -195,8 +193,6 @@ Follow these steps to prepare and deploy it:
    (confirm the plan shows only resources being added, 0 to destroy)
 9. terraform apply -var-file=deployments/fcl.tfvars
 10. terraform workspace select default
-    (afterward, so the working directory doesn't stay on this workspace
-    for a future run)
 
 ===========================================================================
 7. TESTING INSTRUCTIONS

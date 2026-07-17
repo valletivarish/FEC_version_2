@@ -119,7 +119,7 @@ so create one before the first deploy.
    processor_runtime, dashboard_lambda_name, dashboard_build_command,
    dashboard_zip_path, dashboard_handler, dashboard_runtime,
    frontend_local_dir, api_base_placeholder, and api_base_search_files.
-   For this project:
+   Use these values:
      prefix       = "ptf"
      project_root = "../projects/16-public-transit-fleet-monitoring"
      table_name   = "ptf-readings"
@@ -141,9 +141,7 @@ so create one before the first deploy.
    same `mvn package -DskipTests -q` build), then point those fields at it
    the same way processor_handler points at TransitHandler above.
 
-3. Create an isolated Terraform workspace before applying (the shared
-   module's local state tracks whichever projects have already been
-   deployed through it under their own workspaces):
+3. Create an isolated Terraform workspace before applying:
      cd terraform
      terraform workspace new ptf
      terraform workspace list
@@ -154,8 +152,7 @@ so create one before the first deploy.
      ./build.sh deployments/ptf.tfvars
      terraform apply -var-file=deployments/ptf.tfvars
 
-5. Switch back to the default workspace when finished so it does not
-   affect the next deployment run:
+5. Switch back to the default workspace when finished:
      terraform workspace select default
 
 TESTING INSTRUCTIONS

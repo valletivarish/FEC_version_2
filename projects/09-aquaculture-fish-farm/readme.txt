@@ -11,7 +11,7 @@ PREREQUISITES
 
 INSTALLATION STEPS
 --------------------
-  1. Clone the repository and change into this project's folder:
+  1. Clone the repository and change into the project folder:
        cd projects/09-aquaculture-fish-farm
   2. All commands below assume this folder is your working directory.
   3. If you plan to run the Maven test suites or build locally, no extra
@@ -108,8 +108,8 @@ Stop and remove the stack:
 AWS DEPLOYMENT STEPS
 -----------------------
 Deployment uses the Terraform module in terraform/, with the
-existing terraform/deployments/aff.tfvars file for this project's
-resource names and build commands.
+existing terraform/deployments/aff.tfvars file for resource names
+and build commands.
 
   1. Configure AWS credentials for the target account:
        aws configure
@@ -118,7 +118,7 @@ resource names and build commands.
   2. Confirm you are pointed at the correct account:
        aws sts get-caller-identity
   3. From the repo root, create and switch to a dedicated Terraform
-     workspace for this project before ever applying:
+     workspace before ever applying:
        cd terraform
        terraform workspace new aff
        terraform workspace list
@@ -128,8 +128,7 @@ resource names and build commands.
        terraform plan -var-file=deployments/aff.tfvars
   6. Apply:
        terraform apply -var-file=deployments/aff.tfvars
-  7. When finished, switch back to the default workspace so it does not
-     carry into the next deployment run:
+  7. When finished, switch back to the default workspace:
        terraform workspace select default
 
 TESTING INSTRUCTIONS

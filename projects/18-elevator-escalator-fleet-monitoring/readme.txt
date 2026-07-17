@@ -17,7 +17,7 @@ PREREQUISITES
 INSTALLATION STEPS
 --------------------
   1. Clone the repository.
-  2. Change into this project's directory:
+  2. Change into the project directory:
        cd projects/18-elevator-escalator-fleet-monitoring
   3. Each of the four modules (sensors/, fog/, backend/processor/,
      backend/dashboard/) has its own package.json and is installed
@@ -117,8 +117,8 @@ Stop the stack and remove its volumes:
 
 AWS DEPLOYMENT STEPS
 -----------------------
-No terraform/deployments/*.tfvars file exists yet for this project. To
-deploy it with the Terraform module in terraform/:
+No terraform/deployments/*.tfvars file exists yet. To deploy with the
+Terraform module in terraform/:
 
   1. Configure AWS credentials for the target account:
        aws configure
@@ -156,8 +156,8 @@ deploy it with the Terraform module in terraform/:
 
   4. cd terraform
 
-  5. Create and switch to a dedicated Terraform workspace for this
-     project (do not apply against the default workspace):
+  5. Create and switch to a dedicated Terraform workspace (do not apply
+     against the default workspace):
        terraform workspace new eef
        terraform workspace list
 

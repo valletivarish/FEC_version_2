@@ -12,8 +12,7 @@ All commands below assume your working directory is this folder
   - pip
   - AWS CLI (only needed for the AWS deployment steps)
   - Terraform >= 1.5 with the AWS provider ~> 5.0 (only needed for the AWS
-    deployment steps; the Terraform module lives at the repository
-    root's terraform/ directory, not inside this project folder)
+    deployment steps)
 
 2. INSTALLATION STEPS
 ----------------------
@@ -34,8 +33,7 @@ Fog node (fog/app.py):
   SQS_QUEUE_NAME       SQS queue the fog node publishes aggregates to
                         (default: mvs-vessel-agg)
   AWS_ENDPOINT_URL     AWS endpoint override; set for LocalStack, unset for
-                        real AWS so boto3 falls back to its default
-                        credential/endpoint chain (no default)
+                        real AWS (no default)
   AWS_REGION           AWS region for the SQS client (default: eu-west-1)
 
 Sensors (sensors/sensor.py):
@@ -126,10 +124,9 @@ a Docker image at container-build time.
 
 6. AWS DEPLOYMENT STEPS
 -------------------------
-No terraform/deployments/mvs.tfvars file exists yet for this project. The
-Terraform module lives at the repository root's terraform/
-directory (not inside this project folder) and is driven by one .tfvars
-file.
+No terraform/deployments/mvs.tfvars file exists yet. The Terraform module
+lives at the repository root's terraform/ directory and is driven by one
+.tfvars file.
 
   1. Configure AWS CLI credentials for the target account, then confirm:
        aws sts get-caller-identity
@@ -163,8 +160,7 @@ file.
        api_base_search_files = ["dashboard.js"]
 
   3. From terraform/, create and switch to a dedicated workspace before
-     ever applying (the default workspace already tracks another
-     project's live state):
+     ever applying:
        cd terraform
        terraform workspace new mvs
        terraform workspace list

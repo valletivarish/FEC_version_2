@@ -121,7 +121,7 @@ Stop and remove the stack:
 
 AWS DEPLOYMENT STEPS
 -----------------------
-No terraform/deployments/*.tfvars file exists yet for this project.
+No terraform/deployments/*.tfvars file exists yet.
 Before deploying, create one (for example
 terraform/deployments/fei.tfvars) with the values below. The
 file needs:
@@ -153,7 +153,7 @@ Once the tfvars file exists:
   2. Confirm you are pointed at the correct account:
        aws sts get-caller-identity
   3. From the repo root, create and switch to a dedicated Terraform
-     workspace for this project before ever applying:
+     workspace before ever applying:
        cd terraform
        terraform workspace new fei
        terraform workspace list
@@ -163,8 +163,7 @@ Once the tfvars file exists:
        terraform plan -var-file=deployments/fei.tfvars
   6. Apply:
        terraform apply -var-file=deployments/fei.tfvars
-  7. When finished, switch back to the default workspace so it does not
-     carry into the next deployment run:
+  7. When finished, switch back to the default workspace:
        terraform workspace select default
 
 TESTING INSTRUCTIONS

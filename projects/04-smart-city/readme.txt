@@ -18,9 +18,8 @@ INSTALLATION STEPS
   1. Clone the repository and cd into projects/04-smart-city/.
   2. No manual dependency installation is required to run the stack or the
      unit tests: each module (sensors/, fog/, backend/processor/,
-     backend/dashboard/) has its own pom.xml, and Maven resolves and
-     downloads its dependencies automatically on first `mvn test` or
-     `mvn package`.
+     backend/dashboard/) has its own pom.xml, and Maven resolves its
+     dependencies automatically.
   3. To run the Python ops scripts in infra/ locally (outside Docker),
      install their one dependency:
        pip install boto3

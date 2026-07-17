@@ -13,7 +13,7 @@ PREREQUISITES
 INSTALLATION STEPS
 -------------------
 1. Clone the repository.
-2. Change into this project's directory (all commands below assume this
+2. Change into the project directory (all commands below assume this
    is your working directory):
      cd projects/13-ev-charging-network
 3. Install the local test dependencies:
@@ -91,9 +91,8 @@ Stop and remove the stack:
 
 AWS DEPLOYMENT STEPS
 ----------------------
-No terraform/deployments/*.tfvars file exists yet for this project. To
-deploy it with the Terraform configuration in terraform/ at the
-repository root:
+No terraform/deployments/*.tfvars file exists yet. To deploy it with the
+Terraform configuration in terraform/ at the repository root:
 
 1. Configure AWS credentials for the target account, then confirm them:
      aws sts get-caller-identity
@@ -105,20 +104,18 @@ repository root:
    dashboard_zip_path, dashboard_handler, dashboard_runtime,
    frontend_local_dir, api_base_placeholder, api_base_search_files.
    - Set project_root to "../projects/13-ev-charging-network".
-   - Set table_name to "ecn-readings" and queue_name to "ecn-hub-agg",
-     matching the naming already used in infra/docker-compose.yml.
+   - Set table_name to "ecn-readings" and queue_name to "ecn-hub-agg".
    - processor_handler = "handler.lambda_handler",
-     processor_runtime = "python3.12" -- backend/processor/handler.py
-     already defines this entry point.
+     processor_runtime = "python3.12".
    - backend/dashboard/app.py currently runs as a plain Flask dev server
      and does not expose a Lambda-compatible handler function yet; add
      one under backend/dashboard/ before setting dashboard_handler and
      dashboard_build_command.
    - frontend_local_dir = "backend/dashboard/static".
 
-3. Add an infra/docker-compose.aws.yml file to this project (the fog node
-   plus all ten sensor containers, no localstack service, port 8000
-   published) for the EC2 provisioning step to use.
+3. Add an infra/docker-compose.aws.yml file (the fog node plus all ten
+   sensor containers, no localstack service, port 8000 published) for the
+   EC2 provisioning step to use.
 
 4. From the terraform/ directory, create and switch to a dedicated
    workspace before running any apply:
@@ -135,7 +132,7 @@ repository root:
 
 TESTING INSTRUCTIONS
 -----------------------
-Install test dependencies and run the full suite from this project's
+Install test dependencies and run the full suite from the project
 directory:
   pip install -r requirements-dev.txt
   pytest

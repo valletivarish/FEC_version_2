@@ -81,7 +81,7 @@ This project has no terraform/deployments/*.tfvars file yet. Deployment uses the
    terraform workspace new wcm
    terraform workspace list
 
-3. Create terraform/deployments/wcm.tfvars, defining: prefix, project_root, table_name, queue_name, processor_lambda_name/build_command/zip_path/handler/runtime, dashboard_lambda_name/build_command/zip_path/handler/runtime, frontend_local_dir, api_base_placeholder, api_base_search_files. This project's real values are:
+3. Create terraform/deployments/wcm.tfvars, defining: prefix, project_root, table_name, queue_name, processor_lambda_name/build_command/zip_path/handler/runtime, dashboard_lambda_name/build_command/zip_path/handler/runtime, frontend_local_dir, api_base_placeholder, api_base_search_files. The values are:
    prefix                  = "wcm"
    project_root            = "../projects/24-wildlife-conservation-monitoring"
    table_name              = "wcm-readings"
@@ -98,7 +98,7 @@ This project has no terraform/deployments/*.tfvars file yet. Deployment uses the
    dashboard_runtime       = "java17"
    frontend_local_dir      = "backend/dashboard/static"
 
-   Note: this project's frontend does not read its API base from a placeholder embedded in index.html. dashboard.js fetches static/api-config.json at page load and reads its "apiBase" field, so api_base_search_files should list api-config.json (not index.html), and api_base_placeholder should match whatever token you put in that file's "apiBase" value ahead of the deploy-time substitution.
+   Note: the frontend does not read its API base from a placeholder embedded in index.html. dashboard.js fetches static/api-config.json at page load and reads its "apiBase" field, so api_base_search_files should list api-config.json (not index.html), and api_base_placeholder should match whatever token you put in that file's "apiBase" value ahead of the deploy-time substitution.
 
 4. Build the Lambda jars and the EC2 source tarball, then apply:
    ./build.sh deployments/wcm.tfvars
@@ -118,4 +118,4 @@ Each module has its own JUnit 5 test suite, run independently with Maven:
   cd backend/processor && mvn test        -> 5 tests
   cd backend/dashboard && mvn test        -> 26 tests
 
-Total: 82 tests across all four modules. All 82 pass as of this writing (verified by running each module's test suite).
+Total: 82 tests across all four modules. All 82 pass as of this writing.

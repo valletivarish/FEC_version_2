@@ -11,7 +11,7 @@ PREREQUISITES
 
 INSTALLATION STEPS
 -------------------
-1. Clone the repository and change into this project's folder:
+1. Clone the repository and change into the project folder:
      cd projects/06-offshore-wind-farm
    All commands below assume this folder is your working directory.
 2. Install local dependencies for each Node module (only required to run
@@ -145,9 +145,7 @@ terraform/deployments/owf.tfvars.
 5. Review the plan, then apply:
      terraform plan -var-file=deployments/owf.tfvars
      terraform apply -var-file=deployments/owf.tfvars
-6. After the apply completes, switch back to the default workspace so the
-   working directory doesn't default into this workspace for a later
-   deployment:
+6. After the apply completes, switch back to the default workspace:
      terraform workspace select default
 
 TESTING INSTRUCTIONS

@@ -12,7 +12,7 @@ PREREQUISITES
 
 INSTALLATION STEPS
 --------------------
-1. Clone the repository and change into this project's folder:
+1. Clone the repository and change into the project folder:
      cd projects/10-wildfire-forest-monitoring
 
 2. Install dependencies for each Node.js module (needed to run the unit
@@ -86,7 +86,7 @@ Deployment Steps below):
 
 RUN INSTRUCTIONS
 -------------------
-From this project's folder:
+From the project folder:
   docker compose -f infra/docker-compose.yml up --build
 
 This starts LocalStack, the fog node, a one-shot container that registers
@@ -111,8 +111,7 @@ with the variable file terraform/deployments/wfm.tfvars.
      aws sts get-caller-identity
 
 2. From the repo root, create and switch to a dedicated Terraform
-   workspace for this project so its state does not collide with another
-   project's:
+   workspace:
      cd terraform
      terraform workspace new wfm
      terraform workspace list

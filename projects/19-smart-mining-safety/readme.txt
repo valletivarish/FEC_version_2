@@ -9,7 +9,7 @@ PREREQUISITES
 
 INSTALLATION STEPS
 --------------------
-  1. Clone the repository and change into this project's directory:
+  1. Clone the repository and change into the project directory:
        cd projects/19-smart-mining-safety
   2. All commands below assume this directory as the working directory.
   3. No local dependency installation is required beyond the prerequisites
@@ -120,9 +120,7 @@ module in terraform/. From the repository root:
      (or export AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_SESSION_TOKEN)
   2. Confirm you are targeting the intended account:
        aws sts get-caller-identity
-  3. Change into the Terraform directory and select an isolated workspace
-     for this project (never apply against the "default" workspace if it
-     already holds different state):
+  3. Change into the Terraform directory and select an isolated workspace:
        cd terraform
        terraform workspace new msm
        terraform workspace list
@@ -132,8 +130,7 @@ module in terraform/. From the repository root:
        terraform plan -var-file=deployments/msm.tfvars
   6. Apply:
        terraform apply -var-file=deployments/msm.tfvars
-  7. Switch back to the default workspace when finished so it does not
-     affect the next deployment run:
+  7. Switch back to the default workspace when finished:
        terraform workspace select default
 
 This provisions a DynamoDB table, an SQS queue, the processor and

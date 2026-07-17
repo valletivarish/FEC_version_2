@@ -14,7 +14,7 @@ PREREQUISITES
 
 INSTALLATION STEPS
 --------------------
-1. Clone the repository and change into this project's folder:
+1. Clone the repository and change into the project folder:
      cd projects/25-ski-resort-avalanche-safety
    All further commands below assume this working directory unless a
    different one is stated.
@@ -27,8 +27,6 @@ INSTALLATION STEPS
      cd fog && npm install && cd ..
      cd backend/processor && npm install && cd ../..
      cd backend/dashboard && npm install && cd ../..
-   (sensors has no external runtime dependencies; the other three each
-   pull in the AWS SDK v3 clients they use.)
 
 3. Only if you plan to run the optional verification scripts in infra/:
      pip install boto3
@@ -186,8 +184,7 @@ frontend_local_dir, api_base_placeholder, api_base_search_files.
    with the literal token you set as api_base_placeholder above, so the
    deploy step can substitute the real API Gateway URL into it.
 
-3. Create and switch to an isolated Terraform workspace for this project
-   before applying:
+3. Create and switch to an isolated Terraform workspace before applying:
      cd terraform
      terraform workspace new ska
      terraform workspace list
@@ -202,8 +199,7 @@ frontend_local_dir, api_base_placeholder, api_base_search_files.
 6. Apply:
      terraform apply -var-file=deployments/ska.tfvars
 
-7. Switch back to the default workspace afterward so the working
-   directory doesn't default into this workspace for a later deploy:
+7. Switch back to the default workspace afterward:
      terraform workspace select default
 
 TESTING INSTRUCTIONS

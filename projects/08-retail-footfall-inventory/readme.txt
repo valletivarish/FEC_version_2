@@ -128,8 +128,7 @@ following these steps:
      container's port 8000.
 
   3. Create terraform/deployments/rfi.tfvars. The fields required by
-     terraform/variables.tf, with the real values known for this
-     project, are:
+     terraform/variables.tf are:
        prefix                  = "rfi"
        project_root            = "../projects/08-retail-footfall-inventory"
        table_name              = "rfi-readings"
@@ -156,8 +155,7 @@ following these steps:
                                   placeholder>]
 
   4. Create and switch to an isolated Terraform workspace before
-     applying, since terraform.tfstate is shared across deployments
-     made through this module:
+     applying:
        cd terraform
        terraform workspace new rfi
        terraform workspace list
@@ -169,8 +167,7 @@ following these steps:
 
   6. Confirm the plan's destroy count is 0 before approving apply.
 
-  7. Switch back to the default workspace afterward so the working
-     directory doesn't default into this one for the next deployment:
+  7. Switch back to the default workspace afterward:
        terraform workspace select default
 
 TESTING INSTRUCTIONS

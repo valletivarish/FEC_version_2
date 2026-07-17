@@ -116,7 +116,7 @@ terraform/ directory.
      aws sts get-caller-identity
 
 3. From the terraform/ directory, create and switch to a dedicated
-   workspace for this project before running any apply:
+   workspace before running any apply:
      cd terraform
      terraform workspace new fpv
      terraform workspace list
@@ -146,8 +146,7 @@ terraform/ directory.
      terraform plan -var-file=deployments/fpv.tfvars
      terraform apply -var-file=deployments/fpv.tfvars
 
-6. After the apply finishes, switch back to the default workspace so it
-   does not carry into the next deployment run:
+6. After the apply finishes, switch back to the default workspace:
      terraform workspace select default
 
 TESTING INSTRUCTIONS

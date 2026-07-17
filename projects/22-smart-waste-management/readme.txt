@@ -113,7 +113,7 @@ Stop and remove volumes:
 
 AWS DEPLOYMENT STEPS
 -----------------------
-No terraform/deployments/swm.tfvars exists yet for this project. Create
+No terraform/deployments/swm.tfvars exists yet. Create
 one before deploying, defining the fields below:
 
   prefix                  = "swm"
@@ -165,8 +165,8 @@ Steps to deploy:
 TESTING INSTRUCTIONS
 -----------------------
 Each module has its own package.json and test script (node --test). All
-four suites were run and confirmed passing at the time this readme was
-written -- 115 tests total (19 + 46 + 11 + 39), 0 failures:
+four suites were run and confirmed passing -- 115 tests total
+(19 + 46 + 11 + 39), 0 failures:
 
   cd sensors && npm install && npm test
     -> 19 tests, 19 pass

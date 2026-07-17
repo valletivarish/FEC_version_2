@@ -132,8 +132,8 @@ docker compose down
 
 6. AWS DEPLOYMENT STEPS
 
-No terraform/deployments/*.tfvars file exists yet for this project. Follow
-these steps to deploy it using the Terraform module in terraform/:
+No terraform/deployments/*.tfvars file exists yet. Follow
+these steps to deploy using the Terraform module in terraform/:
 
 1) Obtain AWS credentials for the target account and configure them:
    aws configure
@@ -144,8 +144,7 @@ these steps to deploy it using the Terraform module in terraform/:
    aws sts get-caller-identity
 
 3) From the repository root, create and switch to a dedicated Terraform
-   workspace for this project, so the apply cannot be planned against
-   different tracked state:
+   workspace:
    cd terraform
    terraform workspace new spm
    terraform workspace list

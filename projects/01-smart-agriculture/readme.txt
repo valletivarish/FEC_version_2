@@ -14,7 +14,7 @@ PREREQUISITES
 
 INSTALLATION STEPS
 -------------------
-1. Clone the repository and change into this project's folder:
+1. Clone the repository and change into the project folder:
      git clone <repository-url>
      cd projects/01-smart-agriculture
 2. Install the local Python dependencies needed to run the test suite:
@@ -101,8 +101,8 @@ Stop and remove the stack (including volumes):
 AWS DEPLOYMENT STEPS
 ----------------------
 Deployment is done through the Terraform module at terraform/ in the
-repository root, using this project's deployment file,
-terraform/deployments/fec-agri.tfvars, and the prefix "fec-agri".
+repository root, using the deployment file
+terraform/deployments/fec-agri.tfvars and the prefix "fec-agri".
 
 1. Configure AWS credentials for the target account:
      aws configure
@@ -111,7 +111,7 @@ terraform/deployments/fec-agri.tfvars, and the prefix "fec-agri".
 2. Confirm you are pointed at the correct account:
      aws sts get-caller-identity
 3. From the repository root, create and switch to a dedicated Terraform
-   workspace for this project (never apply against the default workspace):
+   workspace (never apply against the default workspace):
      cd terraform
      terraform workspace new fec-agri
      terraform workspace list
@@ -121,13 +121,12 @@ terraform/deployments/fec-agri.tfvars, and the prefix "fec-agri".
      terraform plan -var-file=deployments/fec-agri.tfvars
 6. Apply:
      terraform apply -var-file=deployments/fec-agri.tfvars
-7. When finished, switch back to the default workspace so it is not left
-   pointed at this project's state:
+7. When finished, switch back to the default workspace:
      terraform workspace select default
 
 TESTING INSTRUCTIONS
 -----------------------
-Install test dependencies and run the suite from this project's root
+Install test dependencies and run the suite from the project root
 (pytest.ini sets testpaths = tests):
   pip install -r requirements-dev.txt
   pytest

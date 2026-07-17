@@ -113,10 +113,7 @@ docker compose down
 
 6. AWS DEPLOYMENT STEPS
 
-No terraform/deployments/*.tfvars file exists yet for this project (checked
-terraform/deployments/ for an "sfm" prefix, matching this project's
-resource naming in infra/docker-compose.yml -- none found). Create one
-before applying.
+Create terraform/deployments/sfm.tfvars before applying.
 
 From the repository root:
 
@@ -161,18 +158,17 @@ From the repository root:
    index.html -- add one (matching whatever value you set for
    api_base_placeholder) before deploying, so the S3-hosted frontend can
    reach the API Gateway origin instead of its own relative path.
-   the module's ec2_compose_file variable defaults to
+   the ec2_compose_file variable defaults to
    docker-compose.aws.yml under ec2_source_dirs (sensors, fog, infra), so
    also add infra/docker-compose.aws.yml (the fog and sensor services only,
-   without LocalStack, with the fog service's port published -- unlike
-   infra/docker-compose.yml, which keeps fog internal to the compose
-   network only) before applying.
+   without LocalStack, with the fog service's port published) before
+   applying.
 
 4. Change into the Terraform module directory:
    cd terraform
 
-5. Create and switch to a dedicated workspace for this project (do not
-   apply into the default workspace):
+5. Create and switch to a dedicated workspace (do not apply into the
+   default workspace):
    terraform workspace new sfm
    terraform workspace list
 
@@ -189,8 +185,7 @@ From the repository root:
 9. Read the resulting resource identifiers and URLs:
    terraform output
 
-10. When finished, switch back to the default workspace so the working
-    directory does not default into this project's workspace next time:
+10. When finished, switch back to the default workspace:
     terraform workspace select default
 
 To tear the stack down:

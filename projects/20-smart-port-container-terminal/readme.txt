@@ -92,7 +92,7 @@ docker compose down
 
 6. AWS DEPLOYMENT STEPS
 
-A terraform/deployments/spc.tfvars file is already prepared for this project.
+A terraform/deployments/spc.tfvars file is already prepared.
 From the repository root:
 
 1. Configure AWS credentials (access key, secret key, session token if using
@@ -105,7 +105,7 @@ From the repository root:
 3. Change into the Terraform module directory:
    cd terraform
 
-4. Create and switch to a dedicated workspace for this project:
+4. Create and switch to a dedicated workspace:
    terraform workspace new spc
    terraform workspace list
 

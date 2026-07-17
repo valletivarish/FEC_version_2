@@ -115,7 +115,7 @@ Stop and remove volumes:
 
 AWS DEPLOYMENT STEPS
 -----------------------
-No terraform/deployments/*.tfvars file exists yet for this project. Follow
+No terraform/deployments/*.tfvars file exists yet. Follow
 these steps to deploy it through the Terraform module at the repo
 root's terraform/ directory:
 
@@ -164,9 +164,7 @@ root's terraform/ directory:
      module's ec2_compose_file variable defaults to that filename.
 
   3. From the repo root, create and switch to a dedicated Terraform
-     workspace before ever applying (the module's local state may
-     already track a different project's live resources under the
-     "default" workspace):
+     workspace before ever applying:
        cd terraform
        terraform workspace new wtu
        terraform workspace list
@@ -181,8 +179,7 @@ root's terraform/ directory:
   6. Apply:
        terraform apply -var-file=deployments/wtu.tfvars
 
-  7. Switch back to the default workspace when finished so the working
-     directory doesn't default into the wtu workspace for a later command:
+  7. Switch back to the default workspace when finished:
        terraform workspace select default
 
 TESTING INSTRUCTIONS

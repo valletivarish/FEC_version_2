@@ -12,7 +12,7 @@ PREREQUISITES
 
 INSTALLATION STEPS
 -------------------
-1. Clone the repository and change into this project's folder:
+1. Clone the repository and change into the project folder:
      cd projects/26-beehive-apiary-monitoring
    All commands below assume this folder is your working directory.
 2. Install local dependencies for each Node module (only required to run tests
@@ -116,11 +116,9 @@ Stop and remove the stack:
 
 AWS DEPLOYMENT STEPS
 ----------------------
-This project deploys via the Terraform module in terraform/. No
-terraform/deployments/*.tfvars file exists yet for this project. Its resource
-naming convention (already used in infra/docker-compose.yml and the backend
-code -- bam-readings, bam-apiary-agg, bam-processor) points to "bam" as the
-prefix to use.
+This project deploys via the Terraform module in terraform/. The resource
+naming prefix is "bam" (used in infra/docker-compose.yml and the backend
+code -- bam-readings, bam-apiary-agg, bam-processor).
 
 1. Configure AWS credentials for the target account:
      aws configure
@@ -128,8 +126,8 @@ prefix to use.
    temporary credentials)
 2. Confirm you are targeting the correct account:
      aws sts get-caller-identity
-3. Create terraform/deployments/bam.tfvars defining this project's
-   variables. The file needs:
+3. Create terraform/deployments/bam.tfvars defining the variables.
+   The file needs:
      prefix
      project_root
      table_name
@@ -141,11 +139,11 @@ prefix to use.
      frontend_local_dir, api_base_placeholder, api_base_search_files
    The Terraform module's ec2_compose_file variable defaults to
    "docker-compose.aws.yml" under infra/, which does not currently exist in
-   this project's infra/ directory -- either add that file (fog node and
+   the infra/ directory -- either add that file (fog node and
    sensor containers only, no LocalStack) or set ec2_compose_file in the
    tfvars to point at a compose file that does exist.
 4. From the terraform/ directory, create and switch to a dedicated workspace
-   for this project before ever applying:
+   before ever applying:
      terraform workspace new bam
      terraform workspace list
 5. Build the Lambda deployment artifacts and the sensors/fog/infra source
@@ -154,9 +152,7 @@ prefix to use.
 6. Review the plan, then apply:
      terraform plan -var-file=deployments/bam.tfvars
      terraform apply -var-file=deployments/bam.tfvars
-7. After the apply completes, switch back to the default workspace so the
-   working directory doesn't default into this workspace for a later
-   deployment:
+7. After the apply completes, switch back to the default workspace:
      terraform workspace select default
 
 TESTING INSTRUCTIONS

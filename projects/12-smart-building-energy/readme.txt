@@ -129,8 +129,8 @@ Stop and remove volumes:
 
 7. AWS DEPLOYMENT STEPS
 -------------------------
-No terraform/deployments/*.tfvars file exists yet for this project. Create
-one before deploying.
+No terraform/deployments/*.tfvars file exists yet. Create one before
+deploying.
 
   1. Confirm your AWS credentials are active and pointed at the target
      account:
@@ -152,8 +152,7 @@ one before deploying.
      backend/dashboard/static/index.html and dashboard.js.
 
   4. Create terraform/deployments/sbe.tfvars (field names shown below;
-     fill in values matching this project's real files and handler names
-     once step 2's handler exists):
+     fill in values once step 2's handler exists):
        prefix                   = "sbe"
        project_root             = "../projects/12-smart-building-energy"
        table_name                = "sbe-readings"
@@ -177,9 +176,7 @@ one before deploying.
        api_base_placeholder     = <placeholder token used by step 3>
        api_base_search_files    = ["index.html"]
 
-  5. Create and switch to a dedicated Terraform workspace before applying,
-     so this project's apply cannot plan a destroy against whatever
-     project the module's state currently tracks:
+  5. Create and switch to a dedicated Terraform workspace before applying:
        cd terraform
        terraform workspace new sbe
        terraform workspace list
