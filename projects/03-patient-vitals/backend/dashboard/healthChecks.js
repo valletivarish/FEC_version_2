@@ -4,7 +4,7 @@ const { GetQueueUrlCommand, GetQueueAttributesCommand } = require("@aws-sdk/clie
 const { GetFunctionCommand } = require("@aws-sdk/client-lambda");
 const { ScanCommand } = require("@aws-sdk/lib-dynamodb");
 
-async function queueReachable(sqs, queueName) {
+async function aggQueueReachable(sqs, queueName) {
   try {
     const { QueueUrl } = await sqs.send(new GetQueueUrlCommand({ QueueName: queueName }));
     await sqs.send(new GetQueueAttributesCommand({ QueueUrl, AttributeNames: ["QueueArn"] }));
@@ -14,7 +14,7 @@ async function queueReachable(sqs, queueName) {
   }
 }
 
-async function lambdaActive(lambda, functionName) {
+async function processorActive(lambda, functionName) {
   try {
     const resp = await lambda.send(new GetFunctionCommand({ FunctionName: functionName }));
     return resp.Configuration.State === "Active";
@@ -23,7 +23,7 @@ async function lambdaActive(lambda, functionName) {
   }
 }
 
-async function queueDepth(sqs, queueName) {
+async function aggQueueDepth(sqs, queueName) {
   try {
     const { QueueUrl } = await sqs.send(new GetQueueUrlCommand({ QueueName: queueName }));
     const attrs = await sqs.send(new GetQueueAttributesCommand({
@@ -39,19 +39,19 @@ async function queueDepth(sqs, queueName) {
   }
 }
 
-async function scanCount(doc, tableName) {
-  let total = 0;
-  let exclusiveStartKey;
+async function countStoredReadings(chart, chartTable) {
+  let tally = 0;
+  let pageCursor;
   do {
-    const resp = await doc.send(new ScanCommand({
-      TableName: tableName,
+    const resp = await chart.send(new ScanCommand({
+      TableName: chartTable,
       Select: "COUNT",
-      ExclusiveStartKey: exclusiveStartKey,
+      ExclusiveStartKey: pageCursor,
     }));
-    total += resp.Count;
-    exclusiveStartKey = resp.LastEvaluatedKey;
-  } while (exclusiveStartKey);
-  return total;
+    tally += resp.Count;
+    pageCursor = resp.LastEvaluatedKey;
+  } while (pageCursor);
+  return tally;
 }
 
-module.exports = { queueReachable, lambdaActive, queueDepth, scanCount };
+module.exports = { aggQueueReachable, processorActive, aggQueueDepth, countStoredReadings };

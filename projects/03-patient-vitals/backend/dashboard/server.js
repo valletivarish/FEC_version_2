@@ -7,8 +7,8 @@ const { DynamoDBDocumentClient } = require("@aws-sdk/lib-dynamodb");
 const { SQSClient } = require("@aws-sdk/client-sqs");
 const { LambdaClient } = require("@aws-sdk/client-lambda");
 
-const { recentWindows, buildPatients } = require("./dynamoHelper");
-const { queueReachable, lambdaActive, queueDepth, scanCount } = require("./healthChecks");
+const { recentVitalWindows, buildWardRoster } = require("./dynamoHelper");
+const { aggQueueReachable, processorActive, aggQueueDepth, countStoredReadings } = require("./healthChecks");
 
 const TABLE_NAME = process.env.TABLE_NAME || "fpv-readings";
 const QUEUE_NAME = process.env.SQS_QUEUE_NAME || "fpv-vitals-agg";
@@ -19,7 +19,7 @@ const VITALS = ["heart_rate", "spo2", "body_temperature", "respiration_rate", "s
 const PATIENT_IDS = ["patient-1", "patient-2"];
 const PIPELINE_FRESH_SECONDS = 30;
 
-function awsClientConfig() {
+function wardClientConfig() {
   const config = { region: process.env.AWS_REGION || "eu-west-1" };
   if (process.env.AWS_ENDPOINT_URL) {
     config.endpoint = process.env.AWS_ENDPOINT_URL;
@@ -31,24 +31,24 @@ function awsClientConfig() {
   return config;
 }
 
-let cachedDoc, cachedSqs, cachedLambda;
+let warmChart, warmQueue, warmProcessor;
 
-function doc() {
-  if (!cachedDoc) cachedDoc = DynamoDBDocumentClient.from(new DynamoDBClient(awsClientConfig()));
-  return cachedDoc;
+function chart() {
+  if (!warmChart) warmChart = DynamoDBDocumentClient.from(new DynamoDBClient(wardClientConfig()));
+  return warmChart;
 }
 
-function sqs() {
-  if (!cachedSqs) cachedSqs = new SQSClient(awsClientConfig());
-  return cachedSqs;
+function queueClient() {
+  if (!warmQueue) warmQueue = new SQSClient(wardClientConfig());
+  return warmQueue;
 }
 
-function lambdaClient() {
-  if (!cachedLambda) cachedLambda = new LambdaClient(awsClientConfig());
-  return cachedLambda;
+function processorClient() {
+  if (!warmProcessor) warmProcessor = new LambdaClient(wardClientConfig());
+  return warmProcessor;
 }
 
-async function checkGatewayHealth(url) {
+async function gatewayReachable(url) {
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(2000) });
     return res.status === 200;
@@ -57,18 +57,18 @@ async function checkGatewayHealth(url) {
   }
 }
 
-async function buildHealth() {
+async function wardHealth() {
   const [gatewayOk, queueOk, lambdaOk] = await Promise.all([
-    checkGatewayHealth(GATEWAY_HEALTH_URL),
-    queueReachable(sqs(), QUEUE_NAME),
-    lambdaActive(lambdaClient(), FUNCTION_NAME),
+    gatewayReachable(GATEWAY_HEALTH_URL),
+    aggQueueReachable(queueClient(), QUEUE_NAME),
+    processorActive(processorClient(), FUNCTION_NAME),
   ]);
 
   let freshestAge = null;
-  for (const vital of VITALS) {
-    const recent = await recentWindows(doc(), TABLE_NAME, vital, 1);
-    if (!recent.length) continue;
-    const age = (Date.now() - new Date(recent[recent.length - 1].window_end).getTime()) / 1000;
+  for (const vitalType of VITALS) {
+    const windows = await recentVitalWindows(chart(), TABLE_NAME, vitalType, 1);
+    if (!windows.length) continue;
+    const age = (Date.now() - new Date(windows[windows.length - 1].window_end).getTime()) / 1000;
     if (freshestAge === null || age < freshestAge) freshestAge = age;
   }
   const pipelineOk = freshestAge !== null && freshestAge <= PIPELINE_FRESH_SECONDS;
@@ -76,52 +76,52 @@ async function buildHealth() {
   return { gateway: gatewayOk, queue: queueOk, lambda: lambdaOk, pipeline: pipelineOk, freshest_age_seconds: freshestAge };
 }
 
-async function buildBackendStats() {
+async function wardBackendStats() {
   return {
-    queue: await queueDepth(sqs(), QUEUE_NAME),
-    items_in_table: await scanCount(doc(), TABLE_NAME),
+    queue: await aggQueueDepth(queueClient(), QUEUE_NAME),
+    items_in_table: await countStoredReadings(chart(), TABLE_NAME),
   };
 }
 
-let thresholdsCache;
-async function fetchThresholds() {
-  if (!thresholdsCache) {
+let cachedThresholds;
+async function wardThresholds() {
+  if (!cachedThresholds) {
     const res = await fetch(GATEWAY_THRESHOLDS_URL, { signal: AbortSignal.timeout(5000) });
-    thresholdsCache = await res.text();
+    cachedThresholds = await res.text();
   }
-  return thresholdsCache;
+  return cachedThresholds;
 }
 
 function createApp() {
   const app = express();
 
   app.get("/api/patients", async (req, res) => {
-    res.json({ patients: await buildPatients(doc(), TABLE_NAME, VITALS, PATIENT_IDS) });
+    res.json({ patients: await buildWardRoster(chart(), TABLE_NAME, VITALS, PATIENT_IDS) });
   });
 
   app.get("/api/readings", async (req, res) => {
-    const vital = req.query.sensor_type;
+    const vitalType = req.query.sensor_type;
     const patientId = req.query.site_id;
     const limit = parseInt(req.query.limit || "60", 10);
-    let items = await recentWindows(doc(), TABLE_NAME, vital, patientId ? limit * PATIENT_IDS.length : limit);
+    let items = await recentVitalWindows(chart(), TABLE_NAME, vitalType, patientId ? limit * PATIENT_IDS.length : limit);
     if (patientId) items = items.filter((item) => item.site_id === patientId).slice(-limit);
-    res.json({ sensor_type: vital, items });
+    res.json({ sensor_type: vitalType, items });
   });
 
   app.get("/api/thresholds", async (req, res) => {
     try {
-      res.type("application/json").send(await fetchThresholds());
+      res.type("application/json").send(await wardThresholds());
     } catch {
       res.status(502).json({ error: "thresholds unavailable" });
     }
   });
 
   app.get("/api/health", async (req, res) => {
-    res.json(await buildHealth());
+    res.json(await wardHealth());
   });
 
   app.get("/api/backend-stats", async (req, res) => {
-    res.json(await buildBackendStats());
+    res.json(await wardBackendStats());
   });
 
   app.use("/static", express.static(path.join(__dirname, "static"), { cacheControl: false }));

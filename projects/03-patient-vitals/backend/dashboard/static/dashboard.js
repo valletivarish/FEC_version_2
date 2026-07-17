@@ -1,3 +1,11 @@
+// API origin: sed-substituted into the app script tag's data-api-base at S3 upload
+// time. When left unsubstituted (local dev), fall back to same-origin.
+const API_BASE = (() => {
+  const el = document.getElementById("app");
+  const v = (el && el.dataset.apiBase) || "";
+  return v.startsWith("__API_BASE__") ? "" : v.replace(/\/$/, "");
+})();
+
 const PRIMARY_VITAL = "heart_rate";
 const SECONDARY_VITALS = ["spo2", "body_temperature", "respiration_rate", "systolic_bp"];
 
@@ -121,7 +129,7 @@ function patientCardHtml(patient) {
 }
 
 async function refreshEcgTrace(patientId) {
-  const res = await fetch(`/api/readings?sensor_type=${PRIMARY_VITAL}&site_id=${patientId}&limit=40`);
+  const res = await fetch(`${API_BASE}/api/readings?sensor_type=${PRIMARY_VITAL}&site_id=${patientId}&limit=40`);
   const data = await res.json();
   if (!data.items.length) return;
 
@@ -138,9 +146,9 @@ async function refreshEcgTrace(patientId) {
 async function pollWard() {
   try {
     const [patientData, health, backend] = await Promise.all([
-      fetch("/api/patients").then((r) => r.json()),
-      fetch("/api/health").then((r) => r.json()),
-      fetch("/api/backend-stats").then((r) => r.json()),
+      fetch(`${API_BASE}/api/patients`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/health`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/backend-stats`).then((r) => r.json()),
     ]);
 
     const patients = patientData.patients;

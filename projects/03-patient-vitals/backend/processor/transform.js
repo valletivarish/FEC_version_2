@@ -1,22 +1,22 @@
 "use strict";
 
-function toRecord(messageBody) {
-  const data = typeof messageBody === "string" ? JSON.parse(messageBody) : messageBody;
-  const patientId = data.site_id || "patient-1";
+function toChartRow(windowMessage) {
+  const windowSummary = typeof windowMessage === "string" ? JSON.parse(windowMessage) : windowMessage;
+  const patientId = windowSummary.site_id || "patient-1";
   return {
-    sensor_type: data.sensor_type,
-    sort_key: `${data.window_end}#${patientId}`,
-    window_end: data.window_end,
-    window_start: data.window_start,
+    sensor_type: windowSummary.sensor_type,
+    sort_key: `${windowSummary.window_end}#${patientId}`,
+    window_end: windowSummary.window_end,
+    window_start: windowSummary.window_start,
     site_id: patientId,
-    unit: data.unit || "",
-    count: data.count,
-    min: data.min,
-    max: data.max,
-    avg: data.avg,
-    latest: data.latest,
-    alerts: data.alerts || [],
+    unit: windowSummary.unit || "",
+    count: windowSummary.count,
+    min: windowSummary.min,
+    max: windowSummary.max,
+    avg: windowSummary.avg,
+    latest: windowSummary.latest,
+    alerts: windowSummary.alerts || [],
   };
 }
 
-module.exports = { toRecord };
+module.exports = { toChartRow };

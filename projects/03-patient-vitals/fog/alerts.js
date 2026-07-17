@@ -1,12 +1,7 @@
 "use strict";
 
-// Adult resting-vitals cutoffs, window-averaged (not single-sample) to avoid
-// firing on one noisy reading. Roughly: HR 50-120bpm is normal sinus range;
-// SpO2 <92% is the standard clinical hypoxia trigger; body temp >38.5C is a
-// true fever by common clinical convention, <35.5C flags hypothermia risk;
-// respiration 10-24 breaths/min is the adult normal band; BP 90-140 systolic
-// is the normotensive range used by most bedside monitors.
-const VITAL_LIMITS = {
+// Adult resting-vitals cutoffs, window-averaged (not single-sample) to avoid firing on one noisy reading.
+const BEDSIDE_THRESHOLDS = {
   heart_rate:       [["avg", "<", 50, "bradycardia_risk"], ["avg", ">", 120, "tachycardia_risk"]],
   spo2:             [["avg", "<", 92, "hypoxia_risk"]],
   body_temperature: [["avg", ">", 38.5, "fever"], ["min", "<", 35.5, "hypothermia_risk"]],
@@ -14,15 +9,15 @@ const VITAL_LIMITS = {
   systolic_bp:      [["avg", ">", 140, "hypertension_risk"], ["avg", "<", 90, "hypotension_risk"]],
 };
 
-function checkVital(vital, summary) {
-  const rules = VITAL_LIMITS[vital] || [];
-  const triggered = [];
-  for (const [field, op, limit, key] of rules) {
-    const value = summary[field];
-    const fired = op === "<" ? value < limit : value > limit;
-    if (fired) triggered.push(key);
+function screenVital(vitalSign, windowFold) {
+  const breachRules = BEDSIDE_THRESHOLDS[vitalSign] || [];
+  const raisedAlerts = [];
+  for (const [metric, comparator, bound, alertKey] of breachRules) {
+    const observed = windowFold[metric];
+    const breached = comparator === "<" ? observed < bound : observed > bound;
+    if (breached) raisedAlerts.push(alertKey);
   }
-  return triggered;
+  return raisedAlerts;
 }
 
-module.exports = { VITAL_LIMITS, checkVital };
+module.exports = { BEDSIDE_THRESHOLDS, screenVital };

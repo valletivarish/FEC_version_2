@@ -1,82 +1,82 @@
 "use strict";
 
 const express = require("express");
-const { summarizeWindow } = require("./aggregation");
-const { checkVital, VITAL_LIMITS } = require("./alerts");
-const { QueueGateway } = require("./queueGateway");
+const { foldBedsideWindow } = require("./aggregation");
+const { screenVital, BEDSIDE_THRESHOLDS } = require("./alerts");
+const { SqsRelay } = require("./queueGateway");
 
-const WINDOW_SECONDS = parseFloat(process.env.WINDOW_SECONDS || "10");
-const QUEUE_NAME = process.env.SQS_QUEUE_NAME || "fpv-vitals-agg";
-const ENDPOINT = process.env.AWS_ENDPOINT_URL;
-const REGION = process.env.AWS_REGION || "eu-west-1";
-const KEY_SEP = " ";
+const WINDOW_SPAN_SECONDS = parseFloat(process.env.WINDOW_SECONDS || "10");
+const RELAY_QUEUE_NAME = process.env.SQS_QUEUE_NAME || "fpv-vitals-agg";
+const RELAY_ENDPOINT = process.env.AWS_ENDPOINT_URL;
+const RELAY_REGION = process.env.AWS_REGION || "eu-west-1";
+const CHANNEL_KEY_SEP = " ";
 
-function createApp() {
+function createFogNode() {
   const app = express();
   app.use(express.json());
 
-  app.locals.pending = new Map();
-  app.locals.units = new Map();
+  app.locals.openWindows = new Map();
+  app.locals.unitByChannel = new Map();
 
   app.get("/health", (req, res) => res.json({ status: "ok" }));
 
   app.get("/thresholds", (req, res) => {
-    const out = {};
-    for (const [vital, rules] of Object.entries(VITAL_LIMITS)) {
-      out[vital] = rules.map(([field, op, limit, key]) => ({ field, op, limit, key }));
+    const thresholdView = {};
+    for (const [vitalSign, breachRules] of Object.entries(BEDSIDE_THRESHOLDS)) {
+      thresholdView[vitalSign] = breachRules.map(([field, op, limit, key]) => ({ field, op, limit, key }));
     }
-    res.json(out);
+    res.json(thresholdView);
   });
 
   app.post("/ingest", (req, res) => {
-    const { sensor_type: vital, site_id: patientId = "patient-1", unit, readings } = req.body;
-    const key = vital + KEY_SEP + patientId;
-    if (!app.locals.pending.has(key)) app.locals.pending.set(key, []);
-    app.locals.pending.get(key).push(...readings);
-    if (unit) app.locals.units.set(vital, unit);
-    res.status(202).json({ accepted: readings.length });
+    const { sensor_type: vitalSign, site_id: bedId = "patient-1", unit: unitLabel, readings: samples } = req.body;
+    const channelKey = vitalSign + CHANNEL_KEY_SEP + bedId;
+    if (!app.locals.openWindows.has(channelKey)) app.locals.openWindows.set(channelKey, []);
+    app.locals.openWindows.get(channelKey).push(...samples);
+    if (unitLabel) app.locals.unitByChannel.set(vitalSign, unitLabel);
+    res.status(202).json({ accepted: samples.length });
   });
 
   return app;
 }
 
-function buildWindowMessages(snapshot, units, windowStart, windowEnd) {
-  const messages = [];
-  for (const [key, readings] of snapshot.entries()) {
-    if (readings.length === 0) continue;
-    const [vital, patientId] = key.split(KEY_SEP);
-    const summary = summarizeWindow(vital, patientId, units.get(vital) || "", readings, windowStart, windowEnd);
-    summary.alerts = checkVital(vital, summary);
-    messages.push(summary);
+function foldPendingWindows(windowSnapshot, unitByChannel, windowOpen, windowClose) {
+  const windowBatch = [];
+  for (const [channelKey, samples] of windowSnapshot.entries()) {
+    if (samples.length === 0) continue;
+    const [vitalSign, bedId] = channelKey.split(CHANNEL_KEY_SEP);
+    const windowFold = foldBedsideWindow(vitalSign, bedId, unitByChannel.get(vitalSign) || "", samples, windowOpen, windowClose);
+    windowFold.alerts = screenVital(vitalSign, windowFold);
+    windowBatch.push(windowFold);
   }
-  return messages;
+  return windowBatch;
 }
 
-async function flushWindow(app, gateway) {
-  const windowEnd = new Date().toISOString();
-  const windowStart = new Date(Date.now() - WINDOW_SECONDS * 1000).toISOString();
+async function relayWindow(app, relay) {
+  const windowClose = new Date().toISOString();
+  const windowOpen = new Date(Date.now() - WINDOW_SPAN_SECONDS * 1000).toISOString();
 
-  const snapshot = new Map(app.locals.pending);
-  app.locals.pending.clear();
-  const units = new Map(app.locals.units);
+  const windowSnapshot = new Map(app.locals.openWindows);
+  app.locals.openWindows.clear();
+  const unitByChannel = new Map(app.locals.unitByChannel);
 
-  const messages = buildWindowMessages(snapshot, units, windowStart, windowEnd);
-  if (messages.length > 0) await gateway.sendBatch(messages);
+  const windowBatch = foldPendingWindows(windowSnapshot, unitByChannel, windowOpen, windowClose);
+  if (windowBatch.length > 0) await relay.relayBatch(windowBatch);
 }
 
-async function start() {
-  const app = createApp();
-  const gateway = await new QueueGateway(ENDPOINT, REGION, QUEUE_NAME).init();
+async function bootFogNode() {
+  const app = createFogNode();
+  const relay = await new SqsRelay(RELAY_ENDPOINT, RELAY_REGION, RELAY_QUEUE_NAME).connect();
 
   setInterval(() => {
-    flushWindow(app, gateway).catch((err) => console.log(`window flush failed: ${err.message}`));
-  }, WINDOW_SECONDS * 1000);
+    relayWindow(app, relay).catch((err) => console.log(`window flush failed: ${err.message}`));
+  }, WINDOW_SPAN_SECONDS * 1000);
 
   app.listen(8000, () => console.log("fog listening on :8000"));
 }
 
 if (require.main === module) {
-  start();
+  bootFogNode();
 }
 
-module.exports = { createApp, buildWindowMessages };
+module.exports = { createFogNode, foldPendingWindows };

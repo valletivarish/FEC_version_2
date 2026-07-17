@@ -1,20 +1,20 @@
 "use strict";
 
-function summarizeWindow(vital, patientId, unit, readings, windowStart, windowEnd) {
-  const values = readings.map((r) => r.value);
-  const sum = values.reduce((acc, v) => acc + v, 0);
+function foldBedsideWindow(vitalSign, bedId, unitLabel, samples, windowOpen, windowClose) {
+  const sampleValues = samples.map((sample) => sample.value);
+  const tally = sampleValues.reduce((tallySoFar, sampleValue) => tallySoFar + sampleValue, 0);
   return {
-    sensor_type: vital,
-    site_id: patientId,
-    unit,
-    window_start: windowStart,
-    window_end: windowEnd,
-    count: values.length,
-    min: Math.min(...values),
-    max: Math.max(...values),
-    avg: Math.round((sum / values.length) * 1000) / 1000,
-    latest: readings[readings.length - 1].value,
+    sensor_type: vitalSign,
+    site_id: bedId,
+    unit: unitLabel,
+    window_start: windowOpen,
+    window_end: windowClose,
+    count: sampleValues.length,
+    min: Math.min(...sampleValues),
+    max: Math.max(...sampleValues),
+    avg: Math.round((tally / sampleValues.length) * 1000) / 1000,
+    latest: samples[samples.length - 1].value,
   };
 }
 
-module.exports = { summarizeWindow };
+module.exports = { foldBedsideWindow };

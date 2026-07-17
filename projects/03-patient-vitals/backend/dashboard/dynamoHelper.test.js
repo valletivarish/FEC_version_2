@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { recentWindows, buildPatients } = require("./dynamoHelper");
+const { recentVitalWindows, buildWardRoster } = require("./dynamoHelper");
 
 class FakeDoc {
   constructor(itemsByTable) {
@@ -17,18 +17,18 @@ class FakeDoc {
   }
 }
 
-test("recentWindows returns items in ascending chronological order", async () => {
+test("recentVitalWindows returns items in ascending chronological order", async () => {
   const doc = new FakeDoc({
     heart_rate: [
       { sensor_type: "heart_rate", site_id: "patient-1", window_end: "t0", latest: 70 },
       { sensor_type: "heart_rate", site_id: "patient-1", window_end: "t1", latest: 75 },
     ],
   });
-  const items = await recentWindows(doc, "table", "heart_rate", 10);
+  const items = await recentVitalWindows(doc, "table", "heart_rate", 10);
   assert.deepEqual(items.map((i) => i.window_end), ["t0", "t1"]);
 });
 
-test("buildPatients groups the latest reading per vital per patient", async () => {
+test("buildWardRoster groups the latest reading per vital per patient", async () => {
   const doc = new FakeDoc({
     heart_rate: [
       { sensor_type: "heart_rate", site_id: "patient-1", window_end: "t0", latest: 70, alerts: [] },
@@ -37,7 +37,7 @@ test("buildPatients groups the latest reading per vital per patient", async () =
     ],
     spo2: [],
   });
-  const patients = await buildPatients(doc, "table", ["heart_rate", "spo2"], ["patient-1", "patient-2"]);
+  const patients = await buildWardRoster(doc, "table", ["heart_rate", "spo2"], ["patient-1", "patient-2"]);
   assert.equal(patients.length, 2);
   const p1 = patients.find((p) => p.patient_id === "patient-1");
   assert.equal(p1.vitals.heart_rate.latest, 130);
@@ -45,8 +45,8 @@ test("buildPatients groups the latest reading per vital per patient", async () =
   assert.equal(p1.vitals.spo2, undefined);
 });
 
-test("buildPatients seeds every known patient even without data", async () => {
+test("buildWardRoster seeds every known patient even without data", async () => {
   const doc = new FakeDoc({});
-  const patients = await buildPatients(doc, "table", ["heart_rate"], ["patient-1", "patient-2"]);
+  const patients = await buildWardRoster(doc, "table", ["heart_rate"], ["patient-1", "patient-2"]);
   assert.deepEqual(patients.map((p) => p.patient_id), ["patient-1", "patient-2"]);
 });

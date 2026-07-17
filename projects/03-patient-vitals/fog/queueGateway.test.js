@@ -2,20 +2,20 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { QueueGateway } = require("./queueGateway");
+const { SqsRelay } = require("./queueGateway");
 
 function stubbedGateway() {
-  const gateway = Object.create(QueueGateway.prototype);
-  gateway.queueUrl = "http://q";
+  const gateway = Object.create(SqsRelay.prototype);
+  gateway.relayUrl = "http://q";
   gateway.calls = [];
-  gateway.client = { send: async (command) => { gateway.calls.push(command.input); return {}; } };
+  gateway.sqs = { send: async (command) => { gateway.calls.push(command.input); return {}; } };
   return gateway;
 }
 
-test("sendBatch chunks payloads at the 10-entry SendMessageBatch limit", async () => {
+test("relayBatch chunks payloads at the 10-entry SendMessageBatch limit", async () => {
   const gateway = stubbedGateway();
   const payloads = Array.from({ length: 23 }, (_, i) => ({ n: i }));
-  await gateway.sendBatch(payloads);
+  await gateway.relayBatch(payloads);
   assert.equal(gateway.calls.length, 3);
   assert.equal(gateway.calls[0].Entries.length, 10);
   assert.equal(gateway.calls[1].Entries.length, 10);
@@ -24,8 +24,8 @@ test("sendBatch chunks payloads at the 10-entry SendMessageBatch limit", async (
   assert.deepEqual(gateway.calls[2].Entries[2], { Id: "22", MessageBody: JSON.stringify({ n: 22 }) });
 });
 
-test("sendBatch issues no calls for an empty payload list", async () => {
+test("relayBatch issues no calls for an empty payload list", async () => {
   const gateway = stubbedGateway();
-  await gateway.sendBatch([]);
+  await gateway.relayBatch([]);
   assert.equal(gateway.calls.length, 0);
 });

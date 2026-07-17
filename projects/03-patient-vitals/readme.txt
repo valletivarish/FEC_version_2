@@ -133,9 +133,9 @@ terraform/ directory.
      processor_handler        = "handler.handler"
      processor_runtime        = "nodejs20.x"
      dashboard_lambda_name    = "fpv-dashboard-api"
-     dashboard_build_command  = "<command that installs backend/dashboard's dependencies and zips a Lambda-compatible entry point into dashboard_zip_path>"
+     dashboard_build_command  = "cd backend/dashboard && npm ci --omit=dev --silent && rm -f lambda.zip && zip -qr lambda.zip lambdaHandler.js dynamoHelper.js healthChecks.js package.json node_modules"
      dashboard_zip_path       = "backend/dashboard/lambda.zip"
-     dashboard_handler        = "<module>.<exported function name> of that Lambda entry point"
+     dashboard_handler        = "lambdaHandler.handler"
      dashboard_runtime        = "nodejs20.x"
      frontend_local_dir       = "backend/dashboard/static"
      api_base_placeholder     = "<placeholder token to substitute with the deployed API Gateway URL>"
@@ -157,6 +157,6 @@ built-in node:test runner:
   cd sensors && npm test                4 tests
   cd fog && npm test                    16 tests
   cd backend/processor && npm test      5 tests
-  cd backend/dashboard && npm test      10 tests
+  cd backend/dashboard && npm test      16 tests
 
-Total: 35 tests.
+Total: 41 tests.

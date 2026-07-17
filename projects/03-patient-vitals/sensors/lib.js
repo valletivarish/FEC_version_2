@@ -1,6 +1,6 @@
 "use strict";
 
-const VITAL_PROFILES = {
+const SIGNAL_PROFILES = {
   heart_rate:       { unit: "bpm",  lo: 40, hi: 160, start: 75,  step: 4.0 },
   spo2:             { unit: "%",    lo: 85, hi: 100, start: 97,  step: 1.0 },
   body_temperature: { unit: "C",    lo: 34, hi: 41,  start: 37,  step: 0.3 },
@@ -8,14 +8,14 @@ const VITAL_PROFILES = {
   systolic_bp:      { unit: "mmHg", lo: 80, hi: 180, start: 118, step: 5.0 },
 };
 
-function confine(value, lo, hi) {
-  return Math.max(lo, Math.min(hi, value));
+function clampToBand(reading, low, high) {
+  return Math.max(low, Math.min(high, reading));
 }
 
-function stepValue(current, profile) {
-  const delta = (Math.random() * 2 - 1) * profile.step;
-  const moved = confine(current + delta, profile.lo, profile.hi);
-  return Math.round(moved * 100) / 100;
+function advanceSample(lastReading, profile) {
+  const jitter = (Math.random() * 2 - 1) * profile.step;
+  const stepped = clampToBand(lastReading + jitter, profile.lo, profile.hi);
+  return Math.round(stepped * 100) / 100;
 }
 
-module.exports = { VITAL_PROFILES, confine, stepValue };
+module.exports = { SIGNAL_PROFILES, clampToBand, advanceSample };

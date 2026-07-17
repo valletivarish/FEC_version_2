@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { summarizeWindow } = require("./aggregation");
+const { foldBedsideWindow } = require("./aggregation");
 
 const READINGS = [
   { ts: "t0", value: 60.0 },
@@ -10,8 +10,8 @@ const READINGS = [
   { ts: "t2", value: 80.0 },
 ];
 
-test("summarizeWindow computes basic stats", () => {
-  const s = summarizeWindow("heart_rate", "patient-1", "bpm", READINGS, "start", "end");
+test("foldBedsideWindow computes basic stats", () => {
+  const s = foldBedsideWindow("heart_rate", "patient-1", "bpm", READINGS, "start", "end");
   assert.equal(s.count, 3);
   assert.equal(s.min, 60.0);
   assert.equal(s.max, 80.0);
@@ -19,8 +19,8 @@ test("summarizeWindow computes basic stats", () => {
   assert.equal(s.latest, 80.0);
 });
 
-test("summarizeWindow carries metadata", () => {
-  const s = summarizeWindow("spo2", "patient-9", "%", READINGS, "s", "e");
+test("foldBedsideWindow carries metadata", () => {
+  const s = foldBedsideWindow("spo2", "patient-9", "%", READINGS, "s", "e");
   assert.equal(s.sensor_type, "spo2");
   assert.equal(s.site_id, "patient-9");
   assert.equal(s.unit, "%");
@@ -30,5 +30,5 @@ test("summarizeWindow carries metadata", () => {
 
 test("latest is the last reading", () => {
   const readings = [{ ts: "t0", value: 5.0 }, { ts: "t1", value: 7.5 }];
-  assert.equal(summarizeWindow("systolic_bp", "p", "mmHg", readings, "s", "e").latest, 7.5);
+  assert.equal(foldBedsideWindow("systolic_bp", "p", "mmHg", readings, "s", "e").latest, 7.5);
 });

@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createApp, buildWindowMessages } = require("./app");
+const { createFogNode, foldPendingWindows } = require("./app");
 
 function withServer(app, fn) {
   return new Promise((resolve, reject) => {
@@ -21,7 +21,7 @@ function withServer(app, fn) {
 }
 
 test("POST /ingest buffers readings", async () => {
-  const app = createApp();
+  const app = createFogNode();
   await withServer(app, async (base) => {
     const payload = {
       sensor_type: "heart_rate",
@@ -37,12 +37,12 @@ test("POST /ingest buffers readings", async () => {
     assert.equal(res.status, 202);
     const body = await res.json();
     assert.deepEqual(body, { accepted: 2 });
-    assert.equal(app.locals.pending.get("heart_rate patient-1").length, 2);
+    assert.equal(app.locals.openWindows.get("heart_rate patient-1").length, 2);
   });
 });
 
 test("GET /health returns ok", async () => {
-  const app = createApp();
+  const app = createFogNode();
   await withServer(app, async (base) => {
     const res = await fetch(`${base}/health`);
     assert.deepEqual(await res.json(), { status: "ok" });
@@ -50,7 +50,7 @@ test("GET /health returns ok", async () => {
 });
 
 test("GET /thresholds exposes the real rules", async () => {
-  const app = createApp();
+  const app = createFogNode();
   await withServer(app, async (base) => {
     const res = await fetch(`${base}/thresholds`);
     const body = await res.json();
@@ -58,11 +58,11 @@ test("GET /thresholds exposes the real rules", async () => {
   });
 });
 
-test("buildWindowMessages aggregates and evaluates alerts", () => {
+test("foldPendingWindows aggregates and evaluates alerts", () => {
   const snapshot = new Map([
     ["heart_rate patient-1", [{ ts: "t0", value: 130.0 }, { ts: "t1", value: 140.0 }]],
   ]);
-  const messages = buildWindowMessages(snapshot, new Map([["heart_rate", "bpm"]]), "s", "e");
+  const messages = foldPendingWindows(snapshot, new Map([["heart_rate", "bpm"]]), "s", "e");
   assert.equal(messages.length, 1);
   assert.equal(messages[0].avg, 135.0);
   assert.deepEqual(messages[0].alerts, ["tachycardia_risk"]);
