@@ -134,7 +134,7 @@ deploy it with the Terraform module in terraform/:
      processor_runtime, dashboard_lambda_name, dashboard_build_command,
      dashboard_zip_path, dashboard_handler, dashboard_runtime,
      frontend_local_dir, api_base_placeholder, and api_base_search_files.
-     Populate the values from this project's own files, for example:
+     Populate the values below, for example:
        prefix                  = "eef"
        project_root            = "../projects/18-elevator-escalator-fleet-monitoring"
        table_name              = "eef-readings"

@@ -137,8 +137,8 @@ file.
   2. From the repository root, create terraform/deployments/mvs.tfvars,
      defining (prefix, project_root, table_name, queue_name, per-Lambda
      name/build command/zip path/handler/runtime, frontend_local_dir,
-     api_base_placeholder, api_base_search_files), filled in with this
-     project's own real values, for example:
+     api_base_placeholder, api_base_search_files), filled in with the
+     values below, for example:
 
        prefix       = "mvs"
        project_root = "../projects/23-marine-vessel-monitoring"

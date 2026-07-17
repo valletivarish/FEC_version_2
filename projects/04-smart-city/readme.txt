@@ -133,8 +133,8 @@ terraform/ at the repo root.
      aws configure
      aws sts get-caller-identity
 
-2. Create terraform/deployments/fsc.tfvars with this project's own real
-   values, for example:
+2. Create terraform/deployments/fsc.tfvars with the values below, for
+   example:
      prefix       = "fsc"
      project_root = "../projects/04-smart-city"
 

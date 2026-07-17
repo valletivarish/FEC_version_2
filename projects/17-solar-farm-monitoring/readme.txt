@@ -132,7 +132,7 @@ From the repository root:
    dashboard_* block each carrying a lambda name/build_command/zip_path/
    handler/runtime, then frontend_local_dir, api_base_placeholder,
    api_base_search_files. Values
-   already fixed by this project's own code:
+   already fixed by the code:
      prefix                = "sfm"
      project_root           = "../projects/17-solar-farm-monitoring"
      table_name              = "sfm-readings"

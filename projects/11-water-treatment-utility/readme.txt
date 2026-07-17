@@ -124,8 +124,8 @@ root's terraform/ directory:
      directly), then confirm you're in the intended account:
        aws sts get-caller-identity
 
-  2. Create terraform/deployments/wtu.tfvars with the variables this project
-     needs (the values below are specific to this project). At least:
+  2. Create terraform/deployments/wtu.tfvars with the following variables.
+     At least:
        prefix                   = "wtu"
        project_root              = "../projects/11-water-treatment-utility"
        table_name                 = "wtu-readings"
