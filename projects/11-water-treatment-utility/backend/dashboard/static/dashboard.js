@@ -112,12 +112,17 @@ function renderAlertBanner(plants) {
 
 function renderHealth(health) {
   const strip = document.getElementById("health-strip");
-  const pill = (label, ok) => `<span class="health-pill ${ok ? "" : "down"}"><span class="swatch"></span>${label}</span>`;
-  strip.innerHTML =
-    pill("Gateway", health.gateway) +
-    pill("Queue", health.queue) +
-    pill("Lambda", health.lambda) +
-    pill("Pipeline", health.pipeline);
+  const stages = [
+    ["Gateway", health.gateway],
+    ["Queue", health.queue],
+    ["Lambda", health.lambda],
+    ["Pipeline", health.pipeline],
+  ];
+  strip.innerHTML = stages
+    .map(([label, ok], i) =>
+      (i ? '<span class="flow-link" aria-hidden="true"></span>' : "") +
+      `<span class="flow-node ${ok ? "up" : "down"}"><span class="flow-led"></span>${label}</span>`)
+    .join("");
 }
 
 function renderBackendStats(backendStats) {

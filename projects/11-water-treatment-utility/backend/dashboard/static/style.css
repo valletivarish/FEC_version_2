@@ -70,23 +70,35 @@ body {
 }
 .brand-sub { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-dim); }
 
-.health-strip { display: flex; gap: 8px; flex-wrap: wrap; }
-.health-pill {
+/* Pipeline health as a connected left-to-right flow track (Gateway -> Queue ->
+   Lambda -> Pipeline): each stage is a boxed node with a square status LED and a
+   status underline, joined by short connector lines. A deliberately distinct
+   readout from the round-dot pill strips used on the other dashboards. */
+.health-strip { display: flex; align-items: center; gap: 0; flex-wrap: wrap; }
+.flow-node {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  padding: 5px 11px;
-  border-radius: 3px;
-  background: var(--accent-soft);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  background: var(--surface);
   border: 1px solid var(--line);
-  color: var(--accent);
+  border-bottom: 2px solid var(--ok);
+  color: var(--ink-dim);
 }
-.health-pill .swatch { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
-.health-pill.down { background: var(--alert-soft); color: var(--alert); border-color: #e3b7ac; }
-.health-pill.down .swatch { background: var(--alert); }
+.flow-node .flow-led {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: var(--ok);
+  box-shadow: 0 0 0 3px var(--ok-soft);
+}
+.flow-node.down { color: var(--alert); border-bottom-color: var(--alert); }
+.flow-node.down .flow-led { background: var(--alert); box-shadow: 0 0 0 3px var(--alert-soft); }
+.flow-link { width: 16px; height: 2px; flex: none; background: var(--line-strong); }
 
 .alert-banner {
   padding: 11px 26px;
