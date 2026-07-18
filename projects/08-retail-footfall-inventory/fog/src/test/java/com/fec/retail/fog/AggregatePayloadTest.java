@@ -14,12 +14,12 @@ class AggregatePayloadTest {
     @Test
     void serializesAllFieldsIncludingFiredAlerts() throws Exception {
         WindowAggregate w = WindowAggregate.of("fridge_temp_c", "store-1", "C", List.of(9.0, 10.0), "s", "e");
-        AggregatePayload payload = new AggregatePayload(w, List.of("cold_chain_risk"));
+        AggregatePayload payload = new AggregatePayload(w, List.of("refrigeration_warning"));
 
         String json = JSON.writeValueAsString(payload);
         assertTrue(json.contains("\"sensor_type\":\"fridge_temp_c\""));
         assertTrue(json.contains("\"site_id\":\"store-1\""));
-        assertTrue(json.contains("\"alerts\":[\"cold_chain_risk\"]"));
+        assertTrue(json.contains("\"alerts\":[\"refrigeration_warning\"]"));
     }
 
     @Test

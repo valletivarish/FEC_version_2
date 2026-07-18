@@ -17,7 +17,7 @@ const METRIC_LABELS = {
 
 const ALERT_LABELS = {
   restock_needed: "Restock needed",
-  cold_chain_risk: "Cold chain risk",
+  refrigeration_warning: "Refrigeration warning",
   checkout_congestion: "Checkout congestion",
   capacity_warning: "Capacity warning",
 };
@@ -174,7 +174,7 @@ function renderStoreCards(stores) {
 
 function renderHealth(health) {
   const strip = document.getElementById("health-strip");
-  const stat = (label, ok, okWord) => `<span class="health-stat ${ok ? "" : "down"}">${label} ${ok ? okWord : "down"}</span>`;
+  const stat = (label, ok, okWord) => `<span class="health-stat ${ok ? "up" : "down"}">${label} ${ok ? okWord : "down"}</span>`;
   strip.innerHTML = [
     stat("Gateway", health.gateway, "ok"),
     stat("Queue", health.queue, "ok"),

@@ -13,7 +13,7 @@ public enum AlertRule implements Predicate<WindowAggregate> {
             return window.avg() < 15;
         }
     },
-    COLD_CHAIN_RISK("fridge_temp_c", "avg", ">", 8) {
+    REFRIGERATION_WARNING("fridge_temp_c", "avg", ">", 8) {
         @Override
         public boolean test(WindowAggregate window) {
             return window.avg() > 8;

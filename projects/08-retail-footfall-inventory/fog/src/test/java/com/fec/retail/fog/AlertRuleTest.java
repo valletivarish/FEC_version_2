@@ -23,16 +23,16 @@ class AlertRuleTest {
     }
 
     @Test
-    void coldChainRiskFiresAboveEightAvg() {
+    void refrigerationWarningFiresAboveEightAvg() {
         WindowAggregate w = WindowAggregate.of("fridge_temp_c", "store-1", "C", List.of(9.0, 10.0), "s", "e");
-        assertTrue(AlertRule.COLD_CHAIN_RISK.test(w));
-        assertEquals(">", AlertRule.COLD_CHAIN_RISK.op());
+        assertTrue(AlertRule.REFRIGERATION_WARNING.test(w));
+        assertEquals(">", AlertRule.REFRIGERATION_WARNING.op());
     }
 
     @Test
-    void coldChainRiskDoesNotFireAtBoundary() {
+    void refrigerationWarningDoesNotFireAtBoundary() {
         WindowAggregate w = WindowAggregate.of("fridge_temp_c", "store-1", "C", List.of(8.0), "s", "e");
-        assertFalse(AlertRule.COLD_CHAIN_RISK.test(w));
+        assertFalse(AlertRule.REFRIGERATION_WARNING.test(w));
     }
 
     @Test

@@ -11,7 +11,7 @@ class StoreHandlerTest {
 
     static final String MESSAGE = "{\"sensor_type\":\"fridge_temp_c\",\"site_id\":\"store-1\",\"unit\":\"C\"," +
         "\"window_start\":\"s\",\"window_end\":\"e\",\"count\":3,\"min\":6.0,\"max\":9.0,\"avg\":7.5," +
-        "\"latest\":8.0,\"alerts\":[\"cold_chain_risk\"]}";
+        "\"latest\":8.0,\"alerts\":[\"refrigeration_warning\"]}";
 
     static SQSEvent.SQSMessage message(String body) {
         SQSEvent.SQSMessage m = new SQSEvent.SQSMessage();

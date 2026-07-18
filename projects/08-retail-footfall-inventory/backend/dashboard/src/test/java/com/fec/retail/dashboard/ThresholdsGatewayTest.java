@@ -16,7 +16,7 @@ class ThresholdsGatewayTest {
         HttpServer upstream = HttpServer.create(new InetSocketAddress(0), 0);
         upstream.createContext("/thresholds", exchange -> {
             byte[] body = ("{\"fridge_temp_c\":[{\"field\":\"avg\",\"op\":\">\",\"limit\":8,"
-                + "\"key\":\"cold_chain_risk\"}]}").getBytes();
+                + "\"key\":\"refrigeration_warning\"}]}").getBytes();
             exchange.getResponseHeaders().set("Content-Type", "application/json");
             exchange.sendResponseHeaders(200, body.length);
             exchange.getResponseBody().write(body);
@@ -26,7 +26,7 @@ class ThresholdsGatewayTest {
         try {
             String url = "http://127.0.0.1:" + upstream.getAddress().getPort() + "/thresholds";
             String result = new ThresholdsGateway().fetch(HttpClient.newHttpClient(), url);
-            assertTrue(result.contains("cold_chain_risk"));
+            assertTrue(result.contains("refrigeration_warning"));
         } finally {
             upstream.stop(0);
         }
