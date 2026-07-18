@@ -1,6 +1,6 @@
 "use strict";
 
-// Reference-swap double buffer: swapAndDrain hands off the live `active` Map wholesale and installs a fresh empty one in a single assignment, rather than copying (03) or clearing-in-place (18).
+// Reference-swap double buffer: swapAndDrain hands off the live `active` Map wholesale and installs a fresh empty one in a single assignment, rather than copying or clearing in place.
 function createDoubleBuffer() {
   return { active: new Map(), units: new Map() };
 }

@@ -1,12 +1,11 @@
 #!/bin/bash
 set -e
 
-# Deploys Nithin's individually-required backend architecture: the dce-api
-# Lambda function plus a real API Gateway REST API in front of it (a single
-# {proxy+} resource with an ANY AWS_PROXY integration, deployed to a
-# stage). This replaces the directly-running dashboard REST API every
-# other Node sibling in this portfolio uses -- see readme.txt's REUSE
-# section for the full architectural writeup.
+# Deploys the backend architecture: the dce-api Lambda function plus a
+# real API Gateway REST API in front of it (a single {proxy+} resource
+# with an ANY AWS_PROXY integration, deployed to a stage), so all
+# dashboard reads are served through the gateway rather than by a
+# directly-running REST server.
 
 ENDPOINT="${AWS_ENDPOINT_URL:-http://localstack:4566}"
 FUNCTION_NAME="${API_FUNCTION_NAME:-dce-api}"

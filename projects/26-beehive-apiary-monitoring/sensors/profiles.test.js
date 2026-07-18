@@ -38,7 +38,7 @@ test("stepHiveSignal rounds to 2 decimal places", () => {
   assert.equal(value, Math.round(value * 100) / 100);
 });
 
-test("hive_weight_kg profile matches the brief's configured range and start", () => {
+test("hive_weight_kg profile matches its configured range and start", () => {
   const p = HIVE_SIGNAL_SPECS.hive_weight_kg;
   assert.equal(p.unit, "kg");
   assert.equal(p.lo, 0);
@@ -47,7 +47,7 @@ test("hive_weight_kg profile matches the brief's configured range and start", ()
   assert.equal(p.step, 3.0);
 });
 
-test("internal_hive_temp_c profile matches the brief", () => {
+test("internal_hive_temp_c profile matches its configured profile", () => {
   const p = HIVE_SIGNAL_SPECS.internal_hive_temp_c;
   assert.equal(p.unit, "C");
   assert.equal(p.lo, 20);
@@ -56,7 +56,7 @@ test("internal_hive_temp_c profile matches the brief", () => {
   assert.equal(p.step, 0.8);
 });
 
-test("entrance_traffic_count profile matches the brief", () => {
+test("entrance_traffic_count profile matches its configured profile", () => {
   const p = HIVE_SIGNAL_SPECS.entrance_traffic_count;
   assert.equal(p.unit, "count");
   assert.equal(p.lo, 0);

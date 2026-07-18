@@ -23,7 +23,7 @@ test("multiple rules registered for the same sensor type all get evaluated in or
   assert.deepEqual(e.evaluate("travel_speed_mps", { avg: 0.2, max: 4.5 }), ["stall_suspected", "overspeed_risk"]);
 });
 
-test("the module-level engine matches the exact elevator/escalator thresholds from the brief", () => {
+test("the module-level engine matches the exact configured elevator/escalator thresholds", () => {
   assert.deepEqual(engine.evaluate("motor_temp_c", { avg: 86 }), ["motor_overheat_risk"]);
   assert.deepEqual(engine.evaluate("motor_temp_c", { avg: 85 }), [], "85 exactly must not fire, only > 85");
   assert.deepEqual(engine.evaluate("cab_vibration_mm", { avg: 6.1 }), ["ride_quality_fault"]);
