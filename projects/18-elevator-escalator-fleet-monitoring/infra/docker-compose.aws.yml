@@ -1,0 +1,119 @@
+# Real-AWS compose: only the fog node and the ten tower sensors run on the EC2
+# host. The processor and dashboard run as Terraform-provisioned Lambdas, and
+# DynamoDB/SQS are real managed services, so there is no LocalStack here. The fog
+# node publishes to the real SQS queue through the EC2 instance profile via the
+# SDK default credential chain, so no endpoint override or static keys are set.
+# Port 8000 is published so the dashboard Lambda can reach the fog node's /health
+# and /thresholds endpoints over the Elastic IP.
+name: eef-aws
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  fog:
+    build:
+      context: ../fog
+    environment:
+      AWS_REGION: us-east-1
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: eef-tower-agg
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  sensor-motor-temp-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: motor_temp_c
+      SITE_ID: tower-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  sensor-motor-temp-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: motor_temp_c
+      SITE_ID: tower-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-door-cycle-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: door_cycle_count
+      SITE_ID: tower-a
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-door-cycle-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: door_cycle_count
+      SITE_ID: tower-b
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  sensor-cab-vibration-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: cab_vibration_mm
+      SITE_ID: tower-a
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "6"
+
+  sensor-cab-vibration-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: cab_vibration_mm
+      SITE_ID: tower-b
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "5"
+
+  sensor-load-weight-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: load_weight_kg
+      SITE_ID: tower-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "7"
+
+  sensor-load-weight-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: load_weight_kg
+      SITE_ID: tower-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "6"
+
+  sensor-travel-speed-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: travel_speed_mps
+      SITE_ID: tower-a
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "5"
+
+  sensor-travel-speed-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: travel_speed_mps
+      SITE_ID: tower-b
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "4"
