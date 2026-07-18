@@ -3,8 +3,7 @@
 const { SENSOR_PROFILES, nextReading } = require("./profiles");
 
 // Sampling and dispatch are two independent recursive setTimeout loops rather
-// than one setInterval driving both concerns (as in 03) or a stateful rig
-// object polled by a single setInterval tick (as in 06). Each loop
+// than one setInterval driving both concerns. Each loop
 // reschedules itself at the *end* of its own body, so a slow fetch during
 // dispatch cannot cause overlapping dispatch calls to pile up, and the two
 // rates never share a single timer tick even if they happen to be equal.

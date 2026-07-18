@@ -64,9 +64,9 @@ test("POST /ingest accepts a well-formed payload and buffers it (real HTTP-level
   });
 });
 
-// This is the exact gap flagged from project 09: /ingest validation must be
-// proven with a real HTTP request against a real local server, not only a
-// unit test of validateIngestBody in isolation. Both are included below.
+// /ingest validation must be proven with a real HTTP request against a real
+// local server, not only a unit test of validateIngestBody in isolation.
+// Both are included below.
 test("POST /ingest rejects a payload missing a required field with 400 (real HTTP request)", async () => {
   await withServer(createApp(), async (base) => {
     const res = await fetch(`${base}/ingest`, {

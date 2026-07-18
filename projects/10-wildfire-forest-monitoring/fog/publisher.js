@@ -2,9 +2,9 @@
 
 const { SQSClient, GetQueueUrlCommand, SendMessageCommand, SendMessageBatchCommand } = require("@aws-sdk/client-sqs");
 
-// No class (03's QueueGateway) and no closure-factory holding client/queueUrl
-// in a returned object (06's createPublisher). Just a plain function that
-// takes the SQS client as a parameter on every call. The only piece of
+// No class and no closure-factory holding client/queueUrl in a returned
+// object; just a plain function that takes the SQS client as a parameter on
+// every call. The only piece of
 // state worth keeping across calls is the resolved queue URL lookup itself
 // (repeating GetQueueUrlCommand on every publish would be wasteful), so that
 // one lookup is memoized behind a module-level Promise cache keyed by queue
