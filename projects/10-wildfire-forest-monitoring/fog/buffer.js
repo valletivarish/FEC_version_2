@@ -2,7 +2,7 @@
 
 const { EventEmitter } = require("node:events");
 
-// Event-driven buffering: an EventEmitter "reading" listener owns the Map and does the accumulation, decoupling ingestion from buffering via pub/sub rather than a direct push (03) or streaming-accumulator call (06).
+// Event-driven buffering: an EventEmitter "reading" listener owns the Map and does the accumulation, decoupling ingestion from buffering via pub/sub rather than a direct in-line push from the request handler.
 const KEY_DELIM = "::";
 
 function keyOf(sensorType, siteId) {
