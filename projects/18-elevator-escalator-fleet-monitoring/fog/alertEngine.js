@@ -1,6 +1,6 @@
 "use strict";
 
-// OOP rule engine: AlertEngine registers plain predicate closures via registerRule() at module load, evaluated only against window aggregates (avg/max), never raw readings -- the 5th distinct alert-rule idiom in this portfolio's JS fog services.
+// Rule engine: predicate closures registered per sensor type, evaluated against window aggregates (avg/max).
 class AlertEngine {
   constructor() {
     this._rules = new Map();
@@ -30,13 +30,9 @@ engine.registerRule("motor_temp_c", (summary) => summary.avg > 85, "motor_overhe
 engine.registerRule("cab_vibration_mm", (summary) => summary.avg > 6, "ride_quality_fault");
 engine.registerRule("load_weight_kg", (summary) => summary.max > 1000, "overload_warning");
 engine.registerRule("travel_speed_mps", (summary) => summary.avg < 0.5, "stall_suspected");
-// door_cycle_count intentionally has no registered rule -- evaluate() falls
-// through to the empty-array branch for it.
+// door_cycle_count intentionally has no registered rule.
 
-// Purely descriptive projection for the /thresholds endpoint. This table is
-// metadata only and is never consulted by AlertEngine.evaluate(), which
-// always goes through the registered predicate closures above -- the same
-// disclosure-vs-evaluation split used across this portfolio's fog services.
+// Descriptive projection for the /thresholds endpoint; metadata only, never consulted by evaluate().
 const THRESHOLD_TABLE = {
   motor_temp_c: [{ field: "avg", op: ">", limit: 85, key: "motor_overheat_risk" }],
   door_cycle_count: [],

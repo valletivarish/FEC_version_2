@@ -1,13 +1,13 @@
-"""Frozen, self-validating Rule dataclasses in one flat RULES list, filtered by a single generator expression in evaluate() -- the 3rd distinct alert-rule idiom in this portfolio's Python projects."""
+"""Frozen, self-validating ThresholdRule dataclasses in one flat THRESHOLD_RULES list, filtered by a single generator expression in evaluate_thresholds()."""
 
 from dataclasses import dataclass
 
-_VALID_FIELDS = ("count", "min", "max", "avg", "latest")
-_VALID_OPS = ("<", ">")
+_SUMMARY_FIELDS = ("count", "min", "max", "avg", "latest")
+_COMPARISON_OPS = ("<", ">")
 
 
 @dataclass(frozen=True)
-class Rule:
+class ThresholdRule:
     sensor_type: str
     field: str
     op: str
@@ -15,42 +15,36 @@ class Rule:
     key: str
 
     def __post_init__(self):
-        if self.field not in _VALID_FIELDS:
+        if self.field not in _SUMMARY_FIELDS:
             raise ValueError(f"unsupported summary field: {self.field!r}")
-        if self.op not in _VALID_OPS:
+        if self.op not in _COMPARISON_OPS:
             raise ValueError(f"unsupported comparison operator: {self.op!r}")
 
-    def fires(self, summary):
+    def breaches(self, summary):
         value = summary[self.field]
         return value < self.limit if self.op == "<" else value > self.limit
 
 
-# One Rule per exception condition. hvac_temp_c intentionally carries two
-# rules (hot and cold) to show a sensor_type is not limited to one entry.
-RULES = [
-    Rule("energy_consumption_kw", "avg", ">", 55, "peak_load_warning"),
-    Rule("co2_ppm", "avg", ">", 1000, "poor_air_quality"),
-    Rule("hvac_temp_c", "avg", ">", 26, "comfort_violation_hot"),
-    Rule("hvac_temp_c", "avg", "<", 18, "comfort_violation_cold"),
-    Rule("water_usage_lpm", "avg", ">", 20, "leak_suspected"),
+# One rule per exception condition; hvac_temp_c carries both a hot and a cold rule.
+THRESHOLD_RULES = [
+    ThresholdRule("energy_consumption_kw", "avg", ">", 55, "peak_load_warning"),
+    ThresholdRule("co2_ppm", "avg", ">", 1000, "poor_air_quality"),
+    ThresholdRule("hvac_temp_c", "avg", ">", 26, "comfort_violation_hot"),
+    ThresholdRule("hvac_temp_c", "avg", "<", 18, "comfort_violation_cold"),
+    ThresholdRule("water_usage_lpm", "avg", ">", 20, "leak_suspected"),
 ]
 
 
-def evaluate(sensor_type, summary):
-    """The rules that fire for this sensor_type's window summary, as a list
-    of alert keys. A single filtering comprehension over the flat RULES
-    list stands in for both the dict-lookup-then-loop shape (01) and the
-    named-function dispatch-table shape (05)."""
-    return [rule.key for rule in RULES if rule.sensor_type == sensor_type and rule.fires(summary)]
+def evaluate_thresholds(sensor_type, summary):
+    """Alert keys for the rules that breach on this sensor_type's window summary."""
+    return [rule.key for rule in THRESHOLD_RULES if rule.sensor_type == sensor_type and rule.breaches(summary)]
 
 
 def thresholds_payload():
-    """Group RULES by sensor_type for the purely-descriptive /thresholds
-    endpoint. Built fresh from RULES on every call so the endpoint can never
-    drift from the rules evaluate() actually enforces."""
-    grouped = {}
-    for rule in RULES:
-        grouped.setdefault(rule.sensor_type, []).append(
+    """Group THRESHOLD_RULES by sensor_type for the descriptive /thresholds endpoint, rebuilt fresh each call so it never drifts from what evaluate_thresholds enforces."""
+    by_sensor_type = {}
+    for rule in THRESHOLD_RULES:
+        by_sensor_type.setdefault(rule.sensor_type, []).append(
             {"field": rule.field, "op": rule.op, "limit": rule.limit, "key": rule.key}
         )
-    return grouped
+    return by_sensor_type

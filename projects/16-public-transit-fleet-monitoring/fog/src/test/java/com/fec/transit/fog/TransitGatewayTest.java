@@ -16,11 +16,11 @@ class TransitGatewayTest {
     @Test
     void ingestAccumulatesReadingsPerSensorSitePairAndFlushProducesAggregates() {
         TransitGateway gateway = new TransitGateway();
-        gateway.ingest("engine_temp_c", "depot-a", "C", List.of(88.0, 90.0));
-        gateway.ingest("engine_temp_c", "depot-a", "C", List.of(92.0));
-        gateway.ingest("fuel_level_pct", "depot-b", "%", List.of(65.0));
+        gateway.bufferReadings("engine_temp_c", "depot-a", "C", List.of(88.0, 90.0));
+        gateway.bufferReadings("engine_temp_c", "depot-a", "C", List.of(92.0));
+        gateway.bufferReadings("fuel_level_pct", "depot-b", "%", List.of(65.0));
 
-        List<WindowAggregate> flushed = gateway.flushWindow();
+        List<WindowAggregate> flushed = gateway.aggregateWindow();
         assertEquals(2, flushed.size());
 
         WindowAggregate engineAgg = flushed.stream()
@@ -34,10 +34,10 @@ class TransitGatewayTest {
     @Test
     void distinctDepotsForTheSameSensorTypeStayInSeparateGroups() {
         TransitGateway gateway = new TransitGateway();
-        gateway.ingest("gps_speed_kmh", "depot-a", "km/h", List.of(40.0));
-        gateway.ingest("gps_speed_kmh", "depot-b", "km/h", List.of(60.0));
+        gateway.bufferReadings("gps_speed_kmh", "depot-a", "km/h", List.of(40.0));
+        gateway.bufferReadings("gps_speed_kmh", "depot-b", "km/h", List.of(60.0));
 
-        List<WindowAggregate> flushed = gateway.flushWindow();
+        List<WindowAggregate> flushed = gateway.aggregateWindow();
         assertEquals(2, flushed.size());
         assertTrue(flushed.stream().anyMatch(w -> w.siteId().equals("depot-a") && w.latest() == 40.0));
         assertTrue(flushed.stream().anyMatch(w -> w.siteId().equals("depot-b") && w.latest() == 60.0));
@@ -46,15 +46,15 @@ class TransitGatewayTest {
     @Test
     void flushWindowClearsTheIntakeQueueSoASecondFlushIsEmpty() {
         TransitGateway gateway = new TransitGateway();
-        gateway.ingest("brake_pad_wear_pct", "depot-a", "%", List.of(22.0));
-        assertEquals(1, gateway.flushWindow().size());
-        assertEquals(0, gateway.flushWindow().size());
+        gateway.bufferReadings("brake_pad_wear_pct", "depot-a", "%", List.of(22.0));
+        assertEquals(1, gateway.aggregateWindow().size());
+        assertEquals(0, gateway.aggregateWindow().size());
     }
 
     @Test
     void emptyIntakeProducesNoAggregatesOnFlush() {
         TransitGateway gateway = new TransitGateway();
-        assertEquals(0, gateway.flushWindow().size());
+        assertEquals(0, gateway.aggregateWindow().size());
     }
 
     @Test
@@ -72,7 +72,7 @@ class TransitGatewayTest {
     @Test
     void toPayloadIncludesAllRequiredFieldsAndAlerts() throws Exception {
         WindowAggregate window = WindowAggregate.of("engine_temp_c", "depot-a", "C", List.of(110.0), "s", "e");
-        String json = TransitGateway.toPayload(window, List.of("engine_overheat_risk"));
+        String json = TransitGateway.windowToJson(window, List.of("engine_overheat_risk"));
         JsonNode node = JSON.readTree(json);
 
         assertEquals("engine_temp_c", node.get("sensor_type").asText());

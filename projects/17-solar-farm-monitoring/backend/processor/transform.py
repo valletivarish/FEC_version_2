@@ -2,13 +2,7 @@ import json
 
 
 def to_item(message_body):
-    """Pure transform from a raw SQS message body (the fog node's window
-    aggregate JSON) into the flat record DynamoDB stores. sort_key is
-    window_end + "#" + site_id: window_end alone would collide whenever
-    array-1 and array-2 both flush in the same window, since sensor_type is
-    the table's partition key and window_end would otherwise repeat as the
-    range key for both arrays in that flush cycle.
-    """
+    """Transform a window-aggregate SQS body into the flat DynamoDB record; sort_key is window_end#site_id to keep both arrays distinct."""
     data = json.loads(message_body) if isinstance(message_body, str) else message_body
     site_id = data.get("site_id", "array-1")
     return {

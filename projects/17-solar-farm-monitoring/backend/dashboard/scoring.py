@@ -1,4 +1,4 @@
-"""Graded 0-100 efficiency_index (rising output band + falling thermal band, averaged) giving an earlier signal than fog/alerts.py's binary thresholds -- the same idiom as 12-smart-building-energy's efficiency_score, here rendered as a heatmap cell instead of a letter grade."""
+"""Graded 0-100 efficiency_index: the mean of a rising inverter-output band and a falling panel-temperature band, rendered as a heatmap cell."""
 
 OUTPUT_POOR_KW = 20.0
 OUTPUT_OPTIMAL_KW = 110.0
@@ -14,8 +14,7 @@ BAND_CUTOFFS = (
 
 
 def _rising_band(value, poor, optimal):
-    """0 at or below `poor`, 100 at or above `optimal`, linear between.
-    Assumes poor < optimal (higher value is better)."""
+    """0 at or below poor, 100 at or above optimal, linear between; higher value is better."""
     if value <= poor:
         return 0.0
     if value >= optimal:
@@ -24,8 +23,7 @@ def _rising_band(value, poor, optimal):
 
 
 def _falling_band(value, optimal, poor):
-    """100 at or below `optimal`, 0 at or above `poor`, linear between.
-    Assumes optimal < poor (lower value is better)."""
+    """100 at or below optimal, 0 at or above poor, linear between; lower value is better."""
     if value <= optimal:
         return 100.0
     if value >= poor:

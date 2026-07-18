@@ -2,8 +2,8 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createApp, validateIngestBody, flushOnce, sealGroup, makeUnitTracker } = require("./app");
-const { createBuffer, addReading } = require("./windowBuffer");
+const { createApp, validateIngestBody, flushRunWindow, sealCarWindow, makeUnitRegistry } = require("./app");
+const { openRunLedger, logReading } = require("./windowBuffer");
 
 function withServer(app, fn) {
   return new Promise((resolve, reject) => {
@@ -67,9 +67,7 @@ test("POST /ingest accepts a well-formed payload with 202 (real HTTP-level test)
   });
 });
 
-// Proven with a real HTTP request against a real local server on an
-// ephemeral port, not merely a unit test of validateIngestBody in isolation
-// (that is covered separately below too).
+// Proven with a real HTTP request against a local server, not just a unit test of validateIngestBody.
 test("POST /ingest rejects a payload missing a required field with 400 (real HTTP request)", async () => {
   await withServer(createApp(), async (base) => {
     const res = await fetch(`${base}/ingest`, {
@@ -140,8 +138,8 @@ test("validateIngestBody unit-level checks", () => {
   );
 });
 
-test("sealGroup attaches alerts computed from the window aggregate", () => {
-  const summary = sealGroup(
+test("sealCarWindow attaches alerts computed from the window aggregate", () => {
+  const summary = sealCarWindow(
     { sensorType: "motor_temp_c", siteId: "tower-a", readings: [{ ts: "t0", value: 90 }, { ts: "t1", value: 92 }] },
     "C",
     "s",
@@ -151,8 +149,8 @@ test("sealGroup attaches alerts computed from the window aggregate", () => {
   assert.deepEqual(summary.alerts, ["motor_overheat_risk"]);
 });
 
-test("sealGroup returns no alerts for a sensor type with no registered rule", () => {
-  const summary = sealGroup(
+test("sealCarWindow returns no alerts for a sensor type with no registered rule", () => {
+  const summary = sealCarWindow(
     { sensorType: "door_cycle_count", siteId: "tower-b", readings: [{ ts: "t0", value: 400 }] },
     "count",
     "s",
@@ -161,8 +159,8 @@ test("sealGroup returns no alerts for a sensor type with no registered rule", ()
   assert.deepEqual(summary.alerts, []);
 });
 
-test("makeUnitTracker records and returns the last-seen unit per sensor type", () => {
-  const tracker = makeUnitTracker();
+test("makeUnitRegistry records and returns the last-seen unit per sensor type", () => {
+  const tracker = makeUnitRegistry();
   assert.equal(tracker.get("motor_temp_c"), "");
   tracker.record("motor_temp_c", "C");
   assert.equal(tracker.get("motor_temp_c"), "C");
@@ -170,7 +168,7 @@ test("makeUnitTracker records and returns the last-seen unit per sensor type", (
   assert.equal(tracker.get("motor_temp_c"), "C", "an undefined unit on a later batch should not clear the tracked unit");
 });
 
-test("flushOnce seals and publishes every non-empty buffer group, then clears the buffer", async () => {
+test("flushRunWindow seals and publishes every non-empty ledger group, then clears the ledger", async () => {
   const publisher = require("./publisher");
   publisher.reset();
   const sent = [];
@@ -180,21 +178,21 @@ test("flushOnce seals and publishes every non-empty buffer group, then clears th
     return {};
   } }, "eef-tower-agg");
 
-  const buffer = createBuffer();
-  addReading(buffer, "load_weight_kg", "tower-a", { ts: "t0", value: 1100 });
-  addReading(buffer, "load_weight_kg", "tower-a", { ts: "t1", value: 900 });
-  const unitTracker = makeUnitTracker();
-  unitTracker.record("load_weight_kg", "kg");
+  const ledger = openRunLedger();
+  logReading(ledger, "load_weight_kg", "tower-a", { ts: "t0", value: 1100 });
+  logReading(ledger, "load_weight_kg", "tower-a", { ts: "t1", value: 900 });
+  const unitRegistry = makeUnitRegistry();
+  unitRegistry.record("load_weight_kg", "kg");
 
-  const messages = await flushOnce(buffer, unitTracker);
+  const messages = await flushRunWindow(ledger, unitRegistry);
   assert.equal(messages.length, 1);
   assert.equal(messages[0].max, 1100);
   assert.deepEqual(messages[0].alerts, ["overload_warning"]);
   assert.equal(sent.length, 1);
-  assert.equal(buffer.size, 0);
+  assert.equal(ledger.size, 0);
 });
 
-test("flushOnce sends every sealed group through a single SendMessageBatch call, not one call per group", async () => {
+test("flushRunWindow sends every sealed group through a single SendMessageBatch call, not one call per group", async () => {
   const publisher = require("./publisher");
   publisher.reset();
   let batchCalls = 0;
@@ -204,24 +202,24 @@ test("flushOnce sends every sealed group through a single SendMessageBatch call,
     return {};
   } }, "eef-tower-agg");
 
-  const buffer = createBuffer();
-  addReading(buffer, "load_weight_kg", "tower-a", { ts: "t0", value: 900 });
-  addReading(buffer, "motor_temp_c", "tower-b", { ts: "t0", value: 40 });
-  addReading(buffer, "cab_vibration_mm", "tower-a", { ts: "t0", value: 1 });
-  const unitTracker = makeUnitTracker();
+  const ledger = openRunLedger();
+  logReading(ledger, "load_weight_kg", "tower-a", { ts: "t0", value: 900 });
+  logReading(ledger, "motor_temp_c", "tower-b", { ts: "t0", value: 40 });
+  logReading(ledger, "cab_vibration_mm", "tower-a", { ts: "t0", value: 1 });
+  const unitRegistry = makeUnitRegistry();
 
-  const messages = await flushOnce(buffer, unitTracker);
+  const messages = await flushRunWindow(ledger, unitRegistry);
   assert.equal(messages.length, 3);
   assert.equal(batchCalls, 1, "three sealed groups within the 10-entry limit should ship in one SendMessageBatch call");
 });
 
-test("flushOnce sends nothing when the window buffer is empty", async () => {
+test("flushRunWindow sends nothing when the window ledger is empty", async () => {
   const publisher = require("./publisher");
   publisher.reset();
   let calls = 0;
   publisher.useClient({ send: async () => { calls += 1; return {}; } }, "eef-tower-agg");
 
-  const messages = await flushOnce(createBuffer(), makeUnitTracker());
+  const messages = await flushRunWindow(openRunLedger(), makeUnitRegistry());
   assert.deepEqual(messages, []);
   assert.equal(calls, 0, "an empty flush should not touch the SQS client at all");
 });

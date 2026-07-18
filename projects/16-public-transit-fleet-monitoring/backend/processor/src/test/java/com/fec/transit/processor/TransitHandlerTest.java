@@ -22,7 +22,7 @@ class TransitHandlerTest {
     @Test
     void processRecordsWritesEachRecord() {
         FakeDynamoDbClient fake = new FakeDynamoDbClient();
-        int processed = TransitHandler.processRecords(List.of(message(MESSAGE)), fake, "test-table");
+        int processed = TransitHandler.storeWindows(List.of(message(MESSAGE)), fake, "test-table");
 
         assertEquals(1, processed);
         assertEquals(1, fake.puts.size());
@@ -33,7 +33,7 @@ class TransitHandlerTest {
     @Test
     void processRecordsWritesAWholeBatchInOrder() {
         FakeDynamoDbClient fake = new FakeDynamoDbClient();
-        int processed = TransitHandler.processRecords(
+        int processed = TransitHandler.storeWindows(
             List.of(message(MESSAGE), message(MESSAGE), message(MESSAGE)), fake, "test-table");
 
         assertEquals(3, processed);
@@ -43,7 +43,7 @@ class TransitHandlerTest {
     @Test
     void emptyBatchProcessesNothing() {
         FakeDynamoDbClient fake = new FakeDynamoDbClient();
-        int processed = TransitHandler.processRecords(List.of(), fake, "test-table");
+        int processed = TransitHandler.storeWindows(List.of(), fake, "test-table");
         assertEquals(0, processed);
         assertEquals(0, fake.puts.size());
     }
@@ -52,13 +52,13 @@ class TransitHandlerTest {
     void aWriteFailureThrowsSoSqsRetriesTheWholeBatch() {
         FakeDynamoDbClient fake = new FakeDynamoDbClient(true);
         assertThrows(RuntimeException.class,
-            () -> TransitHandler.processRecords(List.of(message(MESSAGE)), fake, "test-table"));
+            () -> TransitHandler.storeWindows(List.of(message(MESSAGE)), fake, "test-table"));
     }
 
     @Test
     void aMalformedMessageThrowsRatherThanSilentlySkipping() {
         FakeDynamoDbClient fake = new FakeDynamoDbClient();
         assertThrows(RuntimeException.class,
-            () -> TransitHandler.processRecords(List.of(message("not json")), fake, "test-table"));
+            () -> TransitHandler.storeWindows(List.of(message("not json")), fake, "test-table"));
     }
 }

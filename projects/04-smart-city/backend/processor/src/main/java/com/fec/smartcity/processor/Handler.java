@@ -20,76 +20,67 @@ import java.util.stream.Collectors;
 public class Handler implements RequestHandler<SQSEvent, Map<String, Object>> {
 
     static final String TABLE_NAME = System.getenv().getOrDefault("TABLE_NAME", "fsc-readings");
-    private static final AtomicReference<DynamoDbClient> CLIENT_REF = new AtomicReference<>();
+    private static final AtomicReference<DynamoDbClient> DYNAMO_REF = new AtomicReference<>();
 
-    private record ClientConfig(String endpoint, String region) {
-        static ClientConfig fromEnv() {
-            return new ClientConfig(System.getenv("AWS_ENDPOINT_URL"),
+    private record DynamoTarget(String endpoint, String region) {
+        static DynamoTarget fromEnv() {
+            return new DynamoTarget(System.getenv("AWS_ENDPOINT_URL"),
                 System.getenv().getOrDefault("AWS_REGION", "eu-west-1"));
         }
     }
 
-    private static final ClientConfig CLIENT_CONFIG = ClientConfig.fromEnv();
+    private static final DynamoTarget DYNAMO_TARGET = DynamoTarget.fromEnv();
 
-    private static DynamoDbClient buildClient() {
-        var builder = DynamoDbClient.builder().region(Region.of(CLIENT_CONFIG.region()));
-        // CLIENT_CONFIG.endpoint() is only set for LocalStack. In a real Lambda
-        // invocation it's null, and AWS always injects an AWS_ACCESS_KEY_ID for
-        // the function's execution role -- so the static test/test credentials
-        // must only be applied against the LocalStack endpoint, never always-on,
-        // or every DynamoDB call in production would misauthenticate.
-        if (CLIENT_CONFIG.endpoint() != null) {
-            builder.endpointOverride(URI.create(CLIENT_CONFIG.endpoint()))
+    private static DynamoDbClient openDynamo() {
+        var builder = DynamoDbClient.builder().region(Region.of(DYNAMO_TARGET.region()));
+        // endpoint is only set for LocalStack; gate the static test credentials on it so a real Lambda uses its execution role.
+        if (DYNAMO_TARGET.endpoint() != null) {
+            builder.endpointOverride(URI.create(DYNAMO_TARGET.endpoint()))
                 .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
         }
         return builder.build();
     }
 
     static DynamoDbClient dynamo() {
-        return CLIENT_REF.updateAndGet(existing -> existing != null ? existing : buildClient());
+        return DYNAMO_REF.updateAndGet(existing -> existing != null ? existing : openDynamo());
     }
 
-    /**
-     * Outcome of a single SQS message write attempt.
-     */
-    private record WriteAttempt(boolean succeeded, String failureReason) {
-        static WriteAttempt success() {
-            return new WriteAttempt(true, null);
+    // Outcome of a single SQS message write attempt.
+    private record RowWrite(boolean succeeded, String failureReason) {
+        static RowWrite success() {
+            return new RowWrite(true, null);
         }
 
-        static WriteAttempt failure(Exception cause) {
-            return new WriteAttempt(false, cause.toString());
+        static RowWrite failure(Exception cause) {
+            return new RowWrite(false, cause.toString());
         }
     }
 
-    /**
-     * Outcome of a whole batch: how many messages landed in DynamoDB, plus the
-     * failure detail for each one that didn't.
-     */
+    // Outcome of a whole batch: how many messages landed in DynamoDB plus the failure detail for each that didn't.
     record Result(int processed, List<String> failures) {
         boolean hasFailures() {
             return !failures.isEmpty();
         }
     }
 
-    private static WriteAttempt attemptWrite(SQSEvent.SQSMessage record, DynamoDbClient client, String tableName) {
+    private static RowWrite writeRow(SQSEvent.SQSMessage record, DynamoDbClient client, String tableName) {
         try {
             Map<String, AttributeValue> item = Normalizer.normalize(record.getBody());
             client.putItem(PutItemRequest.builder().tableName(tableName).item(item).build());
-            return WriteAttempt.success();
+            return RowWrite.success();
         } catch (Exception e) {
-            return WriteAttempt.failure(e);
+            return RowWrite.failure(e);
         }
     }
 
     static Result processRecords(List<SQSEvent.SQSMessage> records, DynamoDbClient client, String tableName) {
-        Map<Boolean, List<WriteAttempt>> bySuccess = records.stream()
-            .map(record -> attemptWrite(record, client, tableName))
-            .collect(Collectors.partitioningBy(WriteAttempt::succeeded));
+        Map<Boolean, List<RowWrite>> partitioned = records.stream()
+            .map(record -> writeRow(record, client, tableName))
+            .collect(Collectors.partitioningBy(RowWrite::succeeded));
 
-        int processed = bySuccess.get(true).size();
-        List<String> failures = bySuccess.get(false).stream()
-            .map(WriteAttempt::failureReason)
+        int processed = partitioned.get(true).size();
+        List<String> failures = partitioned.get(false).stream()
+            .map(RowWrite::failureReason)
             .collect(Collectors.toUnmodifiableList());
 
         return new Result(processed, failures);

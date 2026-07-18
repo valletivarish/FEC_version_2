@@ -1,4 +1,4 @@
-"""Fog node on a bare http.server ThreadingHTTPServer with hand-dispatched do_GET/do_POST routing and plain json.loads/dumps -- no FastAPI/Flask/ASGI/Pydantic anywhere."""
+"""Fog node on a plain http.server ThreadingHTTPServer with hand-dispatched do_GET/do_POST routing and json.loads/dumps -- no web framework."""
 
 import json
 import os
@@ -7,9 +7,9 @@ import time
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from aggregation import aggregate
-from alerts import evaluate, thresholds_payload
-from ingest_pipeline import enqueue_batch, snapshot_and_clear, start_consumer_thread
+from aggregation import summarise_window
+from alerts import evaluate_thresholds, thresholds_payload
+from ingest_pipeline import queue_reading_batch, drain_window_buffers, start_telemetry_consumer
 from publisher import publish_batch
 from validation import validate_batch
 
@@ -17,47 +17,42 @@ WINDOW_SECONDS = float(os.getenv("WINDOW_SECONDS", "10"))
 QUEUE_NAME = os.getenv("SQS_QUEUE_NAME", "sbe-floor-agg")
 ENDPOINT = os.getenv("AWS_ENDPOINT_URL")
 REGION = os.getenv("AWS_REGION", "eu-west-1")
-DEFAULT_SITE = "floor-1"
+DEFAULT_FLOOR = "floor-1"
 
 
 def utcnow():
     return datetime.now(timezone.utc)
 
 
-def flush_once():
-    """Snapshot + clear the buffer, aggregate and evaluate alerts for every
-    non-empty (sensor_type, site_id) group, then ship the whole window's
-    summaries to SQS in one publish_batch() call rather than one
-    send_message per group. Never reduces on a raw list without going
-    through aggregate(), so each published payload always carries genuine
-    window statistics."""
+def publish_window_summaries():
+    """Snapshot the buffers, summarise + threshold-check every non-empty group, then ship the whole window to SQS in one publish_batch call."""
     window_end = utcnow()
     window_start = window_end - timedelta(seconds=WINDOW_SECONDS)
-    snapshot, units = snapshot_and_clear()
+    snapshot, units = drain_window_buffers()
 
-    summaries = []
+    window_summaries = []
     for (sensor_type, site_id), readings in snapshot.items():
-        summary = aggregate(
+        window_summary = summarise_window(
             sensor_type, site_id, units.get(sensor_type, ""),
             readings, window_start.isoformat(), window_end.isoformat(),
         )
-        summary["alerts"] = evaluate(sensor_type, summary)
-        summaries.append(summary)
+        window_summary["alerts"] = evaluate_thresholds(sensor_type, window_summary)
+        window_summaries.append(window_summary)
 
-    publish_batch(ENDPOINT, REGION, QUEUE_NAME, summaries)
+    publish_batch(ENDPOINT, REGION, QUEUE_NAME, window_summaries)
 
 
-def flush_loop():
+def window_publish_loop():
     while True:
         time.sleep(WINDOW_SECONDS)
         try:
-            flush_once()
+            publish_window_summaries()
         except Exception as exc:
             print(f"flush failed: {exc}", flush=True)
 
 
-def start_flush_thread():
-    thread = threading.Thread(target=flush_loop, name="fog-window-flush", daemon=True)
+def start_window_publisher():
+    thread = threading.Thread(target=window_publish_loop, name="fog-window-flush", daemon=True)
     thread.start()
     return thread
 
@@ -66,8 +61,7 @@ class FogHandler(BaseHTTPRequestHandler):
     server_version = "SmartBuildingFog/1.0"
 
     def log_message(self, fmt, *args):
-        # Silence BaseHTTPRequestHandler's default per-request stderr access
-        # log; container logs stay limited to our own explicit prints.
+        # Silence the default per-request stderr access log.
         pass
 
     def _send_json(self, status, body):
@@ -117,9 +111,9 @@ class FogHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"error": error})
             return
 
-        enqueue_batch(
+        queue_reading_batch(
             payload["sensor_type"],
-            payload.get("site_id", DEFAULT_SITE),
+            payload.get("site_id", DEFAULT_FLOOR),
             payload.get("unit", ""),
             payload["readings"],
         )
@@ -127,8 +121,8 @@ class FogHandler(BaseHTTPRequestHandler):
 
 
 def main():
-    start_consumer_thread()
-    start_flush_thread()
+    start_telemetry_consumer()
+    start_window_publisher()
     server = ThreadingHTTPServer(("0.0.0.0", 8000), FogHandler)
     print(f"fog node listening on :8000 (window={WINDOW_SECONDS}s, queue={QUEUE_NAME})", flush=True)
     server.serve_forever()

@@ -18,8 +18,7 @@ def row(sensor_type, site_id, window_end, avg, minimum=None, maximum=None, unit=
 
 class FakeTable:
     def __init__(self, rows_by_sensor_type):
-        # rows given oldest-first per sensor_type, exactly like real DynamoDB
-        # query results after data_access.recent_windows() re-reverses them.
+        # rows given oldest-first per sensor_type, matching real query results after recent_windows() re-reverses them.
         self.rows_by_sensor_type = rows_by_sensor_type
 
     def query(self, KeyConditionExpression, ScanIndexForward, Limit):
@@ -34,9 +33,7 @@ class FakeTable:
 
 
 class PagedCountTable:
-    """Splits a fixed total count across `page_counts`, requiring the caller
-    to follow LastEvaluatedKey to see anything past the first page -- proves
-    items_in_table() doesn't stop after one Scan response."""
+    """Splits a fixed total across `page_counts`, forcing the caller to follow LastEvaluatedKey to prove items_in_table() paginates."""
 
     def __init__(self, page_counts):
         self.page_counts = page_counts

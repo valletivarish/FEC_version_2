@@ -17,8 +17,7 @@ const EXCEPTION_TEXT = {
 };
 
 const STALE_AFTER_SECONDS = 30;
-// Chart.js instances keyed by container_id, kept alive across polls so
-// refreshTempTrend can push new points instead of rebuilding the chart.
+// Chart.js instances keyed by container_id, kept alive across polls.
 const tempTrendCharts = {};
 
 function elapsedSeconds(iso) {
@@ -31,6 +30,13 @@ function clockStamp(iso) {
 
 function describeException(key) {
   return EXCEPTION_TEXT[key] || key.replace(/_/g, " ");
+}
+
+function checkRow(up, label) {
+  const glyph = up ? "✓" : "✗";
+  return `<div class="depot-check ${up ? "up" : "down"}">` +
+    `<span class="depot-check-glyph">${glyph}</span>` +
+    `<span class="depot-check-label">${label}</span></div>`;
 }
 
 function paintDepotSummary(containers) {
@@ -73,9 +79,7 @@ function readingCellHtml(readingType, reading) {
 
 function manifestRowHtml(container) {
   const flaggedTypes = READING_TYPES.filter((t) => container.readings[t] && container.readings[t].alerts.length);
-  // Any one reading's window_end is representative of the row's age since
-  // all five readings for a container are aggregated on the same fog
-  // window cadence.
+  // Any reading's window_end represents the row age; all five share the fog window cadence.
   const anyReading = Object.values(container.readings)[0];
   const age = anyReading ? elapsedSeconds(anyReading.window_end) : null;
   const staleClass = age !== null && age > STALE_AFTER_SECONDS ? " row-stale" : "";
@@ -147,10 +151,7 @@ async function syncManifest() {
 
     document.getElementById("manifest-body").innerHTML = containers.map(manifestRowHtml).join("");
 
-    // Only rebuild the trend-chart tiles when the set of containers itself
-    // changes (rare); on every other poll the existing Chart.js instances
-    // are reused and just get new data points, avoiding a flicker/rebuild
-    // on the common 2.5s refresh path.
+    // Rebuild trend tiles only when the container set changes; otherwise reuse the charts.
     const trendGrid = document.getElementById("temp-trend-grid");
     const knownContainers = Object.keys(tempTrendCharts);
     const currentIds = containers.map((c) => c.container_id);
@@ -164,10 +165,10 @@ async function syncManifest() {
     await Promise.all(currentIds.map(refreshTempTrend));
 
     document.getElementById("depot-status").innerHTML =
-      `<span>depot relay: ${health.depot ? "online" : "offline"}</span>` +
-      `<span>queue: ${health.queue ? "reachable" : "unreachable"}${backend.queue ? ` (${backend.queue.waiting} pending)` : ""}</span>` +
-      `<span>lambda: ${health.lambda ? "deployed" : "not found"}</span>` +
-      `<span>records archived: ${backend.items_in_table}</span>`;
+      checkRow(health.depot, `depot relay: ${health.depot ? "online" : "offline"}`) +
+      checkRow(health.queue, `queue: ${health.queue ? "reachable" : "unreachable"}${backend.queue ? ` (${backend.queue.waiting} pending)` : ""}`) +
+      checkRow(health.lambda, `lambda: ${health.lambda ? "deployed" : "not found"}`) +
+      checkRow(backend.items_in_table > 0, `records archived: ${backend.items_in_table}`);
   } catch (e) {
     // backend not ready yet; next sync retries
   }

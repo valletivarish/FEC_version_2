@@ -1,9 +1,6 @@
 "use strict";
 
-// sort_key = window_end#site_id prevents tower-a and tower-b readings for
-// the same sensor_type in the same flush cycle from colliding on the
-// DynamoDB primary key (sensor_type is the partition key, sort_key the
-// range key).
+// sort_key = window_end#site_id keeps tower-a and tower-b from colliding on the same partition key.
 function buildSortKey(windowEnd, siteId) {
   return `${windowEnd}#${siteId}`;
 }

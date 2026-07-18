@@ -27,7 +27,7 @@ class FakeTable:
 class TestLambdaHandler:
     def test_writes_each_record_to_the_table(self, monkeypatch):
         fake_table = FakeTable()
-        monkeypatch.setattr(handler, "_table", fake_table)
+        monkeypatch.setattr(handler, "_dynamo_table", fake_table)
 
         event = {"Records": [{"body": json.dumps(MESSAGE)}]}
         result = handler.lambda_handler(event, None)
@@ -39,7 +39,7 @@ class TestLambdaHandler:
 
     def test_processes_a_batch_of_multiple_records(self, monkeypatch):
         fake_table = FakeTable()
-        monkeypatch.setattr(handler, "_table", fake_table)
+        monkeypatch.setattr(handler, "_dynamo_table", fake_table)
 
         event = {"Records": [{"body": json.dumps(MESSAGE)}, {"body": json.dumps(MESSAGE)}]}
         result = handler.lambda_handler(event, None)
@@ -51,7 +51,7 @@ class TestLambdaHandler:
         from decimal import Decimal
 
         fake_table = FakeTable()
-        monkeypatch.setattr(handler, "_table", fake_table)
+        monkeypatch.setattr(handler, "_dynamo_table", fake_table)
 
         handler.lambda_handler({"Records": [{"body": json.dumps(MESSAGE)}]}, None)
 

@@ -7,7 +7,7 @@ public class Aggregation {
     public record Summary(String sensorType, String siteId, String unit, String windowStart, String windowEnd,
                            int count, double min, double max, double avg, double latest) {}
 
-    public static Summary rollUp(String sensorType, String siteId, String unit, List<Reading> readings,
+    public static Summary condenseWindow(String sensorType, String siteId, String unit, List<Reading> readings,
                                   String windowStart, String windowEnd) {
         double min = Double.POSITIVE_INFINITY;
         double max = Double.NEGATIVE_INFINITY;
@@ -18,10 +18,7 @@ public class Aggregation {
             sum += r.value();
         }
         double avg = Math.round((sum / readings.size()) * 1000.0) / 1000.0;
-        // Readings are appended to the buffer in arrival order and never
-        // reordered before rollUp() runs, so the last list element is the
-        // most recent sample -- this is what the dashboard gauge shows as
-        // "current value" separately from the window's min/max/avg.
+        // Buffer keeps arrival order, so the last element is the most recent sample shown as the live gauge value.
         double latest = readings.get(readings.size() - 1).value();
         return new Summary(sensorType, siteId, unit, windowStart, windowEnd, readings.size(), min, max, avg, latest);
     }

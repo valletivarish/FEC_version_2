@@ -1,8 +1,4 @@
-"""make_publisher is a closure factory, not a class -- there is no
-persistent object exposing _client/_queue_url attributes to monkeypatch
-after construction. Tests instead replace the module's `boto3` reference
-itself before calling make_publisher(), so the client the closure captures
-is the fake one."""
+"""make_publisher is a closure factory, so tests replace the module's boto3 reference before calling it to inject a fake client."""
 
 import json
 from types import SimpleNamespace
@@ -32,8 +28,7 @@ class FakeSqsClient:
 
 
 class FlakyThenOkSqsClient(FakeSqsClient):
-    """Raises on the first get_queue_url call (simulating LocalStack not
-    having provisioned the queue yet), then succeeds."""
+    """Raises on the first get_queue_url call, then succeeds."""
 
     def get_queue_url(self, QueueName):
         self.get_queue_url_calls += 1

@@ -18,8 +18,7 @@ class FakeSqsClient:
 
 
 class FlakyQueueResolver:
-    """get_queue_url fails the first N times, then succeeds -- exercises
-    _resolve_queue_url's retry loop without a real sleep-length wait."""
+    """get_queue_url fails the first N times then succeeds, exercising _resolve_queue_url's retry loop without a real wait."""
 
     def __init__(self, fail_times):
         self.fail_times = fail_times

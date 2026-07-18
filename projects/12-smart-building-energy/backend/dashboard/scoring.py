@@ -1,11 +1,11 @@
-"""Per-floor efficiency score: energy_consumption_kw and co2_ppm are each linearly band-scored to 0-100 and averaged, then mapped to an A-F letter grade, independent of fog/alerts.py's threshold-based alerts."""
+"""Per-floor efficiency score: energy_consumption_kw and co2_ppm are each linearly band-scored to 0-100 and averaged, then mapped to an A-F letter grade, independent of the fog node's threshold alerts."""
 
 ENERGY_EFFICIENT_KW = 30.0
 ENERGY_POOR_KW = 70.0
 CO2_EFFICIENT_PPM = 600.0
 CO2_POOR_PPM = 1200.0
 
-GRADE_CUTOFFS = (
+GRADE_BANDS = (
     (90.0, "A"),
     (75.0, "B"),
     (60.0, "C"),
@@ -14,8 +14,7 @@ GRADE_CUTOFFS = (
 
 
 def _band_score(value, efficient, poor):
-    """100 at or below `efficient`, 0 at or above `poor`, linear in between.
-    Assumes efficient < poor."""
+    """100 at or below `efficient`, 0 at or above `poor`, linear in between (assumes efficient < poor)."""
     if value <= efficient:
         return 100.0
     if value >= poor:
@@ -30,7 +29,7 @@ def efficiency_score(energy_avg_kw, co2_avg_ppm):
 
 
 def letter_grade(score):
-    for cutoff, grade in GRADE_CUTOFFS:
+    for cutoff, grade in GRADE_BANDS:
         if score >= cutoff:
             return grade
     return "F"

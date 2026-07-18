@@ -1,8 +1,4 @@
-"""Real HTTP-level tests for the dashboard backend, which -- like the fog
-node -- uses a plain http.server.ThreadingHTTPServer and no framework.
-DynamoDB/SQS/Lambda are always faked here; nothing in this file touches
-real AWS or LocalStack.
-"""
+"""Real HTTP-level tests for the dashboard backend (plain ThreadingHTTPServer, no framework); DynamoDB/SQS/Lambda are always faked, nothing here touches real AWS or LocalStack."""
 
 import http.client
 import json

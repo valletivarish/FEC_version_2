@@ -1,8 +1,4 @@
-"""sensors/sensor.py is asyncio-based (asyncio.run(main()) with two
-coroutines gathered together), so its ticks are exercised here via
-asyncio.run() on the coroutine methods directly -- no pytest-asyncio plugin
-dependency needed for a project this size.
-"""
+"""sensor.py is asyncio-based, so its ticks are exercised via asyncio.run() on the coroutine methods directly."""
 
 import asyncio
 import urllib.error
@@ -20,41 +16,41 @@ EXPECTED_SENSOR_TYPES = {
 
 class TestProfileCatalog:
     def test_registers_exactly_the_five_expected_sensor_types(self):
-        assert set(sensor.PROFILES) == EXPECTED_SENSOR_TYPES
+        assert set(sensor.METRIC_PROFILES) == EXPECTED_SENSOR_TYPES
 
     @pytest.mark.parametrize("sensor_type", list(EXPECTED_SENSOR_TYPES))
     def test_each_entry_is_a_reading_profile_instance(self, sensor_type):
-        assert isinstance(sensor.PROFILES[sensor_type], sensor.ReadingProfile)
+        assert isinstance(sensor.METRIC_PROFILES[sensor_type], sensor.MetricProfile)
 
     def test_occupied_spaces_matches_the_brief_exactly(self):
-        profile = sensor.PROFILES["occupied_spaces"]
+        profile = sensor.METRIC_PROFILES["occupied_spaces"]
         assert (profile.unit, profile.lo, profile.hi, profile.start, profile.step) == ("count", 0, 300, 80, 20.0)
 
     def test_gate_fault_events_matches_the_brief_exactly(self):
-        profile = sensor.PROFILES["gate_fault_events"]
+        profile = sensor.METRIC_PROFILES["gate_fault_events"]
         assert (profile.unit, profile.lo, profile.hi, profile.start, profile.step) == ("count", 0, 10, 0, 1.0)
 
 
-class TestRandomWalkBounds:
+class TestMetricDriftBounds:
     @pytest.mark.parametrize("sensor_type", list(EXPECTED_SENSOR_TYPES))
     def test_step_stays_within_lo_hi_across_many_iterations(self, sensor_type):
-        profile = sensor.PROFILES[sensor_type]
-        walk = sensor.RandomWalk(profile)
-        assert all(profile.lo <= walk.step() <= profile.hi for _ in range(500))
+        profile = sensor.METRIC_PROFILES[sensor_type]
+        drift = sensor.MetricDrift(profile)
+        assert all(profile.lo <= drift.step() <= profile.hi for _ in range(500))
 
     def test_initial_value_matches_profile_start(self):
-        profile = sensor.PROFILES["avg_dwell_time_min"]
-        assert sensor.RandomWalk(profile).value == profile.start
+        profile = sensor.METRIC_PROFILES["avg_dwell_time_min"]
+        assert sensor.MetricDrift(profile).value == profile.start
 
     def test_single_step_never_exceeds_configured_step_size(self):
-        profile = sensor.ReadingProfile(unit="x", lo=0, hi=100, start=50, step=2.0)
-        walk = sensor.RandomWalk(profile)
-        assert abs(walk.step() - 50) <= profile.step
+        profile = sensor.MetricProfile(unit="x", lo=0, hi=100, start=50, step=2.0)
+        drift = sensor.MetricDrift(profile)
+        assert abs(drift.step() - 50) <= profile.step
 
     def test_values_are_rounded_to_two_decimal_places(self):
-        profile = sensor.PROFILES["occupied_spaces"]
-        walk = sensor.RandomWalk(profile)
-        value = walk.step()
+        profile = sensor.METRIC_PROFILES["occupied_spaces"]
+        drift = sensor.MetricDrift(profile)
+        value = drift.step()
         assert round(value, 2) == value
 
 
@@ -76,7 +72,7 @@ class TestDoSample:
     def test_do_sample_value_stays_within_profile_bounds(self, monkeypatch):
         agent = make_agent(monkeypatch, sensor_type="entry_rate_per_min")
         value = asyncio.run(agent._do_sample())
-        profile = sensor.PROFILES["entry_rate_per_min"]
+        profile = sensor.METRIC_PROFILES["entry_rate_per_min"]
         assert profile.lo <= value <= profile.hi
 
 
@@ -130,10 +126,7 @@ class TestDoDispatch:
 
 class TestConcurrentLoops:
     def test_sample_and_dispatch_loops_run_concurrently_via_gather(self, monkeypatch):
-        """Runs the real sample_loop/dispatch_loop coroutines together for a
-        short, bounded time and confirms both cadences actually fired --
-        evidence the two loops genuinely interleave on one event loop via
-        asyncio.gather rather than one starving the other."""
+        """Runs both loops briefly and confirms each cadence fired, proving they interleave on one event loop."""
         agent = make_agent(monkeypatch)
         dispatched = []
 

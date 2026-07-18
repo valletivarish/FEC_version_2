@@ -4,13 +4,7 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 import java.util.List;
 
-/**
- * Public DTO serialized directly by Jackson (objectMapper.writeValueAsString)
- * -- no manual ObjectNode tree-building anywhere in this module. Field order
- * is pinned with @JsonPropertyOrder purely so the wire payload reads the same
- * way on every run, which keeps loadtest/verify script assertions and manual
- * curl inspection predictable.
- */
+/** DTO serialized straight by Jackson; field order pinned so the wire payload reads the same every run. */
 @JsonPropertyOrder({"sensor_type", "site_id", "unit", "window_start", "window_end",
     "count", "min", "max", "avg", "latest", "alerts"})
 public final class AggregatePayload {

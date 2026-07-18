@@ -9,11 +9,11 @@ def summary(sensor_type, **fields):
     return base
 
 
-class TestThresholdRuleIsAbstract:
+class TestFaultRuleIsAbstract:
     def test_cannot_instantiate_the_abstract_base_directly(self):
         import pytest
         with pytest.raises(TypeError):
-            alerts.ThresholdRule("x", "y")
+            alerts.FaultRule("x", "y")
 
 
 class TestExactThresholds:
@@ -47,9 +47,7 @@ class TestExactThresholds:
 
 class TestRuleIsolationAcrossSensorTypes:
     def test_a_rule_never_fires_for_a_different_sensor_type(self):
-        # dc_voltage_v's undervoltage_fault rule checks "min" < 350 -- feed
-        # it a panel_temp_c summary with a tiny min and confirm it does not
-        # cross-fire.
+        # Feed the dc_voltage_v min<350 rule a panel_temp_c summary with a tiny min and confirm it does not cross-fire.
         assert alerts.evaluate("panel_temp_c", summary("panel_temp_c", avg=10.0, min=1.0)) == []
 
 

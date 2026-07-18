@@ -24,9 +24,9 @@ public class CityFogNode {
 
     record ZoneKey(String metric, String zoneId) {}
 
-    record ReadingDto(String ts, double value) {}
+    record IngestSample(String ts, double value) {}
 
-    private record DigestPayload(
+    private record AggregatePayload(
         String sensor_type,
         String site_id,
         String unit,
@@ -40,45 +40,39 @@ public class CityFogNode {
         List<String> alerts
     ) {}
 
-    /**
-     * One window's worth of accumulators, fenced so it can be retired without losing
-     * a write that was already in flight when the fence closed. A writer that enters
-     * before {@link #close()} flips the fence is guaranteed to finish before close()
-     * returns the map; a writer that arrives after must retry against the next
-     * generation instead of landing in a map no flush will ever read again.
-     */
-    private static final class Generation {
-        private final ConcurrentHashMap<ZoneKey, WindowSummary.WindowAccumulator> readings = new ConcurrentHashMap<>();
-        private final AtomicInteger inFlightWriters = new AtomicInteger();
-        private final AtomicBoolean fenced = new AtomicBoolean(false);
+    // One window's accumulators, fenced so it can be sealed without losing a write already in flight when the fence closed.
+    private static final class WindowLedger {
+        private final ConcurrentHashMap<ZoneKey, WindowSummary.WindowAccumulator> slots = new ConcurrentHashMap<>();
+        private final AtomicInteger activeWriters = new AtomicInteger();
+        private final AtomicBoolean sealed = new AtomicBoolean(false);
 
-        ConcurrentHashMap<ZoneKey, WindowSummary.WindowAccumulator> readings() {
-            return readings;
+        ConcurrentHashMap<ZoneKey, WindowSummary.WindowAccumulator> slots() {
+            return slots;
         }
 
-        boolean tryApply(ZoneKey key, List<Double> values) {
-            inFlightWriters.incrementAndGet();
+        boolean admit(ZoneKey key, List<Double> values) {
+            activeWriters.incrementAndGet();
             try {
-                if (fenced.get()) {
+                if (sealed.get()) {
                     return false;
                 }
                 WindowSummary.WindowAccumulator acc =
-                    readings.computeIfAbsent(key, k -> new WindowSummary.WindowAccumulator());
+                    slots.computeIfAbsent(key, k -> new WindowSummary.WindowAccumulator());
                 for (double value : values) {
                     acc.add(value);
                 }
                 return true;
             } finally {
-                inFlightWriters.decrementAndGet();
+                activeWriters.decrementAndGet();
             }
         }
 
-        Map<ZoneKey, WindowSummary.WindowAccumulator> close() {
-            fenced.set(true);
-            while (inFlightWriters.get() > 0) {
+        Map<ZoneKey, WindowSummary.WindowAccumulator> seal() {
+            sealed.set(true);
+            while (activeWriters.get() > 0) {
                 Thread.onSpinWait();
             }
-            return readings;
+            return slots;
         }
     }
 
@@ -88,33 +82,33 @@ public class CityFogNode {
     static final String ENDPOINT = System.getenv("AWS_ENDPOINT_URL");
     static final String REGION = System.getenv().getOrDefault("AWS_REGION", "eu-west-1");
 
-    private final AtomicReference<Generation> generationRef = new AtomicReference<>(new Generation());
-    private final ConcurrentHashMap<String, String> units = new ConcurrentHashMap<>();
-    RelayClient relay;
-    ScheduledExecutorService scheduler;
+    private final AtomicReference<WindowLedger> ledgerRef = new AtomicReference<>(new WindowLedger());
+    private final ConcurrentHashMap<String, String> unitByMetric = new ConcurrentHashMap<>();
+    RelayClient dispatcher;
+    ScheduledExecutorService windowTimer;
 
     ConcurrentHashMap<ZoneKey, WindowSummary.WindowAccumulator> bufferedReadings() {
-        return generationRef.get().readings();
+        return ledgerRef.get().slots();
     }
 
     void ingest(String metric, String zoneId, String unit, List<Double> values) {
         ZoneKey key = new ZoneKey(metric, zoneId);
-        Generation generation;
+        WindowLedger ledger;
         do {
-            generation = generationRef.get();
-        } while (!generation.tryApply(key, values));
-        if (unit != null && !unit.isEmpty()) units.put(metric, unit);
+            ledger = ledgerRef.get();
+        } while (!ledger.admit(key, values));
+        if (unit != null && !unit.isEmpty()) unitByMetric.put(metric, unit);
     }
 
     List<WindowSummary.Digest> flushWindow() {
         String windowEnd = Instant.now().toString();
         String windowStart = Instant.now().minusSeconds((long) WINDOW_SECONDS).toString();
-        Generation retiring = generationRef.getAndSet(new Generation());
-        Map<ZoneKey, WindowSummary.WindowAccumulator> snapshot = retiring.close();
-        Map<String, String> unitsSnapshot = Map.copyOf(units);
+        WindowLedger retired = ledgerRef.getAndSet(new WindowLedger());
+        Map<ZoneKey, WindowSummary.WindowAccumulator> frozen = retired.seal();
+        Map<String, String> unitsSnapshot = Map.copyOf(unitByMetric);
 
         List<WindowSummary.Digest> digests = new ArrayList<>();
-        for (Map.Entry<ZoneKey, WindowSummary.WindowAccumulator> entry : snapshot.entrySet()) {
+        for (Map.Entry<ZoneKey, WindowSummary.WindowAccumulator> entry : frozen.entrySet()) {
             if (entry.getValue().count() == 0) continue;
             ZoneKey key = entry.getKey();
             digests.add(entry.getValue().snapshot(
@@ -125,7 +119,7 @@ public class CityFogNode {
     }
 
     String digestToJson(WindowSummary.Digest digest, List<String> incidents) throws IOException {
-        DigestPayload payload = new DigestPayload(
+        AggregatePayload payload = new AggregatePayload(
             digest.sensorType(),
             digest.siteId(),
             digest.unit(),
@@ -141,20 +135,20 @@ public class CityFogNode {
         return JSON.writeValueAsString(payload);
     }
 
-    void runWindowCycle() {
+    void sweepAndDispatch() {
         try {
             List<String> payloads = new ArrayList<>();
             for (WindowSummary.Digest digest : flushWindow()) {
                 List<String> incidents = IncidentRules.assess(digest.sensorType(), digest);
                 payloads.add(digestToJson(digest, incidents));
             }
-            relay.emitBatch(payloads);
+            dispatcher.emitBatch(payloads);
         } catch (Exception exc) {
             System.out.println("window flush failed: " + exc.getMessage());
         } finally {
-            if (scheduler != null) {
+            if (windowTimer != null) {
                 long periodMs = (long) (WINDOW_SECONDS * 1000);
-                scheduler.schedule(this::runWindowCycle, periodMs, TimeUnit.MILLISECONDS);
+                windowTimer.schedule(this::sweepAndDispatch, periodMs, TimeUnit.MILLISECONDS);
             }
         }
     }
@@ -175,15 +169,15 @@ public class CityFogNode {
         return root.toString();
     }
 
-    private void handleHealth(HttpExchange exchange) throws IOException {
+    private void serveHealth(HttpExchange exchange) throws IOException {
         RouteServer.sendJson(exchange, 200, "{\"status\":\"ok\"}");
     }
 
-    private void handleThresholds(HttpExchange exchange) throws IOException {
+    private void serveThresholds(HttpExchange exchange) throws IOException {
         RouteServer.sendJson(exchange, 200, thresholdsJson());
     }
 
-    private void handleIngest(HttpExchange exchange) throws IOException {
+    private void serveIngest(HttpExchange exchange) throws IOException {
         if (!"POST".equals(exchange.getRequestMethod())) {
             exchange.sendResponseHeaders(405, -1);
             return;
@@ -192,26 +186,26 @@ public class CityFogNode {
         String metric = body.get("sensor_type").asText();
         String zoneId = body.has("site_id") ? body.get("site_id").asText() : "zone-1";
         String unit = body.has("unit") ? body.get("unit").asText() : "";
-        List<ReadingDto> readings = JSON.convertValue(body.get("readings"), new TypeReference<List<ReadingDto>>() {});
-        List<Double> values = readings.stream().map(ReadingDto::value).toList();
+        List<IngestSample> readings = JSON.convertValue(body.get("readings"), new TypeReference<List<IngestSample>>() {});
+        List<Double> values = readings.stream().map(IngestSample::value).toList();
         ingest(metric, zoneId, unit, values);
         RouteServer.sendJson(exchange, 202, "{\"accepted\":" + values.size() + "}");
     }
 
     public static void main(String[] args) throws Exception {
         CityFogNode node = new CityFogNode();
-        node.relay = new RelayClient(ENDPOINT, REGION, QUEUE_NAME);
+        node.dispatcher = new RelayClient(ENDPOINT, REGION, QUEUE_NAME);
 
         RouteServer.on(8000)
-            .route("/health", node::handleHealth)
-            .route("/thresholds", node::handleThresholds)
-            .route("/ingest", node::handleIngest)
+            .route("/health", node::serveHealth)
+            .route("/thresholds", node::serveThresholds)
+            .route("/ingest", node::serveIngest)
             .threads(4)
             .start();
         System.out.println("fog listening on :8000");
 
-        node.scheduler = Executors.newSingleThreadScheduledExecutor();
+        node.windowTimer = Executors.newSingleThreadScheduledExecutor();
         long periodMs = (long) (WINDOW_SECONDS * 1000);
-        node.scheduler.schedule(node::runWindowCycle, periodMs, TimeUnit.MILLISECONDS);
+        node.windowTimer.schedule(node::sweepAndDispatch, periodMs, TimeUnit.MILLISECONDS);
     }
 }

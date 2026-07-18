@@ -1,14 +1,4 @@
-/* Elevator & Escalator Fleet Monitor -- dark charcoal / safety-yellow
-   industrial-transit theme. The primary view is a plain per-tower list of
-   5 reading rows (native <meter> + text, no drawn/illustrated graphics of
-   any kind, per the brief's explicit ban on a hand-drawn shaft schematic).
-   This two-card-side-by-side layout is a different structure from
-   05-cold-chain-logistics' single manifest table and
-   11-water-treatment-utility's single reading-by-plant matrix table, while
-   still using only standard/native HTML building blocks. The one
-   decorative touch, .hazard-strip, is a plain CSS repeating-linear-gradient
-   caution stripe -- not an SVG, not an illustration -- used sparingly as a
-   4px accent bar to reinforce the industrial-transit identity. */
+/* Elevator & Escalator Fleet Monitor -- dark charcoal / safety-yellow transit theme, per-tower reading list with native meters. */
 
 :root {
   --bg: #17181a;
@@ -82,22 +72,26 @@ body {
 .brand-sub { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-dim); }
 
 .health-strip { display: flex; gap: 8px; flex-wrap: wrap; }
-.health-pill {
+.health-badge {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: 6px;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  padding: 5px 11px;
-  border-radius: 3px;
+  padding: 5px 12px;
+  border-radius: 999px;
   background: var(--surface-alt);
   border: 1px solid var(--line);
   color: var(--ink);
 }
-.health-pill .swatch { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
-.health-pill.down { background: var(--alert-soft); color: var(--alert); border-color: var(--alert); }
-.health-pill.down .swatch { background: var(--alert); }
+.health-badge-label { color: var(--ink-dim); }
+.health-badge-state { font-weight: 700; text-transform: lowercase; }
+.health-badge.up { border-color: var(--ok); }
+.health-badge.up .health-badge-state { color: var(--ok); }
+.health-badge.down { background: var(--alert-soft); border-color: var(--alert); }
+.health-badge.down .health-badge-label,
+.health-badge.down .health-badge-state { color: var(--alert); }
 
 .alert-banner {
   padding: 11px 26px;

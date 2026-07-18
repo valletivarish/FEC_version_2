@@ -14,13 +14,7 @@ import java.net.http.HttpResponse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * Exercises the fog gateway's real if/else routing chain and /ingest
- * validation over a genuine HttpServer bound to an ephemeral port, so the
- * 400-on-malformed-input behaviour is proven at the actual HTTP layer
- * (status code, response body), not just IngestPayload.parse throwing in
- * isolation.
- */
+/** Exercises the gateway's routing chain and /ingest validation over a real HttpServer, proving the HTTP-layer status codes and bodies end to end. */
 class TransitGatewayHttpTest {
 
     private HttpServer server;

@@ -45,9 +45,7 @@ class DdbStubCount:
 
 
 class DdbStubCountPaginated:
-    """Splits the count across three Scan pages, requiring the caller to
-    follow LastEvaluatedKey to see the true total rather than just the
-    first page's Count."""
+    """Splits the count across three Scan pages so the caller must follow LastEvaluatedKey."""
 
     def __init__(self):
         self.seen_start_keys = []

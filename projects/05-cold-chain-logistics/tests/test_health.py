@@ -108,23 +108,23 @@ def recent_windows_stub(monkeypatch):
     return _apply
 
 
-class TestCheckFog:
+class TestCheckDepot:
     @pytest.mark.parametrize(
         "status, expected",
         [(200, True), (503, False), (404, False)],
     )
     def test_result_follows_http_status(self, urlopen_returning, status, expected):
         urlopen_returning(status)
-        assert health.check_fog() is expected
+        assert health.check_depot() is expected
 
     @pytest.mark.parametrize("exc", [OSError("unreachable"), ConnectionResetError("reset")])
     def test_false_when_urlopen_raises(self, urlopen_raising, exc):
         urlopen_raising(exc)
-        assert health.check_fog() is False
+        assert health.check_depot() is False
 
     def test_false_on_url_error(self, urlopen_raising):
         urlopen_raising(health.urllib.error.URLError("connection refused"))
-        assert health.check_fog() is False
+        assert health.check_depot() is False
 
 
 class TestCheckQueue:

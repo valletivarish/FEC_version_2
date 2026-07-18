@@ -6,13 +6,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 
-/**
- * Fetches the fog gateway's real threshold rules over HTTP. Kept as its own
- * class taking the HttpClient and URL as plain method arguments (not a
- * static-final env-derived constant baked into the call), so the proxy
- * behaviour can be exercised directly against a real local HttpServer in
- * tests without needing to override env vars at test time.
- */
+/** Fetches the fog gateway's threshold rules over HTTP, taking the HttpClient and URL as arguments so tests can hit a local server. */
 final class ThresholdsGateway {
 
     String fetch(HttpClient client, String url) throws Exception {

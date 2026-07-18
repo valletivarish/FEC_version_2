@@ -3,15 +3,7 @@ package com.fec.retail.processor;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Immutable running total of a batch's outcome, combined via Stream.reduce
- * rather than a mutable accumulator loop or Collectors.partitioningBy. Each
- * record produces its own single-element Tally (written(1) or failed(1,
- * reason)), and reduce() folds the whole batch down to one Tally with
- * plain-old immutable-record merging -- attempt-all-then-report-once, the
- * same semantics as 02/04/07 but expressed as a fold over immutable values
- * instead of a loop, a stream partition, or a mutable tally object.
- */
+/** Immutable per-batch outcome (written count + failure reasons), folded together via Stream.reduce. */
 record Tally(int written, List<String> failures) {
 
     static final Tally EMPTY = new Tally(0, List.of());

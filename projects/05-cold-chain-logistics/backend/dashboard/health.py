@@ -11,9 +11,8 @@ DEPOT_HEALTH_URL = os.getenv("FOG_HEALTH_URL", "http://fog:8000/health")
 PIPELINE_FRESH_SECONDS = 30
 
 
-def check_fog():
-    # Reachability check only (fog's own /health), not a proxy for whether
-    # data is actually flowing -- that's what freshest_window_age is for.
+def check_depot():
+    # Reachability of the depot relay's /health only, not whether data is actually flowing.
     try:
         with urllib.request.urlopen(DEPOT_HEALTH_URL, timeout=2) as resp:
             return resp.status == 200
@@ -39,10 +38,7 @@ def check_lambda():
 
 
 def freshest_window_age():
-    # Across all reading types, how old (in seconds) is the single most
-    # recent window that made it all the way into DynamoDB. Used as the
-    # pipeline-flowing signal: individual components can report "up" while
-    # no new data is actually arriving end-to-end.
+    # Age (seconds) of the single most recent window that reached DynamoDB across all reading types.
     now = datetime.datetime.now(datetime.timezone.utc)
     ages = (
         (now - datetime.datetime.fromisoformat(rows[-1]["window_end"])).total_seconds()
@@ -53,7 +49,7 @@ def freshest_window_age():
 
 
 CHECKS = [
-    ("depot", check_fog),
+    ("depot", check_depot),
     ("queue", check_queue),
     ("lambda", check_lambda),
 ]
@@ -63,9 +59,7 @@ health_router = APIRouter(prefix="/api")
 
 @health_router.get("/health")
 def health():
-    # "pipeline" is true only when every hop reports reachable AND fresh
-    # data has landed recently -- a stack that's technically up but stalled
-    # partway through should not read as healthy.
+    # "pipeline" is true only when every hop is reachable AND fresh data landed recently.
     freshest_age = freshest_window_age()
     pipeline_ok = freshest_age is not None and freshest_age <= PIPELINE_FRESH_SECONDS
     report = {name: check_fn() for name, check_fn in CHECKS}

@@ -119,9 +119,7 @@ body {
 .dial-site { font-size: 10px; color: var(--ink-dim); letter-spacing: 0.03em; text-transform: uppercase; min-width: 46px; }
 .no-data { font-size: 11px; color: var(--ink-dim); padding: 30px 0; text-align: center; width: 100%; }
 
-/* Reading shown against its configured range with the browser's own native
-   <meter> element -- a real standard form control meant for exactly this
-   ("a scalar value within a known range"), not a hand-drawn illustration. */
+/* Reading shown against its configured range via the browser's native <meter> element. */
 meter.reading-meter {
   flex: 1;
   width: 100%;
@@ -154,15 +152,33 @@ table.site-table tr.stale td { color: var(--critical); }
 
 .system-status {
   display: flex;
-  gap: 22px;
-  flex-wrap: wrap;
-  padding: 12px 28px 26px;
-  font-size: 11px;
-  color: var(--ink-dim);
+  gap: 2px;
+  padding: 14px 28px 26px;
   border-top: 1px solid var(--plate-line);
-  letter-spacing: 0.02em;
 }
-.system-status b { color: var(--ink); font-weight: 700; }
+.status-seg {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 11px 8px;
+  text-align: center;
+  color: #14160f;
+  background: var(--critical);
+}
+.status-seg.up { background: var(--ok); }
+.status-seg.down { background: var(--critical); }
+.status-seg:first-child { border-radius: 4px 0 0 4px; }
+.status-seg:last-child { border-radius: 0 4px 4px 0; }
+.seg-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.seg-note { font-size: 9.5px; font-weight: 600; opacity: 0.82; }
 
 @media (max-width: 480px) {
   .board-head { padding: 18px 18px 14px; }

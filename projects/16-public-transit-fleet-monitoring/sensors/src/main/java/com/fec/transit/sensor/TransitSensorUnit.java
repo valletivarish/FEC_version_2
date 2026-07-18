@@ -16,7 +16,7 @@ import java.util.TimerTask;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
-/** Two independent java.util.Timer/TimerTask pairs driven by scheduleAtFixedRate, each on its own thread, so a slow dispatch POST never delays the next sample tick -- the sixth distinct Java sensor-loop scheduling mechanism in this CA portfolio. */
+/** Two independent Timer/TimerTask pairs on their own threads, so a slow dispatch POST never delays the next sample tick. */
 public class TransitSensorUnit {
 
     record Metric(String unit, RandomWalk walk, double start) {}
@@ -32,7 +32,7 @@ public class TransitSensorUnit {
 
     record Sample(Instant ts, double value) {}
 
-    static String payload(String sensorType, String siteId, String unit, List<Sample> samples) {
+    static String toIngestBody(String sensorType, String siteId, String unit, List<Sample> samples) {
         StringJoiner readings = new StringJoiner(",", "[", "]");
         for (Sample s : samples) {
             readings.add("{\"ts\":\"" + s.ts() + "\",\"value\":" + s.value() + "}");
@@ -41,7 +41,7 @@ public class TransitSensorUnit {
             + "\",\"readings\":" + readings + "}";
     }
 
-    static boolean dispatch(HttpClient client, String fogUrl, String body) {
+    static boolean postToFog(HttpClient client, String fogUrl, String body) {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(fogUrl))
@@ -80,7 +80,7 @@ public class TransitSensorUnit {
         TimerTask sampleTask = new TimerTask() {
             @Override
             public void run() {
-                double next = profile.walk().advance(current.get());
+                double next = profile.walk().nextReading(current.get());
                 current.set(next);
                 synchronized (buffer) {
                     buffer.add(new Sample(Instant.now(), next));
@@ -96,11 +96,9 @@ public class TransitSensorUnit {
                     if (buffer.isEmpty()) return;
                     snapshot = new ArrayList<>(buffer);
                 }
-                String body = payload(sensorType, siteId, profile.unit(), snapshot);
-                // Only cleared on a confirmed dispatch, so a failed POST
-                // leaves the readings buffered for the next tick to retry
-                // instead of silently dropping them.
-                if (dispatch(client, fogUrl, body)) {
+                String body = toIngestBody(sensorType, siteId, profile.unit(), snapshot);
+                // Cleared only on a confirmed dispatch, so a failed POST leaves the readings buffered for the next tick to retry.
+                if (postToFog(client, fogUrl, body)) {
                     synchronized (buffer) {
                         buffer.subList(0, snapshot.size()).clear();
                     }

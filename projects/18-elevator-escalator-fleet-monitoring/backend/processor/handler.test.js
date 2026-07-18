@@ -51,10 +51,7 @@ test("writeBatch returns 0 for an empty record list without calling send", async
 });
 
 test("handler.exports.handler processes event.Records via the injected document client shape", async () => {
-  // handler.handler builds its own documentClient() lazily from env vars, so
-  // this only exercises that it tolerates an empty Records array without
-  // reaching out to AWS at all (no AWS_ENDPOINT_URL/AWS_ACCESS_KEY_ID set in
-  // the test environment).
+  // Exercises that an empty Records array is tolerated without reaching out to AWS.
   const result = await handler({ Records: [] });
   assert.deepEqual(result, { written: 0 });
 });

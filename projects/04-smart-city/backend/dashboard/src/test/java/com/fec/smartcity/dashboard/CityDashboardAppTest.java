@@ -12,36 +12,36 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class CityDashboardAppTest {
 
     @Test
-    void freshnessTrackerKeepsSmallestOfferedAge() {
+    void windowRecencyKeepsSmallestOfferedAge() {
         Instant now = Instant.parse("2026-01-01T00:01:00Z");
-        var tracker = new CityDashboardApp.FreshnessTracker()
+        var recency = new CityDashboardApp.WindowRecency()
             .offer("2026-01-01T00:00:40Z", now)
             .offer("2026-01-01T00:00:55Z", now)
             .offer(null, now);
-        assertThat(tracker.bestAgeSeconds()).isEqualTo(5.0);
+        assertThat(recency.bestAgeSeconds()).isEqualTo(5.0);
     }
 
     @Test
-    void freshnessTrackerHasNoAgeWhenNothingOffered() {
-        var tracker = new CityDashboardApp.FreshnessTracker();
-        assertThat(tracker.bestAgeSeconds()).isNull();
+    void windowRecencyHasNoAgeWhenNothingOffered() {
+        var recency = new CityDashboardApp.WindowRecency();
+        assertThat(recency.bestAgeSeconds()).isNull();
     }
 
     @Test
-    void reportBuilderRejectsDuplicateKeys() {
-        var builder = new CityDashboardApp.ReportBuilder().with("relay", true);
-        assertThatThrownBy(() -> builder.with("relay", false)).isInstanceOf(IllegalStateException.class);
+    void responseFieldsRejectsDuplicateKeys() {
+        var fields = new CityDashboardApp.ResponseFields().with("relay", true);
+        assertThatThrownBy(() -> fields.with("relay", false)).isInstanceOf(IllegalStateException.class);
     }
 
     @Test
-    void reportBuilderRejectsBlankKeys() {
-        var builder = new CityDashboardApp.ReportBuilder();
-        assertThatThrownBy(() -> builder.with("", true)).isInstanceOf(IllegalArgumentException.class);
+    void responseFieldsRejectsBlankKeys() {
+        var fields = new CityDashboardApp.ResponseFields();
+        assertThatThrownBy(() -> fields.with("", true)).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
-    void reportBuilderPreservesInsertionOrder() {
-        var built = new CityDashboardApp.ReportBuilder().with("relay", true).with("queue", false).build();
+    void responseFieldsPreservesInsertionOrder() {
+        var built = new CityDashboardApp.ResponseFields().with("relay", true).with("queue", false).build();
         assertThat(built.keySet()).containsExactly("relay", "queue");
     }
 

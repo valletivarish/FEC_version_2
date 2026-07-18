@@ -35,7 +35,7 @@ class TransitSensorUnitTest {
             new TransitSensorUnit.Sample(Instant.parse("2026-01-01T00:00:00Z"), 87.5),
             new TransitSensorUnit.Sample(Instant.parse("2026-01-01T00:00:02Z"), 88.1)
         );
-        String json = TransitSensorUnit.payload("engine_temp_c", "depot-a", "C", samples);
+        String json = TransitSensorUnit.toIngestBody("engine_temp_c", "depot-a", "C", samples);
 
         assertTrue(json.contains("\"sensor_type\":\"engine_temp_c\""));
         assertTrue(json.contains("\"site_id\":\"depot-a\""));
@@ -47,7 +47,7 @@ class TransitSensorUnitTest {
 
     @Test
     void payloadWithNoSamplesProducesEmptyReadingsArray() {
-        String json = TransitSensorUnit.payload("gps_speed_kmh", "depot-b", "km/h", List.of());
+        String json = TransitSensorUnit.toIngestBody("gps_speed_kmh", "depot-b", "km/h", List.of());
         assertTrue(json.contains("\"readings\":[]"));
     }
 }

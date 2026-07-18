@@ -19,18 +19,13 @@ public class Handler implements RequestHandler<SQSEvent, Map<String, Object>> {
     static final String TABLE_NAME = System.getenv().getOrDefault("TABLE_NAME", "fei-readings");
     static DynamoDbClient client;
 
-    // Lambda (even under LocalStack) can reuse a warm execution environment
-    // across invocations, so the client is cached in a static field instead
-    // of being rebuilt on every handleRequest() call -- this avoids paying
-    // TCP/credential setup cost per SQS batch on warm invocations.
+    // Cached in a static field so warm Lambda invocations reuse the client instead of rebuilding it per SQS batch.
     static synchronized DynamoDbClient client() {
         if (client == null) {
             String endpoint = System.getenv("AWS_ENDPOINT_URL");
             String region = System.getenv().getOrDefault("AWS_REGION", "eu-west-1");
             var builder = DynamoDbClient.builder().region(Region.of(region));
-            // endpoint is only non-null under LocalStack; a real Lambda
-            // invocation always has this unset and must fall through to its
-            // own execution-role credentials instead of the static test pair.
+            // Only non-null under LocalStack; a real invocation falls through to its own execution-role credentials.
             if (endpoint != null) {
                 builder.endpointOverride(URI.create(endpoint))
                     .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
@@ -40,20 +35,16 @@ public class Handler implements RequestHandler<SQSEvent, Map<String, Object>> {
         return client;
     }
 
-    static int processRecords(List<SQSEvent.SQSMessage> records, DynamoDbClient dynamo, String tableName) {
+    static int persistWindows(List<SQSEvent.SQSMessage> records, DynamoDbClient dynamo, String tableName) {
         int processed = 0;
         for (SQSEvent.SQSMessage record : records) {
             try {
                 Map<String, software.amazon.awssdk.services.dynamodb.model.AttributeValue> item =
-                    Reshape.toItem(record.getBody());
+                    Reshape.toDynamoItem(record.getBody());
                 dynamo.putItem(PutItemRequest.builder().tableName(tableName).item(item).build());
                 processed++;
             } catch (Exception e) {
-                // Deliberately fail the whole batch on any single bad record
-                // rather than skipping it: the SQS event source mapping will
-                // then leave the batch unacked and retry it, which is the
-                // simplest correct behaviour for this CA's demo scale (no
-                // per-record partial-batch-failure reporting is configured).
+                // Fail the whole batch on any bad record so SQS retries it; no partial-batch-failure reporting configured.
                 throw new RuntimeException(e);
             }
         }
@@ -62,7 +53,7 @@ public class Handler implements RequestHandler<SQSEvent, Map<String, Object>> {
 
     @Override
     public Map<String, Object> handleRequest(SQSEvent event, Context context) {
-        int processed = processRecords(event.getRecords(), client(), TABLE_NAME);
+        int processed = persistWindows(event.getRecords(), client(), TABLE_NAME);
         Map<String, Object> result = new HashMap<>();
         result.put("processed", processed);
         return result;

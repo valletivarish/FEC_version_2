@@ -41,10 +41,7 @@ async function readQueueCounters(sqs, queueName) {
   }
 }
 
-// A single Scan(Select=COUNT) call only reports the items visible on its
-// first ~1MB page -- DynamoDB requires following LastEvaluatedKey until a
-// page comes back without one, so every page's Count is summed here rather
-// than trusting the first response alone.
+// Sums Count across every scan page, following LastEvaluatedKey, since one page only covers ~1MB.
 async function countTableItems(doc, tableName) {
   let total = 0;
   let ExclusiveStartKey;

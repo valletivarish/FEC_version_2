@@ -18,10 +18,7 @@ import java.util.function.Supplier;
 
 public class PipelineHealth {
 
-    /**
-     * Outcome of a reachability probe against a pipeline dependency, carrying
-     * both the up/down verdict and a short explanation of why.
-     */
+    // Reachability verdict for a pipeline dependency: the up/down flag plus a short reason.
     public record Health(boolean up, String detail) {
         public static Health up(String detail) {
             return new Health(true, detail);
@@ -32,7 +29,7 @@ public class PipelineHealth {
         }
     }
 
-    static <T> T attempt(Supplier<T> action, T fallback) {
+    static <T> T safely(Supplier<T> action, T fallback) {
         try {
             return action.get();
         } catch (Exception e) {
@@ -41,7 +38,7 @@ public class PipelineHealth {
     }
 
     private static Optional<String> resolveQueueUrl(SqsClient sqs, String queueName) {
-        return attempt(() -> Optional.of(sqs.getQueueUrl(b -> b.queueName(queueName)).queueUrl()), Optional.empty());
+        return safely(() -> Optional.of(sqs.getQueueUrl(b -> b.queueName(queueName)).queueUrl()), Optional.empty());
     }
 
     private static Map<String, String> queueAttributes(SqsClient sqs, String queueUrl, QueueAttributeName... names) {
@@ -54,7 +51,7 @@ public class PipelineHealth {
         if (queueUrl.isEmpty()) {
             return Health.down("queue url not resolvable for " + queueName);
         }
-        return attempt(() -> {
+        return safely(() -> {
             queueAttributes(sqs, queueUrl.get(), QueueAttributeName.QUEUE_ARN);
             return Health.up("queue attributes readable");
         }, Health.down("queue attributes not readable"));
@@ -77,7 +74,7 @@ public class PipelineHealth {
     }
 
     private static Optional<String> functionState(LambdaClient lambda, String functionName) {
-        return attempt(() -> {
+        return safely(() -> {
             var resp = lambda.getFunction(GetFunctionRequest.builder().functionName(functionName).build());
             return Optional.of(resp.configuration().stateAsString());
         }, Optional.empty());
@@ -85,7 +82,7 @@ public class PipelineHealth {
 
     public static Optional<Map<String, Object>> queueDepth(SqsClient sqs, String queueName) {
         return resolveQueueUrl(sqs, queueName)
-            .flatMap(queueUrl -> attempt(() -> {
+            .flatMap(queueUrl -> safely(() -> {
                 var attrs = queueAttributes(sqs, queueUrl, QueueAttributeName.APPROXIMATE_NUMBER_OF_MESSAGES,
                     QueueAttributeName.APPROXIMATE_NUMBER_OF_MESSAGES_NOT_VISIBLE);
                 Map<String, Object> result = new LinkedHashMap<>();
@@ -95,12 +92,7 @@ public class PipelineHealth {
             }, Optional.empty()));
     }
 
-    /**
-     * A single Scan(Select.COUNT) call only counts one page (DynamoDB caps a
-     * Scan response around 1MB), so a table past that size would be silently
-     * undercounted. This follows exclusiveStartKey/lastEvaluatedKey across as
-     * many pages as it takes, summing the count from each.
-     */
+    // A single Scan(Select.COUNT) counts only one ~1MB page, so this pages through lastEvaluatedKey and sums each count.
     public static int itemCount(DynamoDbClient dynamo, String tableName) {
         int total = 0;
         Map<String, AttributeValue> exclusiveStartKey = null;

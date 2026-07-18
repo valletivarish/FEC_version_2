@@ -1,4 +1,4 @@
-"""Solar farm sensor simulator: two separate threading.Thread loops (sample, dispatch) each gated by threading.Event().wait(timeout), which doubles as tick delay and shutdown signal -- the 5th distinct sensor-loop structure in this portfolio's Python projects."""
+"""Solar farm sensor simulator: separate sample and dispatch threads, each gated by an Event().wait(timeout) that doubles as tick delay and shutdown signal."""
 
 import json
 import os
@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 
 
 @dataclass(frozen=True)
-class ReadingProfile:
+class PanelMetricProfile:
     unit: str
     lo: float
     hi: float
@@ -19,21 +19,18 @@ class ReadingProfile:
     step: float
 
 
-# One profile per reading type this sensor image can simulate. SENSOR_TYPE
-# (see PanelSensorAgent) selects which profile a given container instance
-# uses.
-PROFILES = {
-    "irradiance_wm2": ReadingProfile(unit="W/m2", lo=0, hi=1200, start=600, step=80.0),
-    "panel_temp_c": ReadingProfile(unit="C", lo=10, hi=80, start=35, step=3.0),
-    "inverter_output_kw": ReadingProfile(unit="kW", lo=0, hi=150, start=70, step=10.0),
-    "dc_voltage_v": ReadingProfile(unit="V", lo=300, hi=500, start=400, step=10.0),
-    "soiling_index_pct": ReadingProfile(unit="%", lo=0, hi=60, start=8, step=2.0),
+# One profile per metric this image can simulate; SENSOR_TYPE selects which one a container instance uses.
+METRIC_PROFILES = {
+    "irradiance_wm2": PanelMetricProfile(unit="W/m2", lo=0, hi=1200, start=600, step=80.0),
+    "panel_temp_c": PanelMetricProfile(unit="C", lo=10, hi=80, start=35, step=3.0),
+    "inverter_output_kw": PanelMetricProfile(unit="kW", lo=0, hi=150, start=70, step=10.0),
+    "dc_voltage_v": PanelMetricProfile(unit="V", lo=300, hi=500, start=400, step=10.0),
+    "soiling_index_pct": PanelMetricProfile(unit="%", lo=0, hi=60, start=8, step=2.0),
 }
 
 
-class RandomWalk:
-    """Bounded random walk: each step nudges the value by up to +/-profile.step
-    and clamps it back into [lo, hi]."""
+class PanelDriftWalk:
+    """Bounded random walk: each step nudges the value by up to +/-profile.step and clamps it into [lo, hi]."""
 
     def __init__(self, profile):
         self.profile = profile
@@ -46,7 +43,7 @@ class RandomWalk:
         return self.value
 
 
-def ship_batch(url, payload):
+def push_to_gateway(url, payload):
     body = json.dumps(payload).encode()
     req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=5) as resp:
@@ -60,25 +57,21 @@ class PanelSensorAgent:
         self.sample_interval = float(os.getenv("SAMPLE_INTERVAL", "2"))
         self.dispatch_interval = float(os.getenv("DISPATCH_INTERVAL", "10"))
         self.fog_url = os.getenv("FOG_URL", "http://fog:8000/ingest")
-        self.profile = PROFILES[self.sensor_type]
-        self.walk = RandomWalk(self.profile)
+        self.profile = METRIC_PROFILES[self.sensor_type]
+        self.walk = PanelDriftWalk(self.profile)
         self.buffer = []
         self.buffer_lock = threading.Lock()
         self.stop_event = threading.Event()
 
     def _do_sample(self):
-        """One sampling tick's work, kept separate from the loop body so
-        tests can call it directly without spinning up real threads."""
+        """One sampling tick, kept off the loop body so tests can call it without real threads."""
         value = self.walk.step()
         with self.buffer_lock:
             self.buffer.append({"ts": datetime.now(timezone.utc).isoformat(), "value": value})
         return value
 
     def _do_dispatch(self):
-        """One dispatch tick's work: swaps the buffer out atomically so
-        readings sampled during the network call land in a fresh buffer
-        instead of racing the in-flight POST. On failure the batch is put
-        back in front of the buffer so nothing is dropped."""
+        """One dispatch tick: swap the buffer out atomically, then POST it; on failure requeue the batch so nothing drops."""
         with self.buffer_lock:
             batch, self.buffer = self.buffer, []
         if not batch:
@@ -90,7 +83,7 @@ class PanelSensorAgent:
             "readings": batch,
         }
         try:
-            ship_batch(self.fog_url, payload)
+            push_to_gateway(self.fog_url, payload)
             print(f"{self.sensor_type}@{self.site_id} dispatched {len(batch)} readings", flush=True)
             return payload
         except urllib.error.URLError as exc:
@@ -100,8 +93,7 @@ class PanelSensorAgent:
             return None
 
     def _sample_loop(self):
-        # wait() returns True the instant stop_event is set, so the loop
-        # exits promptly instead of finishing out a stale sleep.
+        # wait() returns True the instant stop_event is set, so the loop exits without finishing a stale sleep.
         while not self.stop_event.wait(self.sample_interval):
             self._do_sample()
 

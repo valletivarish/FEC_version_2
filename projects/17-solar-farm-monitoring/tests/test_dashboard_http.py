@@ -1,8 +1,4 @@
-"""Real HTTP-level tests for the dashboard backend: a plain
-http.server.ThreadingHTTPServer bound to an ephemeral port, driven with
-http.client. DynamoDB/SQS/Lambda are always faked here; nothing in this
-file touches real AWS or LocalStack.
-"""
+"""Real HTTP-level tests for the dashboard backend on an ephemeral ThreadingHTTPServer; DynamoDB/SQS/Lambda are always faked."""
 
 import http.client
 import json

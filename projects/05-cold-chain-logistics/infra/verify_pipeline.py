@@ -10,7 +10,7 @@ ENDPOINT = os.getenv("AWS_ENDPOINT_URL", "http://localhost:4570")
 REGION = os.getenv("AWS_REGION", "eu-west-1")
 
 
-class SensorType(Enum):
+class ReadingKind(Enum):
     STORAGE_TEMPERATURE = "storage_temperature"
     HUMIDITY = "humidity"
     DOOR_OPEN_SECONDS = "door_open_seconds"
@@ -18,9 +18,9 @@ class SensorType(Enum):
     CO2_LEVEL = "co2_level"
 
 
-class SightingState(Enum):
-    PENDING = auto()
-    CONFIRMED = auto()
+class ArrivalState(Enum):
+    AWAITED = auto()
+    LANDED = auto()
 
 
 def has_records(client, table_name, reading_type):
@@ -41,25 +41,25 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
-def poll_until_seen(client, table_name, deadline, poll_interval):
-    """Repeatedly re-check every reading type; returns {SensorType: SightingState} once done or timed out."""
-    states = {sensor_type: SightingState.PENDING for sensor_type in SensorType}
+def poll_until_landed(client, table_name, deadline, poll_interval):
+    """Re-check every reading type; return {ReadingKind: ArrivalState} once all landed or timed out."""
+    states = {reading_kind: ArrivalState.AWAITED for reading_kind in ReadingKind}
 
     while True:
-        for sensor_type, state in states.items():
-            if state is SightingState.CONFIRMED:
+        for reading_kind, state in states.items():
+            if state is ArrivalState.LANDED:
                 continue
-            if has_records(client, table_name, sensor_type.value):
-                states[sensor_type] = SightingState.CONFIRMED
-                print(f"  ok: {sensor_type.value}")
+            if has_records(client, table_name, reading_kind.value):
+                states[reading_kind] = ArrivalState.LANDED
+                print(f"  ok: {reading_kind.value}")
 
-        all_confirmed = all(state is SightingState.CONFIRMED for state in states.values())
+        all_landed = all(state is ArrivalState.LANDED for state in states.values())
         timed_out = time.monotonic() >= deadline
-        if all_confirmed or timed_out:
+        if all_landed or timed_out:
             break
         time.sleep(poll_interval)
 
-    return {sensor_type.value: (state is SightingState.CONFIRMED) for sensor_type, state in states.items()}
+    return {reading_kind.value: (state is ArrivalState.LANDED) for reading_kind, state in states.items()}
 
 
 def main(argv=None):
@@ -67,13 +67,13 @@ def main(argv=None):
     deadline = time.monotonic() + args.timeout
     client = boto3.client("dynamodb", endpoint_url=ENDPOINT, region_name=REGION)
 
-    found = poll_until_seen(client, args.table, deadline, args.poll_interval)
+    found = poll_until_landed(client, args.table, deadline, args.poll_interval)
 
     missing = sorted(rt for rt, ok in found.items() if not ok)
     if missing:
         print(f"FAILED: no records for {missing}")
         sys.exit(1)
-    print(f"PASSED: all {len(SensorType)} reading types have records in {args.table}")
+    print(f"PASSED: all {len(ReadingKind)} reading types have records in {args.table}")
 
 
 if __name__ == "__main__":

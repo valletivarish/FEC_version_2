@@ -4,9 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { createRouter } = require("./router");
 
-// All tests here call dispatch() directly against plain method/pathname
-// strings -- no http.createServer, no socket, exercising the router in
-// total isolation exactly like the sibling projects' router.test.js files.
+// All tests call dispatch() directly against method/pathname strings, no http.createServer or socket.
 
 test("dispatch calls the single handler for an exact path match", async () => {
   const router = createRouter();

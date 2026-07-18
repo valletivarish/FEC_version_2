@@ -13,8 +13,7 @@ ENDPOINT = os.getenv("AWS_ENDPOINT_URL", "http://localhost:4570")
 REGION = os.getenv("AWS_REGION", "eu-west-1")
 QUEUE_NAME = os.getenv("SQS_QUEUE_NAME", "fcl-manifest-agg")
 
-# Synthetic type names distinct from the 5 real reading types, so burst
-# traffic never lands in the DynamoDB partitions the live dashboard reads.
+# Synthetic type names distinct from the 5 real reading types, so burst traffic stays out of live partitions.
 LOAD_TYPES = ["loadtest_a", "loadtest_b", "loadtest_c", "loadtest_d", "loadtest_e"]
 
 BASE = datetime.now(timezone.utc)
@@ -23,7 +22,7 @@ SQS_BATCH_LIMIT = 10
 
 
 @dataclass
-class SyntheticWindow:
+class SyntheticAggregate:
     sensor_type: str
     site_id: str
     unit: str
@@ -39,7 +38,7 @@ class SyntheticWindow:
 
 def build_payload(i, reading_type):
     end = BASE + timedelta(milliseconds=i)
-    window = SyntheticWindow(
+    window = SyntheticAggregate(
         sensor_type=reading_type,
         site_id=f"load-{i % 50}",
         unit="x",

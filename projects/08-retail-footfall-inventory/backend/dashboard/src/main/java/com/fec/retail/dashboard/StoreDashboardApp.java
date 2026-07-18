@@ -28,13 +28,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
- * Dashboard backend for the retail footfall/inventory pipeline. Serves the
- * REST API plus the static KPI-tile-first frontend. Routing goes through
- * DashboardRoute (an enum listing every endpoint with its handler as a
- * lambda/method-reference field, iterated once at startup) rather than a
- * fluent builder or inline createContext calls in main().
- */
+/** Dashboard backend: serves the REST API and the KPI-tile-first static frontend, routing every endpoint through the DashboardRoute enum. */
 public class StoreDashboardApp {
 
     static final ObjectMapper JSON = new ObjectMapper();
@@ -52,7 +46,7 @@ public class StoreDashboardApp {
     private final StoreRepository repository = new StoreRepository();
     private final PipelineChecks checks = new PipelineChecks();
     private final ThresholdsGateway thresholdsGateway = new ThresholdsGateway();
-    private final HttpClient upstream = HttpClient.newHttpClient();
+    private final HttpClient fogClient = HttpClient.newHttpClient();
 
     private DynamoDbClient dynamo;
     private SqsClient sqs;
@@ -76,10 +70,7 @@ public class StoreDashboardApp {
 
     private static <B extends software.amazon.awssdk.awscore.client.builder.AwsClientBuilder<B, T>, T> T awsClient(B builder) {
         builder.region(Region.of(REGION));
-        // The static test/test pair only authenticates against LocalStack; a
-        // real Lambda's execution-role credentials must not be shadowed by
-        // it, so both this and the endpoint override stay gated on ENDPOINT
-        // actually being set.
+        // Static test/test creds only apply to LocalStack; a real Lambda keeps its own execution-role creds.
         if (ENDPOINT != null) {
             builder.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
             builder.endpointOverride(URI.create(ENDPOINT));
@@ -110,7 +101,7 @@ public class StoreDashboardApp {
         try {
             HttpRequest request = HttpRequest.newBuilder().uri(URI.create(FOG_HEALTH_URL))
                 .timeout(Duration.ofSeconds(2)).GET().build();
-            return upstream.send(request, HttpResponse.BodyHandlers.discarding()).statusCode() == 200;
+            return fogClient.send(request, HttpResponse.BodyHandlers.discarding()).statusCode() == 200;
         } catch (Exception e) {
             return false;
         }
@@ -118,7 +109,7 @@ public class StoreDashboardApp {
 
     private synchronized String thresholds() throws Exception {
         if (thresholdsCache == null) {
-            thresholdsCache = thresholdsGateway.fetch(upstream, FOG_THRESHOLDS_URL);
+            thresholdsCache = thresholdsGateway.fetch(fogClient, FOG_THRESHOLDS_URL);
         }
         return thresholdsCache;
     }

@@ -2,13 +2,7 @@ from statistics import fmean
 
 
 def aggregate(sensor_type, site_id, unit, readings, window_start, window_end):
-    """Reduce one window's raw readings (plain {"ts", "value"} dicts drained
-    from buffering.snapshot_and_clear) into one summary record.
-
-    latest is the last reading in arrival order, not the max-timestamp
-    reading -- sensors dispatch batches in order, so arrival order already
-    reflects chronological order without parsing/sorting the ts strings.
-    """
+    """Reduce one window's raw readings into a single summary; latest is the last reading in arrival order."""
     values = [r["value"] for r in readings]
     return {
         "sensor_type": sensor_type,

@@ -1,12 +1,4 @@
-"""SQS publishing as a pair of functools.lru_cache-memoized functions wrapping
-a plain boto3.client, rather than a class (01's SqsPublisher) or a
-contextlib.contextmanager-based session object (05's open_shipment_link).
-
-lru_cache only memoizes calls that return normally -- a call that raises is
-never cached -- so _queue_url naturally keeps retrying on every publish()
-until LocalStack has finished provisioning the queue, then stays resolved
-for the rest of the process lifetime without an explicit retry loop.
-"""
+"""SQS publishing as a pair of lru_cache-memoized functions wrapping a plain boto3 client; a failing call is never cached, so _queue_url keeps retrying until the queue exists then stays resolved."""
 
 import functools
 import json
@@ -30,10 +22,7 @@ def publish(endpoint_url, region, queue_name, message):
 
 
 def publish_batch(endpoint_url, region, queue_name, messages):
-    """Ship every message from one flush window in as few SendMessageBatch
-    calls as possible instead of one send_message() round trip per message
-    -- chunked at 10 entries since that's the hard limit SendMessageBatch
-    itself imposes per call."""
+    """Ship a whole flush window in as few SendMessageBatch calls as possible, chunked at the API's hard limit of 10 entries per call."""
     if not messages:
         return
     url = _queue_url(endpoint_url, region, queue_name)
@@ -45,8 +34,6 @@ def publish_batch(endpoint_url, region, queue_name, messages):
 
 
 def reset_cache():
-    """Test-only escape hatch: lru_cache state would otherwise leak a stale
-    boto3 client/queue url between tests that point at different fake
-    clients or endpoints."""
+    """Test-only escape hatch: clear the memoized client/queue-url state between tests that point at different fakes."""
     _client.cache_clear()
     _queue_url.cache_clear()

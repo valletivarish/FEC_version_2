@@ -22,10 +22,8 @@ def _chunked(items, size):
         yield chunk
 
 
-def retry_ticks(budget_seconds):
-    """Yield once per attempt, sleeping with growing+jittered delay between
-    attempts, until budget_seconds has elapsed. The caller breaks out of the
-    loop (e.g. via return) as soon as an attempt succeeds."""
+def backoff_ticks(budget_seconds):
+    """Yield once per attempt with growing+jittered delay until budget_seconds elapses."""
     deadline = time.monotonic() + budget_seconds
     delay = INITIAL_BACKOFF_SECONDS
     while True:
@@ -37,7 +35,7 @@ def retry_ticks(budget_seconds):
 
 
 @dataclass
-class BrokerEndpoint:
+class DepotEndpoint:
     endpoint_url: str
     region: str
     queue_name: str
@@ -47,21 +45,17 @@ class BrokerEndpoint:
 
 
 class ShipmentLink:
-    """Resolves the SQS queue URL once (retrying while LocalStack finishes
-    provisioning it) and reuses that URL for every subsequent ship() call, so
-    steady-state publishing does not pay a lookup round-trip per message."""
+    """Resolves the SQS queue URL once (retrying during provisioning) and reuses it per ship()."""
 
     def __init__(self, endpoint_url, region, queue_name):
-        endpoint = BrokerEndpoint(endpoint_url, region, queue_name)
+        endpoint = DepotEndpoint(endpoint_url, region, queue_name)
         self._client = endpoint.build_client()
         self._queue_url = self._find_queue(endpoint.queue_name)
 
     def _find_queue(self, queue_name):
-        # The queue may not exist yet at startup (LocalStack bootstrap and
-        # this service can start in either order), so retry with backoff
-        # instead of failing fast on the first lookup.
+        # The queue may not exist yet at startup, so retry with backoff rather than fail fast.
         last_error = None
-        for _ in retry_ticks(BACKOFF_BUDGET_SECONDS):
+        for _ in backoff_ticks(BACKOFF_BUDGET_SECONDS):
             try:
                 return self._client.get_queue_url(QueueName=queue_name)["QueueUrl"]
             except Exception as exc:
@@ -72,9 +66,7 @@ class ShipmentLink:
         self._client.send_message(QueueUrl=self._queue_url, MessageBody=json.dumps(payload))
 
     def ship_batch(self, payloads):
-        """Ships a whole window's worth of aggregates in as few round-trips
-        as possible: one SendMessageBatch call per SQS_BATCH_LIMIT-sized
-        chunk, instead of one send_message call per payload."""
+        """Ship a window's aggregates in one SendMessageBatch call per SQS_BATCH_LIMIT chunk."""
         for chunk in _chunked(payloads, SQS_BATCH_LIMIT):
             entries = [
                 {"Id": str(index), "MessageBody": json.dumps(payload)}
@@ -91,10 +83,7 @@ class ShipmentLink:
 
 @contextmanager
 def open_shipment_link(endpoint_url, region, queue_name):
-    """Context-manager factory: yields a connected ShipmentLink for the
-    duration of the block. There is nothing to release on exit today, but
-    routing construction through here keeps a single choke point for
-    lifecycle changes (e.g. closing the underlying boto3 client) later."""
+    """Yield a connected ShipmentLink for the block; a single choke point for lifecycle changes."""
     link = ShipmentLink(endpoint_url, region, queue_name)
     with link:
         yield link

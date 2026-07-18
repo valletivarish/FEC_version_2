@@ -1,8 +1,5 @@
-# Machine-readable mirror of the numeric rules the _check_* functions below
-# enforce in code. Exposed as-is via fog's /thresholds endpoint so any API
-# consumer (including the dashboard) can discover the real exception rules
-# without the dashboard hardcoding a second copy of the numbers.
-THRESHOLD_DESCRIPTIONS = {
+# Machine-readable mirror of the numeric excursion rules, served as-is on /thresholds.
+EXCURSION_RULES = {
     "storage_temperature": [{"field": "avg", "op": ">", "limit": -15, "key": "cold_chain_breach"}],
     "humidity":            [{"field": "avg", "op": ">", "limit": 85, "key": "humidity_breach"}],
     "door_open_seconds":   [{"field": "avg", "op": ">", "limit": 300, "key": "door_open_alert"}],
@@ -11,46 +8,40 @@ THRESHOLD_DESCRIPTIONS = {
 }
 
 
-def _check_cold_chain_breach(summary):
-    # Reefer containers must stay well below freezing on average per window;
-    # crossing -15C on average risks spoiling temperature-sensitive cargo.
+def _screen_cold_chain(summary):
+    # Reefer cargo must stay well below freezing on average; above -15C risks spoilage.
     return ["cold_chain_breach"] if summary["avg"] > -15 else []
 
 
-def _check_humidity_breach(summary):
+def _screen_humidity(summary):
     return ["humidity_breach"] if summary["avg"] > 85 else []
 
 
-def _check_door_open_alert(summary):
+def _screen_door_dwell(summary):
     return ["door_open_alert"] if summary["avg"] > 300 else []
 
 
-def _check_impact_detected(summary):
+def _screen_handling_shock(summary):
     return ["impact_detected"] if summary["avg"] > 4 else []
 
 
-def _check_air_quality_warning(summary):
+def _screen_air_quality(summary):
     return ["air_quality_warning"] if summary["avg"] > 1000 else []
 
 
-# One evaluator per reading type; kept as a dict dispatch rather than an
-# if/elif chain so THRESHOLD_DESCRIPTIONS and the evaluators stay easy to
-# scan side by side and extend together.
-_EVALUATORS = {
-    "storage_temperature": _check_cold_chain_breach,
-    "humidity": _check_humidity_breach,
-    "door_open_seconds": _check_door_open_alert,
-    "shock_vibration": _check_impact_detected,
-    "co2_level": _check_air_quality_warning,
+# One screener per reading type; a dict dispatch kept in step with EXCURSION_RULES.
+_SCREENERS = {
+    "storage_temperature": _screen_cold_chain,
+    "humidity": _screen_humidity,
+    "door_open_seconds": _screen_door_dwell,
+    "shock_vibration": _screen_handling_shock,
+    "co2_level": _screen_air_quality,
 }
 
 
 def flag_container(reading_type, summary):
-    """Return the list of exception keys (zero or more) that this window's
-    summary trips for the given reading type. Unknown reading types produce
-    no exceptions rather than raising, since new sensor types may be added
-    without every caller of this function being updated in lockstep."""
-    evaluator = _EVALUATORS.get(reading_type)
-    if evaluator is None:
+    """Return the excursion keys this window's summary trips; unknown types raise nothing."""
+    screener = _SCREENERS.get(reading_type)
+    if screener is None:
         return []
-    return evaluator(summary)
+    return screener(summary)

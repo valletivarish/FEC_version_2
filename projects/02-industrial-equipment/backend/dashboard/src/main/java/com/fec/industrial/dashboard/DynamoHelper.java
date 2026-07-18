@@ -9,25 +9,22 @@ import java.util.stream.Collectors;
 
 public class DynamoHelper {
 
-    public static Object unwrapAttr(AttributeValue av) {
+    public static Object decodeAttr(AttributeValue av) {
         if (av.s() != null) return av.s();
         if (av.n() != null) return Double.parseDouble(av.n());
-        if (av.hasL()) return av.l().stream().map(DynamoHelper::unwrapAttr).collect(Collectors.toList());
+        if (av.hasL()) return av.l().stream().map(DynamoHelper::decodeAttr).collect(Collectors.toList());
         return null;
     }
 
-    public static Map<String, Object> unwrapItem(Map<String, AttributeValue> item) {
+    public static Map<String, Object> decodeItem(Map<String, AttributeValue> item) {
         Map<String, Object> out = new LinkedHashMap<>();
-        item.forEach((k, v) -> out.put(k, unwrapAttr(v)));
+        item.forEach((k, v) -> out.put(k, decodeAttr(v)));
         return out;
     }
 
-    public static List<Map<String, Object>> recentWindows(DynamoDbClient client, String tableName,
+    public static List<Map<String, Object>> recentRollups(DynamoDbClient client, String tableName,
                                                              String sensorType, int limit) {
-        // scanIndexForward(false) reads newest-sort-key-first so a LIMIT
-        // query returns the N most recent windows instead of the N oldest;
-        // the result is then reversed so callers (dashboard charts, health
-        // freshness check) receive it back in natural chronological order.
+        // scanIndexForward(false) reads newest-first for the LIMIT, then reverse restores chronological order for callers.
         QueryRequest req = QueryRequest.builder()
             .tableName(tableName)
             .keyConditionExpression("sensor_type = :st")
@@ -36,21 +33,17 @@ public class DynamoHelper {
             .limit(limit)
             .build();
         List<Map<String, Object>> items = client.query(req).items().stream()
-            .map(DynamoHelper::unwrapItem)
+            .map(DynamoHelper::decodeItem)
             .collect(Collectors.toList());
         Collections.reverse(items);
         return items;
     }
 
-    public static Map<String, Object> buildSummary(DynamoDbClient client, String tableName, String[] sensorTypes) {
+    public static Map<String, Object> assetSummary(DynamoDbClient client, String tableName, String[] sensorTypes) {
         List<Object> sensors = new ArrayList<>();
         for (String sensorType : sensorTypes) {
-            // Pull the last 20 windows (comfortably more than the number of
-            // distinct sites expected per sensor type) and keep only each
-            // site's latest entry -- a plain map keyed by site_id means a
-            // later (more recent, since recentWindows() returns oldest-first)
-            // window for the same site simply overwrites the earlier one.
-            List<Map<String, Object>> recent = recentWindows(client, tableName, sensorType, 20);
+            // Take the last 20 windows and keep only each site's latest entry; oldest-first order lets later windows overwrite.
+            List<Map<String, Object>> recent = recentRollups(client, tableName, sensorType, 20);
             Map<String, Map<String, Object>> bySite = new LinkedHashMap<>();
             for (var item : recent) bySite.put((String) item.get("site_id"), item);
 

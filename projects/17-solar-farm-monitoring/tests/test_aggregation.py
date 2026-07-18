@@ -27,8 +27,7 @@ def test_avg_is_rounded_to_3_decimals():
 
 
 def test_latest_is_last_in_arrival_order_not_max_timestamp():
-    # ts strings are deliberately out of order -- latest must reflect
-    # arrival order (last element), not a re-sort by timestamp.
+    # ts strings are deliberately out of order -- latest must reflect arrival order (last element), not timestamp order.
     readings = [
         {"ts": "2026-01-01T00:00:05Z", "value": 10.0},
         {"ts": "2026-01-01T00:00:01Z", "value": 20.0},

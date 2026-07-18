@@ -36,11 +36,8 @@ public class CityDashboardApp {
     static final String RELAY_HEALTH_URL = System.getenv().getOrDefault("FOG_HEALTH_URL", "http://fog:8000/health");
     static final String RELAY_THRESHOLDS_URL = System.getenv().getOrDefault("FOG_THRESHOLDS_URL", "http://fog:8000/thresholds");
     static final String[] METRIC_TYPES = {"vehicle_count", "air_quality_pm25", "noise_level", "parking_occupancy", "ambient_light"};
-    // ambient_light's own configured cadence (dispatch up to 16s + a 10s fog window)
-    // already accounts for up to ~26s of inherent latency before Lambda even runs,
-    // so 30s left almost no margin and caused frequent false "stale" flips under
-    // normal operation -- 45s gives real headroom without masking a genuine stall.
-    static final int PIPELINE_FRESH_SECONDS = 45;
+    // ambient_light's own cadence already carries ~26s of inherent latency, so 45s avoids false "stale" flips without masking a real stall.
+    static final int FRESH_WINDOW_LIMIT_SECONDS = 45;
 
     static final AtomicReference<DynamoDbClient> dynamoRef = new AtomicReference<>();
     static final AtomicReference<SqsClient> sqsRef = new AtomicReference<>();
@@ -48,16 +45,13 @@ public class CityDashboardApp {
     static String thresholdsCache;
     static final HttpClient httpClient = HttpClient.newHttpClient();
 
-    static <T> T lazyClient(AtomicReference<T> holder, Supplier<T> factory) {
+    static <T> T memoizedClient(AtomicReference<T> holder, Supplier<T> factory) {
         return holder.updateAndGet(existing -> existing != null ? existing : factory.get());
     }
 
-    static <B extends software.amazon.awssdk.awscore.client.builder.AwsClientBuilder<B, T>, T> T buildAwsClient(B builder) {
+    static <B extends software.amazon.awssdk.awscore.client.builder.AwsClientBuilder<B, T>, T> T openAwsClient(B builder) {
         builder.region(Region.of(REGION));
-        // ENDPOINT is only set for LocalStack. Outside it (real Lambda), the
-        // static test/test credentials must not be applied -- they would
-        // shadow the execution role's real credentials and every AWS call
-        // would fail authentication.
+        // ENDPOINT is only set for LocalStack; gate the static test credentials on it so a real Lambda uses its execution role.
         if (ENDPOINT != null) {
             builder.endpointOverride(URI.create(ENDPOINT))
                 .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
@@ -66,15 +60,15 @@ public class CityDashboardApp {
     }
 
     static DynamoDbClient dynamo() {
-        return lazyClient(dynamoRef, () -> buildAwsClient(DynamoDbClient.builder()));
+        return memoizedClient(dynamoRef, () -> openAwsClient(DynamoDbClient.builder()));
     }
 
     static SqsClient sqs() {
-        return lazyClient(sqsRef, () -> buildAwsClient(SqsClient.builder()));
+        return memoizedClient(sqsRef, () -> openAwsClient(SqsClient.builder()));
     }
 
     static LambdaClient lambdaClient() {
-        return lazyClient(lambdaRef, () -> buildAwsClient(LambdaClient.builder()));
+        return memoizedClient(lambdaRef, () -> openAwsClient(LambdaClient.builder()));
     }
 
     static Map<String, String> parseQuery(String rawQuery) {
@@ -89,7 +83,7 @@ public class CityDashboardApp {
         return params;
     }
 
-    static boolean checkRelayHealth() {
+    static boolean relayReachable() {
         try {
             HttpRequest request = HttpRequest.newBuilder().uri(URI.create(RELAY_HEALTH_URL))
                 .timeout(Duration.ofSeconds(2)).GET().build();
@@ -100,15 +94,11 @@ public class CityDashboardApp {
         }
     }
 
-    /**
-     * Tracks the minimum window age seen across a batch of metrics. Built once
-     * per health check and fed one candidate age at a time, rather than being
-     * derived from a single chained stream expression.
-     */
-    static final class FreshnessTracker {
+    // Tracks the minimum window age across a batch of metrics, fed one candidate age at a time.
+    static final class WindowRecency {
         private Double bestAgeSeconds;
 
-        FreshnessTracker offer(String windowEndIso, Instant now) {
+        WindowRecency offer(String windowEndIso, Instant now) {
             if (windowEndIso == null) return this;
             double ageSeconds = Duration.between(Instant.parse(windowEndIso), now).toMillis() / 1000.0;
             if (bestAgeSeconds == null || ageSeconds < bestAgeSeconds) {
@@ -133,19 +123,19 @@ public class CityDashboardApp {
             newestWindowEnds.add(newestWindowEnd(metric));
         }
 
-        FreshnessTracker tracker = new FreshnessTracker();
+        WindowRecency recency = new WindowRecency();
         for (String windowEnd : newestWindowEnds) {
-            tracker.offer(windowEnd, now);
+            recency.offer(windowEnd, now);
         }
-        return tracker.bestAgeSeconds();
+        return recency.bestAgeSeconds();
     }
 
-    static Map<String, Object> buildHealth() {
+    static Map<String, Object> assembleHealth() {
         Double freshestAge = freshestWindowAge(Instant.now());
-        boolean pipelineOk = freshestAge != null && freshestAge <= PIPELINE_FRESH_SECONDS;
+        boolean pipelineOk = freshestAge != null && freshestAge <= FRESH_WINDOW_LIMIT_SECONDS;
 
-        return new ReportBuilder()
-            .with("relay", checkRelayHealth())
+        return new ResponseFields()
+            .with("relay", relayReachable())
             .with("queue", PipelineHealth.queueStatus(sqs(), QUEUE_NAME).up())
             .with("lambda", PipelineHealth.lambdaStatus(lambdaClient(), FUNCTION_NAME).up())
             .with("pipeline", pipelineOk)
@@ -153,35 +143,30 @@ public class CityDashboardApp {
             .build();
     }
 
-    static Map<String, Object> buildBackendStats() {
-        return new ReportBuilder()
+    static Map<String, Object> assembleBackendStats() {
+        return new ResponseFields()
             .with("queue", PipelineHealth.queueDepth(sqs(), QUEUE_NAME).orElse(null))
             .with("items_in_table", PipelineHealth.itemCount(dynamo(), TABLE_NAME))
             .build();
     }
 
-    /**
-     * Accumulates named fields for a JSON response body. Beyond plain chaining,
-     * it enforces that keys are non-blank and only ever set once, so a copy-paste
-     * mistake wiring up a new field fails fast instead of silently overwriting
-     * an earlier one.
-     */
-    static final class ReportBuilder {
-        private final Map<String, Object> fields = new LinkedHashMap<>();
+    // Accumulates named JSON fields, rejecting blank or duplicate keys so a mis-wired field fails fast.
+    static final class ResponseFields {
+        private final Map<String, Object> entries = new LinkedHashMap<>();
 
-        ReportBuilder with(String key, Object value) {
+        ResponseFields with(String key, Object value) {
             if (key == null || key.isBlank()) {
                 throw new IllegalArgumentException("field key must not be blank");
             }
-            if (fields.containsKey(key)) {
+            if (entries.containsKey(key)) {
                 throw new IllegalStateException("field already set: " + key);
             }
-            fields.put(key, value);
+            entries.put(key, value);
             return this;
         }
 
         Map<String, Object> build() {
-            return fields;
+            return entries;
         }
     }
 
@@ -202,20 +187,20 @@ public class CityDashboardApp {
         return "application/octet-stream";
     }
 
-    static List<Map<String, Object>> filterAndTrim(List<Map<String, Object>> items, String zoneId, int limit) {
+    static List<Map<String, Object>> narrowToZone(List<Map<String, Object>> items, String zoneId, int limit) {
         if (zoneId == null) return items;
         var matched = items.stream().filter(i -> zoneId.equals(i.get("site_id"))).collect(Collectors.toList());
         return matched.size() > limit ? matched.subList(matched.size() - limit, matched.size()) : matched;
     }
 
-    static void handleReadings(HttpExchange exchange) throws IOException {
-        Map<String, String> q = parseQuery(exchange.getRequestURI().getQuery());
-        String metric = q.get("sensor_type");
-        int limit = q.containsKey("limit") ? Integer.parseInt(q.get("limit")) : 60;
-        String zoneId = q.get("site_id");
+    static void serveReadings(HttpExchange exchange) throws IOException {
+        Map<String, String> query = parseQuery(exchange.getRequestURI().getQuery());
+        String metric = query.get("sensor_type");
+        int limit = query.containsKey("limit") ? Integer.parseInt(query.get("limit")) : 60;
+        String zoneId = query.get("site_id");
         int fetchLimit = zoneId == null ? limit : Math.max(limit * 4, 40);
         var fetched = ZoneRepository.recentWindows(dynamo(), TABLE_NAME, metric, fetchLimit);
-        var items = filterAndTrim(fetched, zoneId, limit);
+        var items = narrowToZone(fetched, zoneId, limit);
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("sensor_type", metric);
@@ -223,11 +208,11 @@ public class CityDashboardApp {
         RouteServer.sendJson(exchange, 200, body);
     }
 
-    static void handleZones(HttpExchange exchange) throws IOException {
+    static void serveZones(HttpExchange exchange) throws IOException {
         RouteServer.sendJson(exchange, 200, ZoneRepository.buildZones(dynamo(), TABLE_NAME, METRIC_TYPES));
     }
 
-    static void handleThresholds(HttpExchange exchange) throws IOException {
+    static void serveThresholds(HttpExchange exchange) throws IOException {
         try {
             RouteServer.sendJson(exchange, 200, fetchThresholds());
         } catch (Exception e) {
@@ -235,19 +220,19 @@ public class CityDashboardApp {
         }
     }
 
-    static void handleHealth(HttpExchange exchange) throws IOException {
-        RouteServer.sendJson(exchange, 200, buildHealth());
+    static void serveHealth(HttpExchange exchange) throws IOException {
+        RouteServer.sendJson(exchange, 200, assembleHealth());
     }
 
-    static void handleBackendStats(HttpExchange exchange) throws IOException {
-        RouteServer.sendJson(exchange, 200, buildBackendStats());
+    static void serveBackendStats(HttpExchange exchange) throws IOException {
+        RouteServer.sendJson(exchange, 200, assembleBackendStats());
     }
 
     static void serveFile(HttpExchange exchange, Path file, String contentType) throws IOException {
         RouteServer.sendRaw(exchange, 200, Files.readAllBytes(file), contentType, "no-store");
     }
 
-    static void handleStatic(HttpExchange exchange) throws IOException {
+    static void serveStatic(HttpExchange exchange) throws IOException {
         String path = exchange.getRequestURI().getPath().substring(1);
         Path file = Path.of(path);
         if (!Files.exists(file)) {
@@ -257,7 +242,7 @@ public class CityDashboardApp {
         serveFile(exchange, file, contentTypeFor(path));
     }
 
-    static void handleIndex(HttpExchange exchange) throws IOException {
+    static void serveIndex(HttpExchange exchange) throws IOException {
         if (!exchange.getRequestURI().getPath().equals("/")) {
             exchange.sendResponseHeaders(404, -1);
             return;
@@ -267,13 +252,13 @@ public class CityDashboardApp {
 
     public static void main(String[] args) throws IOException {
         RouteServer.on(8000)
-            .route("/api/readings", CityDashboardApp::handleReadings)
-            .route("/api/zones", CityDashboardApp::handleZones)
-            .route("/api/thresholds", CityDashboardApp::handleThresholds)
-            .route("/api/health", CityDashboardApp::handleHealth)
-            .route("/api/backend-stats", CityDashboardApp::handleBackendStats)
-            .route("/static", CityDashboardApp::handleStatic)
-            .route("/", CityDashboardApp::handleIndex)
+            .route("/api/readings", CityDashboardApp::serveReadings)
+            .route("/api/zones", CityDashboardApp::serveZones)
+            .route("/api/thresholds", CityDashboardApp::serveThresholds)
+            .route("/api/health", CityDashboardApp::serveHealth)
+            .route("/api/backend-stats", CityDashboardApp::serveBackendStats)
+            .route("/static", CityDashboardApp::serveStatic)
+            .route("/", CityDashboardApp::serveIndex)
             .threads(8)
             .start();
         System.out.println("dashboard listening on :8000");

@@ -79,10 +79,20 @@ tr.row-stale td { color: #b7b2a4; }
 
 .depot-status {
   display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-  padding: 10px 26px 26px;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 26px 26px;
   font-size: 11px;
   color: #8b8578;
   border-top: 1px solid #d3cfc4;
 }
+.depot-check { display: flex; align-items: center; gap: 8px; }
+.depot-check-glyph {
+  flex: none;
+  width: 15px;
+  text-align: center;
+  font-weight: 800;
+}
+.depot-check.up .depot-check-glyph { color: #3a6b3a; }
+.depot-check.down .depot-check-glyph { color: #a8420f; }
+.depot-check.down .depot-check-label { color: #a8420f; }

@@ -1,10 +1,4 @@
-"""Smart-parking dashboard backend: a hand-written WSGI application on
-wsgiref.simple_server (stdlib), matching the fog node's "no framework"
-discipline. Route dispatch is a manual if/elif chain in app(); static
-assets (index.html/style.css/dashboard.js/vendor/chart.umd.min.js) are read
-off disk and served with a small extension->content-type table instead of a
-framework's StaticFiles mount.
-"""
+"""Smart-parking dashboard backend: a hand-written WSGI app on wsgiref.simple_server with manual route dispatch and on-disk static assets."""
 
 import datetime
 import json
@@ -46,9 +40,7 @@ class QuietWSGIRequestHandler(WSGIRequestHandler):
 
 
 class ThresholdsCache:
-    """Caches fog's /thresholds response after the first successful fetch --
-    the rule catalogue is static for the stack's lifetime, so there is no
-    need to re-fetch it on every 2.5s dashboard poll."""
+    """Caches fog's /thresholds response after the first fetch since the rule catalogue is static for the stack's lifetime."""
 
     def __init__(self):
         self._value = None
@@ -74,9 +66,7 @@ def fog_reachable():
 
 
 def build_lots_payload():
-    """The project-specific per-lot grouping endpoint payload: all 5 raw
-    sensor readings per lot, plus the computed occupancy_pct/status badge
-    (see status.py for the exact formula)."""
+    """Per-lot payload: the raw readings per lot plus the computed occupancy_pct/status badge (see status.py)."""
     lots = []
     for lot in data_access.lot_report():
         readings = lot["readings"]
@@ -118,14 +108,14 @@ def build_backend_stats_payload():
     return {"queue": data_access.queue_depth(), "items_in_table": items}
 
 
-def _json_bytes(status, body):
+def _json_reply(status, body):
     payload = json.dumps(body).encode("utf-8")
     status_line = f"{status} {_REASON.get(status, 'OK')}"
     headers = [("Content-Type", "application/json"), ("Content-Length", str(len(payload))), ("Cache-Control", "no-store")]
     return status_line, headers, payload
 
 
-def _file_bytes(path):
+def _asset_bytes(path):
     try:
         data = path.read_bytes()
     except OSError:
@@ -135,10 +125,10 @@ def _file_bytes(path):
     return "200 OK", headers, data
 
 
-def _handle_readings(query):
+def _serve_readings(query):
     sensor_type = (query.get("sensor_type") or [None])[0]
     if not sensor_type or sensor_type not in data_access.SENSOR_TYPES:
-        return _json_bytes(400, {
+        return _json_reply(400, {
             "error": "sensor_type is required and must be one of: " + ", ".join(data_access.SENSOR_TYPES)
         })
 
@@ -148,29 +138,29 @@ def _handle_readings(query):
         if limit <= 0:
             raise ValueError
     except ValueError:
-        return _json_bytes(400, {"error": "limit must be a positive integer"})
+        return _json_reply(400, {"error": "limit must be a positive integer"})
 
     site_id = (query.get("site_id") or [None])[0]
     items = data_access.recent_windows(sensor_type, limit)
     if site_id:
         items = [item for item in items if item["site_id"] == site_id]
-    return _json_bytes(200, {"sensor_type": sensor_type, "items": items})
+    return _json_reply(200, {"sensor_type": sensor_type, "items": items})
 
 
-def _handle_thresholds():
+def _serve_thresholds():
     try:
         body = _thresholds_cache.get(FOG_THRESHOLDS_URL)
     except ThresholdsUnavailable as exc:
-        return _json_bytes(502, {"error": str(exc)})
-    return _json_bytes(200, body)
+        return _json_reply(502, {"error": str(exc)})
+    return _json_reply(200, body)
 
 
-def _serve_static(path):
+def _serve_asset(path):
     relative = path[len("/static/"):]
     if not relative or ".." in Path(relative).parts:
-        return _json_bytes(400, {"error": "invalid static path"})
-    result = _file_bytes(STATIC_DIR / relative)
-    return result if result else _json_bytes(404, {"error": "not found"})
+        return _json_reply(400, {"error": "invalid static path"})
+    result = _asset_bytes(STATIC_DIR / relative)
+    return result if result else _json_reply(404, {"error": "not found"})
 
 
 def app(environ, start_response):
@@ -180,26 +170,26 @@ def app(environ, start_response):
         query = urllib.parse.parse_qs(environ.get("QUERY_STRING", ""))
 
         if method != "GET":
-            status_line, headers, payload = _json_bytes(404, {"error": f"no such route: {path}"})
+            status_line, headers, payload = _json_reply(404, {"error": f"no such route: {path}"})
         elif path == "/":
-            result = _file_bytes(STATIC_DIR / "index.html")
-            status_line, headers, payload = result if result else _json_bytes(404, {"error": "not found"})
+            result = _asset_bytes(STATIC_DIR / "index.html")
+            status_line, headers, payload = result if result else _json_reply(404, {"error": "not found"})
         elif path.startswith("/static/"):
-            status_line, headers, payload = _serve_static(path)
+            status_line, headers, payload = _serve_asset(path)
         elif path == "/api/readings":
-            status_line, headers, payload = _handle_readings(query)
+            status_line, headers, payload = _serve_readings(query)
         elif path == "/api/lots":
-            status_line, headers, payload = _json_bytes(200, build_lots_payload())
+            status_line, headers, payload = _json_reply(200, build_lots_payload())
         elif path == "/api/thresholds":
-            status_line, headers, payload = _handle_thresholds()
+            status_line, headers, payload = _serve_thresholds()
         elif path == "/api/health":
-            status_line, headers, payload = _json_bytes(200, build_health_payload())
+            status_line, headers, payload = _json_reply(200, build_health_payload())
         elif path == "/api/backend-stats":
-            status_line, headers, payload = _json_bytes(200, build_backend_stats_payload())
+            status_line, headers, payload = _json_reply(200, build_backend_stats_payload())
         else:
-            status_line, headers, payload = _json_bytes(404, {"error": f"no such route: {path}"})
+            status_line, headers, payload = _json_reply(404, {"error": f"no such route: {path}"})
     except Exception as exc:
-        status_line, headers, payload = _json_bytes(500, {"error": "internal server error", "detail": str(exc)})
+        status_line, headers, payload = _json_reply(500, {"error": "internal server error", "detail": str(exc)})
 
     start_response(status_line, headers)
     return [payload]

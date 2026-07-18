@@ -5,8 +5,8 @@ const { SQSClient, GetQueueUrlCommand, SendMessageCommand, SendMessageBatchComma
 
 const BATCH_LIMIT = 10;
 
-// A real Node stream pipeline (Transform piped into a Writable SQS sink, publish() outcomes correlated via a Map<id,{resolve,reject}>) -- the 5th distinct fog-publisher idiom, after 03's class, 06's closure factory, 10's stateless function, and 11's frozen object literal.
-class PassThroughGroup extends Transform {
+// A real Node stream pipeline: a Transform piped into a Writable SQS sink, with publish() outcomes correlated by id.
+class CarGroupRelay extends Transform {
   constructor() {
     super({ objectMode: true });
   }
@@ -25,12 +25,7 @@ let _pipeline = null;
 let _seq = 0;
 const _pending = new Map();
 
-// Recursive exponential-backoff retry (200ms, 400ms, 800ms, ... capped at
-// 3s/attempt, 25 attempts total) rather than 11-water-treatment-utility's
-// imperative for-loop with a fixed 2000ms delay between every attempt --
-// LocalStack's queue is usually ready within a couple of attempts, so most
-// resolutions here finish faster than the fixed-delay approach would allow,
-// while still tolerating a genuinely slow cold start via the growing cap.
+// Recursive exponential-backoff retry (200ms doubling, capped at 3s/attempt, 25 attempts) for a slow queue cold start.
 function resolveQueueUrl(maxAttempts = 25) {
   if (_queueUrlPromise) return _queueUrlPromise;
 
@@ -76,10 +71,7 @@ function buildSqsSink() {
   });
 }
 
-// Both entry points below funnel through this single private helper rather
-// than duplicating the same four assignments twice (the pattern 11's
-// configure()/useClient() pair uses) -- configure() is just useClient() with
-// a freshly constructed SQSClient standing in for the injected client.
+// Shared wiring for both entry points; configure() supplies a real SQSClient, useClient() an injected one.
 function _wireClient(client, queueName) {
   _client = client;
   _queueName = queueName;
@@ -89,10 +81,7 @@ function _wireClient(client, queueName) {
   return module.exports;
 }
 
-// Static test/test credentials only make sense against LocalStack -- gating
-// them on the presence of an explicit endpoint (rather than building them
-// unconditionally) leaves the AWS SDK's own default credential chain
-// (execution-role creds, session token included) in charge everywhere else.
+// Static test/test credentials are gated on an explicit endpoint (LocalStack) so the SDK default chain runs elsewhere.
 function configure(endpoint, region, queueName) {
   const config = { region };
   if (endpoint) {
@@ -102,24 +91,20 @@ function configure(endpoint, region, queueName) {
   return _wireClient(new SQSClient(config), queueName);
 }
 
-// Test seam: inject a hand-written fake client ({ send: async (cmd) => ... })
-// instead of a real SQSClient, still exercising the real Transform/Writable
-// stream pipeline underneath.
+// Test seam: inject a fake client while still exercising the real Transform/Writable pipeline.
 function useClient(client, queueName = "test-queue") {
   return _wireClient(client, queueName);
 }
 
 function _wirePipeline() {
-  const transform = new PassThroughGroup();
+  const transform = new CarGroupRelay();
   const sink = buildSqsSink();
   transform.pipe(sink);
   _pipeline = { transform, sink };
 }
 
 function publish(group) {
-  // Always returns a Promise -- even the "not configured" failure is a
-  // rejection, never a synchronous throw, so callers can uniformly
-  // await/catch publish() regardless of which failure mode occurs.
+  // Always returns a Promise; even the not-configured failure is a rejection, never a synchronous throw.
   return new Promise((resolve, reject) => {
     if (!_pipeline) {
       return reject(new Error("publisher pipeline not configured -- call configure() or useClient() first"));
@@ -131,13 +116,7 @@ function publish(group) {
   });
 }
 
-// Flush-time counterpart to publish(): a window close can seal several
-// (sensor_type, site_id) groups at once, and sending each through its own
-// SendMessageCommand wastes an API call per group. This chunks the whole
-// batch at SendMessageBatch's 10-entry limit and issues one call per chunk,
-// bypassing the single-item Transform/Writable pipeline entirely since that
-// plumbing exists to correlate one publish() caller with one send outcome,
-// not to shape a many-groups-per-call request.
+// Flush-time batch send: chunks the sealed groups at SendMessageBatch's 10-entry limit, bypassing the single-item pipeline.
 async function publishBatch(groups) {
   if (groups.length === 0) return;
   if (!_client) {

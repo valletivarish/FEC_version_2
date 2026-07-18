@@ -17,7 +17,7 @@ class TransitPublisherTest {
 
         List<String> payloads = new ArrayList<>();
         for (int i = 0; i < 23; i++) payloads.add("{\"i\":" + i + "}");
-        publisher.publishBatch(payloads);
+        publisher.dispatchBatch(payloads);
 
         assertEquals(List.of(10, 10, 3), client.batchSizes);
     }
@@ -27,7 +27,7 @@ class TransitPublisherTest {
         FakeSqsClient client = new FakeSqsClient();
         TransitPublisher publisher = new TransitPublisher(client, "http://queue-url");
 
-        publisher.publishBatch(List.of());
+        publisher.dispatchBatch(List.of());
 
         assertTrue(client.batchSizes.isEmpty());
     }
@@ -37,7 +37,7 @@ class TransitPublisherTest {
         FakeSqsClient client = new FakeSqsClient();
         TransitPublisher publisher = new TransitPublisher(client, "http://queue-url");
 
-        publisher.publishBatch(List.of("{\"only\":true}"));
+        publisher.dispatchBatch(List.of("{\"only\":true}"));
 
         assertEquals(List.of(1), client.batchSizes);
     }
@@ -49,7 +49,7 @@ class TransitPublisherTest {
 
         List<String> payloads = new ArrayList<>();
         for (int i = 0; i < 10; i++) payloads.add("{\"i\":" + i + "}");
-        publisher.publishBatch(payloads);
+        publisher.dispatchBatch(payloads);
 
         assertEquals(List.of(10), client.batchSizes);
     }

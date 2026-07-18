@@ -1,11 +1,4 @@
-"""Solar farm dashboard backend: plain http.server.ThreadingHTTPServer. The
-fog node already carries this portfolio's one mandated framework axis
-(aiohttp, see fog/app.py); the dashboard has no assigned axis of its own, so
-it stays on the stdlib -- no second framework needed just to serve a REST
-API and a handful of static files. Route dispatch is a hand-written if/elif
-chain in do_GET; static assets are read off disk with a small
-extension->content-type table instead of a framework's StaticFiles mount.
-"""
+"""Solar farm dashboard backend: a stdlib ThreadingHTTPServer serving the REST API and static files, with route dispatch as an if/elif chain in do_GET."""
 
 import datetime
 import json
@@ -32,10 +25,8 @@ CONTENT_TYPES = {
 }
 
 
-class ThresholdsCache:
-    """Caches fog's /thresholds response after the first successful fetch --
-    the rule catalogue is static for the stack's lifetime, so there is no
-    need to re-fetch it on every 2.5s dashboard poll."""
+class RuleCatalogueCache:
+    """Caches fog's /thresholds response after the first fetch; the rule catalogue is static for the stack's lifetime."""
 
     def __init__(self):
         self._value = None
@@ -49,7 +40,7 @@ class ThresholdsCache:
         self._value = None
 
 
-_thresholds_cache = ThresholdsCache()
+_thresholds_cache = RuleCatalogueCache()
 
 
 def fog_reachable():
@@ -61,9 +52,7 @@ def fog_reachable():
 
 
 def build_arrays_payload():
-    """The project-specific per-site grouping endpoint payload: all 5 raw
-    sensor readings per array plus the derived efficiency-index heatmap
-    history (see scoring.py for the exact formula)."""
+    """Per-array payload: the latest raw reading for every sensor_type plus the derived efficiency-index heatmap history."""
     return {"arrays": data_access.array_report()}
 
 

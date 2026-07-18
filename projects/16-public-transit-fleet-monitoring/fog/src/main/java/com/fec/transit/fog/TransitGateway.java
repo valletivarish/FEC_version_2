@@ -20,7 +20,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-/** Single HttpServer.createContext("/") whose route() resolves the path via a literal if/else if chain -- no route table, no predicate list, no per-path createContext calls -- the 6th distinct HTTP dispatch shape in this portfolio's Java lineage. */
+/** Fog gateway: a single HttpServer context whose route() resolves the path through a literal if/else chain, buffering readings and flushing windowed aggregates to SQS. */
 public class TransitGateway {
 
     static final ObjectMapper JSON = new ObjectMapper();
@@ -29,22 +29,22 @@ public class TransitGateway {
     static final String ENDPOINT = System.getenv("AWS_ENDPOINT_URL");
     static final String REGION = System.getenv().getOrDefault("AWS_REGION", "eu-west-1");
 
-    private final IntakeQueue intake = new IntakeQueue();
+    private final IntakeQueue buffer = new IntakeQueue();
     TransitPublisher publisher;
 
-    void ingest(String sensorType, String siteId, String unit, List<Double> values) {
+    void bufferReadings(String sensorType, String siteId, String unit, List<Double> values) {
         for (double value : values) {
-            intake.ingest(new ReadingEvent(sensorType, siteId, unit, value));
+            buffer.enqueue(new ReadingEvent(sensorType, siteId, unit, value));
         }
     }
 
-    List<WindowAggregate> flushWindow() {
+    List<WindowAggregate> aggregateWindow() {
         String windowEnd = Instant.now().toString();
         String windowStart = Instant.now().minusSeconds((long) WINDOW_SECONDS).toString();
-        Map<GroupKey, List<ReadingEvent>> grouped = intake.drainAndGroup();
+        Map<GroupKey, List<ReadingEvent>> byDepot = buffer.drainByGroup();
 
-        List<WindowAggregate> results = new ArrayList<>();
-        for (Map.Entry<GroupKey, List<ReadingEvent>> entry : grouped.entrySet()) {
+        List<WindowAggregate> aggregates = new ArrayList<>();
+        for (Map.Entry<GroupKey, List<ReadingEvent>> entry : byDepot.entrySet()) {
             List<ReadingEvent> events = entry.getValue();
             if (events.isEmpty()) continue;
             GroupKey key = entry.getKey();
@@ -54,26 +54,26 @@ public class TransitGateway {
                 values.add(event.value());
                 if (event.unit() != null && !event.unit().isEmpty()) unit = event.unit();
             }
-            results.add(WindowAggregate.of(key.sensorType(), key.siteId(), unit, values, windowStart, windowEnd));
+            aggregates.add(WindowAggregate.of(key.sensorType(), key.siteId(), unit, values, windowStart, windowEnd));
         }
-        return results;
+        return aggregates;
     }
 
-    void runWindowCycle() {
+    void dispatchWindow() {
         try {
-            List<WindowAggregate> windows = flushWindow();
-            List<String> payloads = new ArrayList<>(windows.size());
-            for (WindowAggregate window : windows) {
+            List<WindowAggregate> aggregates = aggregateWindow();
+            List<String> payloads = new ArrayList<>(aggregates.size());
+            for (WindowAggregate window : aggregates) {
                 List<String> alerts = TransitAlerts.evaluate(window.sensorType(), window);
-                payloads.add(toPayload(window, alerts));
+                payloads.add(windowToJson(window, alerts));
             }
-            if (!payloads.isEmpty()) publisher.publishBatch(payloads);
+            if (!payloads.isEmpty()) publisher.dispatchBatch(payloads);
         } catch (Exception exc) {
             System.out.println("window flush failed: " + exc.getMessage());
         }
     }
 
-    static String toPayload(WindowAggregate w, List<String> alerts) {
+    static String windowToJson(WindowAggregate w, List<String> alerts) {
         ObjectNode node = JSON.createObjectNode();
         node.put("sensor_type", w.sensorType());
         node.put("site_id", w.siteId());
@@ -137,11 +137,10 @@ public class TransitGateway {
             respond(exchange, 400, "{\"error\":\"" + e.getMessage() + "\"}");
             return;
         }
-        ingest(payload.sensorType(), payload.siteId(), payload.unit(), payload.values());
+        bufferReadings(payload.sensorType(), payload.siteId(), payload.unit(), payload.values());
         respond(exchange, 202, "{\"accepted\":" + payload.values().size() + "}");
     }
 
-    /** The if/else if dispatch chain described in the class comment above. */
     void route(HttpExchange exchange) throws IOException {
         try {
             String path = exchange.getRequestURI().getPath();
@@ -185,8 +184,7 @@ public class TransitGateway {
 
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
         long periodMs = (long) (WINDOW_SECONDS * 1000);
-        // Initial delay is also periodMs (not 0) so the first flush only fires
-        // once a full window has actually accumulated readings.
-        scheduler.scheduleAtFixedRate(gateway::runWindowCycle, periodMs, periodMs, TimeUnit.MILLISECONDS);
+        // Initial delay equals the period so the first flush only fires once a full window has accumulated.
+        scheduler.scheduleAtFixedRate(gateway::dispatchWindow, periodMs, periodMs, TimeUnit.MILLISECONDS);
     }
 }

@@ -1,9 +1,4 @@
-"""Real HTTP-level tests against a genuine http.server.ThreadingHTTPServer
-bound to an ephemeral port (port 0), driven with http.client -- fog/app.py
-uses no framework, so there is no ASGI TestClient to dispatch through in
-memory; this is the same discipline already used for the portfolio's
-Java/Node plain-HTTP-server siblings, applied here in Python.
-"""
+"""Real HTTP-level tests against a genuine ThreadingHTTPServer on an ephemeral port, driven with http.client, since fog/app.py uses no framework and has no in-memory test client."""
 
 import http.client
 import json
@@ -16,24 +11,20 @@ import pytest
 from conftest import load_module
 
 fog_app = load_module("fog_app", "fog/app.py")
-# fog_app.py does `from ingest_pipeline import enqueue_batch, ...`, which as a
-# side effect leaves the real "ingest_pipeline" module (the exact instance
-# fog_app's imported functions are bound to) registered in sys.modules --
-# grab that same instance rather than re-importing a second, disconnected
-# copy via load_module.
+# Reuse the exact ingest_pipeline instance fog_app's imported functions are bound to (left in sys.modules by fog_app's import), not a second copy.
 ingest_pipeline = sys.modules["ingest_pipeline"]
 
 
 @pytest.fixture
 def running_server():
-    ingest_pipeline.INBOX = queue.Queue()
-    ingest_pipeline._buffers.clear()
-    ingest_pipeline._units.clear()
+    ingest_pipeline.TELEMETRY_INBOX = queue.Queue()
+    ingest_pipeline._window_buffers.clear()
+    ingest_pipeline._unit_by_type.clear()
 
     server = fog_app.ThreadingHTTPServer(("127.0.0.1", 0), fog_app.FogHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
-    consumer = threading.Thread(target=ingest_pipeline.consume_forever, args=(ingest_pipeline.INBOX,), daemon=True)
+    consumer = threading.Thread(target=ingest_pipeline.consume_telemetry_forever, args=(ingest_pipeline.TELEMETRY_INBOX,), daemon=True)
     consumer.start()
     try:
         yield server.server_address[1]
@@ -92,8 +83,8 @@ class TestIngestValidation:
             "readings": [{"ts": "t0", "value": 620.0}],
         }
         request(running_server, "POST", "/ingest", payload)
-        ingest_pipeline.INBOX.join()
-        snapshot, units = ingest_pipeline.snapshot_and_clear()
+        ingest_pipeline.TELEMETRY_INBOX.join()
+        snapshot, units = ingest_pipeline.drain_window_buffers()
         assert snapshot[("co2_ppm", "floor-2")] == [{"ts": "t0", "value": 620.0}]
         assert units["co2_ppm"] == "ppm"
 

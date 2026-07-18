@@ -1,14 +1,14 @@
 "use strict";
 
-// Drift-corrected setTimeout loop -- anchors a monotonic process.hrtime() start and schedules each tick against the next ideal boundary (tickCount * intervalMs) instead of a fixed delay-from-now, so per-tick jitter can't accumulate the way it does in this portfolio's plain setInterval/setTimeout sensors.
-function startDriftCorrectedLoop(intervalMs, tickFn) {
+// Drift-corrected setTimeout loop: schedules each tick against the next ideal boundary (tickCount * intervalMs) so jitter cannot accumulate.
+function startCadenceLoop(intervalMs, tickFn) {
   let stopped = false;
   let timer = null;
   let tickCount = 0;
-  const loopStart = process.hrtime();
+  const cadenceOrigin = process.hrtime();
 
   function elapsedMs() {
-    const [seconds, nanoseconds] = process.hrtime(loopStart);
+    const [seconds, nanoseconds] = process.hrtime(cadenceOrigin);
     return seconds * 1000 + nanoseconds / 1e6;
   }
 
@@ -34,4 +34,4 @@ function startDriftCorrectedLoop(intervalMs, tickFn) {
   };
 }
 
-module.exports = { startDriftCorrectedLoop };
+module.exports = { startCadenceLoop };

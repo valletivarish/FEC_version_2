@@ -15,13 +15,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Fog gateway for the retail footfall/inventory pipeline. Ingest just hands
- * readings to the BufferActor's single worker thread; a background
- * scheduler flushes the whole buffer every WINDOW_SECONDS, computes real
- * aggregates, evaluates the AlertRule enum, and publishes one JSON message
- * per non-empty (sensor_type, site_id) group to SQS.
- */
+/** Fog gateway: ingest hands readings to the BufferActor, and a scheduler flushes each window into per-group SQS messages. */
 public class StoreGateway {
 
     static final ObjectMapper JSON = new ObjectMapper();
@@ -30,8 +24,8 @@ public class StoreGateway {
     static final String ENDPOINT = System.getenv("AWS_ENDPOINT_URL");
     static final String REGION = System.getenv().getOrDefault("AWS_REGION", "eu-west-1");
 
-    static final BufferActor ACTOR = new BufferActor();
-    static QueuePublisher publisher;
+    static final BufferActor FLOOR_BUFFER = new BufferActor();
+    static QueuePublisher dispatcher;
 
     static void handleIngest(HttpExchange exchange) throws IOException {
         if (!"POST".equals(exchange.getRequestMethod())) {
@@ -47,7 +41,7 @@ public class StoreGateway {
         for (JsonNode r : body.get("readings")) {
             values.add(r.get("value").asDouble());
         }
-        ACTOR.enqueue(sensorType, siteId, unit, values);
+        FLOOR_BUFFER.enqueue(sensorType, siteId, unit, values);
         Route.respond(exchange, 202, "{\"accepted\":" + values.size() + "}");
     }
 
@@ -67,7 +61,7 @@ public class StoreGateway {
     static List<WindowAggregate> flushWindow() {
         String windowEnd = Instant.now().toString();
         String windowStart = Instant.now().minusSeconds((long) WINDOW_SECONDS).toString();
-        BufferSnapshot snapshot = ACTOR.drainAll();
+        BufferSnapshot snapshot = FLOOR_BUFFER.drainAll();
 
         List<WindowAggregate> results = new ArrayList<>();
         for (Map.Entry<SensorKey, List<Double>> entry : snapshot.buffers().entrySet()) {
@@ -86,15 +80,15 @@ public class StoreGateway {
                 List<String> alerts = AlertRule.evaluate(window);
                 payloads.add(JSON.writeValueAsString(new AggregatePayload(window, alerts)));
             }
-            publisher.publishBatch(payloads);
+            dispatcher.publishBatch(payloads);
         } catch (Exception exc) {
             System.out.println("window flush failed: " + exc.getMessage());
         }
     }
 
     public static void main(String[] args) throws Exception {
-        publisher = new QueuePublisher(ENDPOINT, REGION, QUEUE_NAME);
-        ACTOR.start();
+        dispatcher = new QueuePublisher(ENDPOINT, REGION, QUEUE_NAME);
+        FLOOR_BUFFER.start();
 
         HttpServer server = HttpServer.create(new InetSocketAddress(8000), 0);
         Route.wireAll(server, 4);
@@ -103,8 +97,7 @@ public class StoreGateway {
 
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
         long periodMs = (long) (WINDOW_SECONDS * 1000);
-        // Initial delay equals the period so the first flush only fires once
-        // a full window has actually accumulated readings.
+        // Initial delay equals the period so the first flush waits for a full window of readings.
         scheduler.scheduleAtFixedRate(StoreGateway::runWindowCycle, periodMs, periodMs, TimeUnit.MILLISECONDS);
     }
 }

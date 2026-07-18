@@ -1,6 +1,4 @@
-"""fetch_thresholds is tested against a real local http.server on an
-ephemeral port (success path) and a real closed TCP socket (genuine
-unreachable-upstream failure), not a mocked transport."""
+"""fetch_thresholds is tested against a real local http.server (success) and a closed TCP socket (unreachable upstream), not a mocked transport."""
 
 import json
 import socket
@@ -40,9 +38,7 @@ def running_fake_fog():
 
 
 def find_unused_port_then_close_it():
-    """Bind a real socket to grab a genuinely free ephemeral port, then
-    close it immediately -- nothing is listening there, so a connection
-    attempt gets a real, deterministic 'connection refused'."""
+    """Grab a free ephemeral port by binding then immediately closing a socket, so a later connection gets a deterministic refusal."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(("127.0.0.1", 0))
     port = sock.getsockname()[1]

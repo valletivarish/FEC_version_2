@@ -39,8 +39,7 @@ services:
       - localstack
     restart: unless-stopped
 
-  # one-shot: packages handler.py+transform.py as a real Lambda wired to the
-  # SQS queue via an event source mapping (see deploy_lambda.py)
+  # one-shot: packages handler.py+transform.py as a Lambda wired to the SQS queue (see deploy_lambda.py)
   processor:
     build:
       context: ../backend/processor

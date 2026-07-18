@@ -45,10 +45,7 @@ function serveStaticFile(res, filePath, contentType) {
   });
 }
 
-// Static assets are served by resolving the request path under STATIC_DIR
-// and rejecting anything that escapes it, kept as a fallback outside the
-// route table below rather than pulling in a static-file middleware
-// package.
+// Serves static assets under STATIC_DIR, rejecting any path that escapes it.
 function tryServeStatic(req, res, pathname) {
   const relPath = pathname === "/" ? "index.html" : pathname.replace(/^\/static\//, "").replace(/^\//, "");
   const resolved = path.join(STATIC_DIR, relPath);
@@ -84,9 +81,7 @@ async function handleReadings(url, deps, res) {
   sendJson(res, 200, { sensor_type: sensorType, items });
 }
 
-// Project-specific per-site grouping endpoint: GET /api/towers lists both
-// towers, GET /api/towers/:towerId (path parameter captured by router.js's
-// :name segment matching) returns just one.
+// GET /api/towers lists both towers; GET /api/towers/:towerId returns just one.
 async function handleTowers(deps, res) {
   sendJson(res, 200, { towers: await buildTowerSummaries(deps.doc, deps.tableName) });
 }
@@ -137,8 +132,7 @@ function buildRouter(deps) {
   return router;
 }
 
-// Every request passes through this outer try/catch, translating any
-// uncaught exception into a structured 500 rather than a killed request.
+// Outer try/catch translating any uncaught exception into a structured 500.
 function buildRequestHandler(router) {
   return async function handler(req, res) {
     try {

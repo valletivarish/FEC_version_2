@@ -25,10 +25,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 @app.middleware("http")
 async def no_cache_static(request, call_next):
-    # Dashboard assets change frequently during development and the browser
-    # otherwise caches them aggressively; force a fresh fetch of the shell
-    # and its static files on every load so table/chart changes show up
-    # without a hard refresh.
+    # Force a fresh fetch of the shell and its static assets on every load.
     response = await call_next(request)
     if request.url.path.startswith("/static/") or request.url.path == "/":
         response.headers["Cache-Control"] = "no-store"

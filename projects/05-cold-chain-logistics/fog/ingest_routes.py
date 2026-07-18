@@ -4,22 +4,20 @@ from pydantic import BaseModel
 router = APIRouter()
 
 
-class Reading(BaseModel):
+class SensorSample(BaseModel):
     ts: str
     value: float
 
 
-class Batch(BaseModel):
+class IntakeBatch(BaseModel):
     sensor_type: str
     site_id: str = "container-1"
     unit: str = ""
-    readings: list[Reading]
+    readings: list[SensorSample]
 
 
 @router.post("/ingest", status_code=202)
-async def ingest(batch: Batch, request: Request):
-    # 202 Accepted: the batch is only queued here, not yet aggregated. The
-    # background inbox_consumer task (see app.py) absorbs it into the
-    # current window asynchronously.
+async def ingest(batch: IntakeBatch, request: Request):
+    # 202: the batch is only queued here; intake_worker absorbs it into the open window later.
     await request.app.state.inbox.put(batch)
     return {"accepted": len(batch.readings)}

@@ -1,10 +1,4 @@
-"""Smart-building dashboard backend: plain http.server ThreadingHTTPServer,
-no FastAPI/Flask/ASGI, matching the fog node's "no framework" discipline.
-Route dispatch is a hand-written if/elif chain in do_GET; static assets
-(index.html/style.css/dashboard.js/vendor/chart.umd.min.js) are read off
-disk and served with a small extension->content-type table instead of a
-framework's StaticFiles mount.
-"""
+"""Smart-building dashboard backend: plain http.server ThreadingHTTPServer with a hand-written do_GET if/elif route table and on-disk static assets, no web framework."""
 
 import datetime
 import json
@@ -33,9 +27,7 @@ CONTENT_TYPES = {
 
 
 class ThresholdsCache:
-    """Caches fog's /thresholds response after the first successful fetch --
-    the rule catalogue is static for the stack's lifetime, so there is no
-    need to re-fetch it on every 2.5s dashboard poll."""
+    """Caches fog's /thresholds response after the first success, since the rule catalogue is static for the stack's lifetime."""
 
     def __init__(self):
         self._value = None
@@ -61,9 +53,7 @@ def fog_reachable():
 
 
 def build_floor_payload():
-    """The project-specific per-floor grouping endpoint payload: all 5 raw
-    sensor readings per floor, plus the computed efficiency_score/
-    efficiency_grade badge (see scoring.py for the exact formula)."""
+    """Per-floor payload: all 5 raw sensor readings per floor plus the computed efficiency_score/efficiency_grade badge (formula in scoring.py)."""
     floors = []
     for floor in data_access.floor_report():
         readings = floor["readings"]

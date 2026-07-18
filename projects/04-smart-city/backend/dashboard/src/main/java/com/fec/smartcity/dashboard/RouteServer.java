@@ -18,8 +18,8 @@ final class RouteServer {
     private static final ObjectMapper JSON = new ObjectMapper();
 
     private final HttpServer server;
-    private final Map<String, HttpHandler> routes = new LinkedHashMap<>();
-    private int threadCount = 8;
+    private final Map<String, HttpHandler> handlers = new LinkedHashMap<>();
+    private int poolSize = 8;
 
     private RouteServer(HttpServer server) {
         this.server = server;
@@ -30,23 +30,23 @@ final class RouteServer {
     }
 
     RouteServer route(String path, HttpHandler handler) {
-        routes.put(path, handler);
+        handlers.put(path, handler);
         return this;
     }
 
     RouteServer threads(int count) {
-        this.threadCount = count;
+        this.poolSize = count;
         return this;
     }
 
     HttpServer start() {
-        routes.forEach((path, handler) -> server.createContext(path, guarded(handler)));
-        server.setExecutor(Executors.newFixedThreadPool(threadCount));
+        handlers.forEach((path, handler) -> server.createContext(path, shielded(handler)));
+        server.setExecutor(Executors.newFixedThreadPool(poolSize));
         server.start();
         return server;
     }
 
-    private static HttpHandler guarded(HttpHandler handler) {
+    private static HttpHandler shielded(HttpHandler handler) {
         return exchange -> {
             try {
                 handler.handle(exchange);

@@ -40,11 +40,26 @@ h1, h2 { font-family: var(--font); }
 .topbar-title h1 { margin: 0; font-size: 21px; font-weight: 700; color: var(--text); }
 .subtitle { margin: 4px 0 0; font-size: 13px; color: var(--text-muted); }
 
-.status-strip { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
-.status-item { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--text-muted); }
-.dot { width: 9px; height: 9px; border-radius: 50%; background: #b7b7b7; display: inline-block; }
-.dot.ok { background: var(--accent); }
-.dot.down { background: var(--alert); }
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(92px, 1fr));
+  grid-template-rows: repeat(2, auto);
+  gap: 8px;
+}
+.status-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #eceeec;
+}
+.status-label { font-size: 12px; font-weight: 700; letter-spacing: 0.02em; color: var(--text-muted); }
+.status-cell.ok { background: var(--accent-soft); border-color: var(--accent); }
+.status-cell.ok .status-label { color: var(--accent); }
+.status-cell.down { background: var(--alert-soft); border-color: var(--alert); }
+.status-cell.down .status-label { color: var(--alert); }
 
 main { padding: 4px 28px 32px; max-width: 1180px; margin: 0 auto; }
 
@@ -149,7 +164,7 @@ footer { padding: 18px 28px 30px; font-size: 11px; color: var(--text-muted); tex
 @media (max-width: 480px) {
   .topbar { padding: 16px 18px; }
   main { padding: 4px 18px 28px; }
-  .status-strip { gap: 10px; }
+  .status-grid { gap: 6px; }
   .floor-grid { grid-template-columns: 1fr; }
   .reading-row { grid-template-columns: 92px 1fr 76px; }
   .grade-badge { width: 54px; height: 54px; }

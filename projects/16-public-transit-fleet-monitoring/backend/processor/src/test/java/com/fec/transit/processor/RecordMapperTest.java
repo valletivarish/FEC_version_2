@@ -15,7 +15,7 @@ class RecordMapperTest {
 
     @Test
     void mapsAllAggregateFieldsOntoTheItem() throws Exception {
-        Map<String, AttributeValue> item = RecordMapper.toItem(MESSAGE);
+        Map<String, AttributeValue> item = RecordMapper.toWindowItem(MESSAGE);
 
         assertEquals("engine_temp_c", item.get("sensor_type").s());
         assertEquals("depot-a", item.get("site_id").s());
@@ -33,7 +33,7 @@ class RecordMapperTest {
 
     @Test
     void sortKeyIsWindowEndHashSiteId() throws Exception {
-        Map<String, AttributeValue> item = RecordMapper.toItem(MESSAGE);
+        Map<String, AttributeValue> item = RecordMapper.toWindowItem(MESSAGE);
         assertEquals("2026-07-05T10:00:10Z#depot-a", item.get("sort_key").s());
     }
 
@@ -46,8 +46,8 @@ class RecordMapperTest {
             "\"window_start\":\"s\",\"window_end\":\"2026-07-05T11:00:00Z\",\"count\":1,\"min\":55,\"max\":55," +
             "\"avg\":55,\"latest\":55,\"alerts\":[]}";
 
-        Map<String, AttributeValue> itemA = RecordMapper.toItem(depotA);
-        Map<String, AttributeValue> itemB = RecordMapper.toItem(depotB);
+        Map<String, AttributeValue> itemA = RecordMapper.toWindowItem(depotA);
+        Map<String, AttributeValue> itemB = RecordMapper.toWindowItem(depotB);
 
         assertEquals(itemA.get("sensor_type").s(), itemB.get("sensor_type").s(), "same partition key");
         assertEquals("2026-07-05T11:00:00Z#depot-a", itemA.get("sort_key").s());
@@ -58,7 +58,7 @@ class RecordMapperTest {
     void missingSiteIdDefaultsToDepotA() throws Exception {
         String noSite = "{\"sensor_type\":\"fuel_level_pct\",\"unit\":\"%\",\"window_start\":\"s\"," +
             "\"window_end\":\"e\",\"count\":1,\"min\":50,\"max\":50,\"avg\":50,\"latest\":50,\"alerts\":[]}";
-        Map<String, AttributeValue> item = RecordMapper.toItem(noSite);
+        Map<String, AttributeValue> item = RecordMapper.toWindowItem(noSite);
         assertEquals("depot-a", item.get("site_id").s());
         assertEquals("e#depot-a", item.get("sort_key").s());
     }
@@ -67,7 +67,7 @@ class RecordMapperTest {
     void missingAlertsProducesAnEmptyList() throws Exception {
         String noAlerts = "{\"sensor_type\":\"fuel_level_pct\",\"site_id\":\"depot-b\",\"unit\":\"%\"," +
             "\"window_start\":\"s\",\"window_end\":\"e\",\"count\":1,\"min\":50,\"max\":50,\"avg\":50,\"latest\":50}";
-        Map<String, AttributeValue> item = RecordMapper.toItem(noAlerts);
+        Map<String, AttributeValue> item = RecordMapper.toWindowItem(noAlerts);
         assertEquals(0, item.get("alerts").l().size());
     }
 }

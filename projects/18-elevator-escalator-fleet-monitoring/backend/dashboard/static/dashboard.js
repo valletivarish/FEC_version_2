@@ -11,9 +11,7 @@ const METRIC_LABELS = {
 
 const TOWER_LABELS = { "tower-a": "Tower A", "tower-b": "Tower B" };
 
-// Alert display text is a small local map -- the frontend does not call
-// /api/thresholds directly (that proxy exists for API completeness and is
-// covered by its own backend test; see readme.txt).
+// Alert display text map; the frontend does not call /api/thresholds directly.
 const ALERT_LABELS = {
   motor_overheat_risk: "Motor overheat risk",
   ride_quality_fault: "Ride quality fault",
@@ -21,8 +19,7 @@ const ALERT_LABELS = {
   stall_suspected: "Stall suspected",
 };
 
-// Axis bounds -- the range each <meter> is drawn against, not a decision
-// threshold. Real alert thresholds come from fog/alertEngine.js.
+// Axis bounds each <meter> is drawn against, not a decision threshold.
 const AXIS_RANGE = {
   motor_temp_c: { lo: 30, hi: 110 },
   door_cycle_count: { lo: 0, hi: 500 },
@@ -38,10 +35,7 @@ function metricLabel(sensorType) {
   return METRIC_LABELS[sensorType] || sensorType;
 }
 
-// One row per sensor type inside a tower card: a plain label, the latest
-// value as text, a native <meter> against that sensor's configured range,
-// and -- only when flagged -- a plain colored text badge. No drawn/hand-
-// illustrated graphics anywhere in this row.
+// One row per sensor type inside a tower card: label, latest value, native <meter>, and an alert badge when flagged.
 function readingRow(sensorType, metric) {
   const range = AXIS_RANGE[sensorType];
   if (!metric) {
@@ -97,12 +91,13 @@ function renderAlertBanner(towers) {
 
 function renderHealth(health) {
   const strip = document.getElementById("health-strip");
-  const pill = (label, ok) => `<span class="health-pill ${ok ? "" : "down"}"><span class="swatch"></span>${label}</span>`;
+  const badge = (label, up, upWord) =>
+    `<span class="health-badge ${up ? "up" : "down"}"><span class="health-badge-label">${label}</span><span class="health-badge-state">${up ? upWord : "down"}</span></span>`;
   strip.innerHTML =
-    pill("Gateway", health.gateway) +
-    pill("Queue", health.queue) +
-    pill("Lambda", health.lambda) +
-    pill("Pipeline", health.pipeline);
+    badge("Gateway", health.gateway, "online") +
+    badge("Queue", health.queue, "reachable") +
+    badge("Lambda", health.lambda, "deployed") +
+    badge("Pipeline", health.pipeline, "live");
 }
 
 function renderBackendStats(backendStats) {

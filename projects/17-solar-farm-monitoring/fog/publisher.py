@@ -1,4 +1,4 @@
-"""A dedicated flusher thread drains OUTBOX (a queue.SimpleQueue) and ships every ready message in one send_message_batch call instead of one send_message per group -- the 4th distinct publisher shape in this portfolio's Python projects."""
+"""A dedicated flusher thread drains OUTBOX and ships each ready group in one send_message_batch call rather than one send per group."""
 
 import json
 import queue
@@ -14,15 +14,12 @@ MAX_BATCH = 10
 
 
 def enqueue(message, outbox=OUTBOX):
-    """Called from window-flush code (fog/app.py) once a group's summary is
-    ready. Never touches the network -- only the dedicated flusher thread
-    (run_flusher) does that."""
+    """Hand a ready window summary to the flusher thread; never touches the network itself."""
     outbox.put(message)
 
 
 def drain_ready(outbox, limit):
-    """Pull whatever is already sitting in the queue, up to `limit` items,
-    without blocking further once it's empty."""
+    """Pull up to `limit` items already sitting in the queue, without blocking once it is empty."""
     drained = []
     for _ in range(limit):
         try:
@@ -33,9 +30,7 @@ def drain_ready(outbox, limit):
 
 
 def drain_one_batch(outbox, max_batch=MAX_BATCH, block_timeout=None):
-    """Block for at least one message (or return None once block_timeout
-    elapses with nothing arriving), then greedily top up to max_batch
-    messages without blocking further."""
+    """Block for at least one message (or None on timeout), then greedily top up to max_batch without blocking."""
     try:
         first = outbox.get(timeout=block_timeout) if block_timeout is not None else outbox.get()
     except queue.Empty:
@@ -46,9 +41,7 @@ def drain_one_batch(outbox, max_batch=MAX_BATCH, block_timeout=None):
 
 
 def build_batch_entries(messages):
-    """Pure transform: window-aggregate dicts -> send_message_batch Entries.
-    Id only needs to be unique within one batch call, so the entry's
-    position is enough."""
+    """Turn window-aggregate dicts into send_message_batch Entries, keyed by position within the batch."""
     return [{"Id": str(i), "MessageBody": json.dumps(message)} for i, message in enumerate(messages)]
 
 
@@ -62,15 +55,12 @@ def _resolve_queue_url(client, queue_name, attempts=30, delay=2):
 
 
 def flush_batch(client, queue_url, messages):
-    """Ship one already-drained batch of messages in a single
-    send_message_batch call."""
+    """Ship one already-drained batch of messages in a single send_message_batch call."""
     client.send_message_batch(QueueUrl=queue_url, Entries=build_batch_entries(messages))
 
 
 def run_flusher(client, queue_url, outbox=OUTBOX, stop_event=None, block_timeout=1.0):
-    """Body of the dedicated flusher thread: forever (or until stop_event is
-    set) block for the next ready message, drain whatever else is already
-    queued up to MAX_BATCH, and ship the whole batch in one call."""
+    """Flusher-thread body: block for the next message, drain up to MAX_BATCH more, and ship the whole batch."""
     while stop_event is None or not stop_event.is_set():
         batch = drain_one_batch(outbox, block_timeout=block_timeout)
         if not batch:
@@ -82,9 +72,7 @@ def run_flusher(client, queue_url, outbox=OUTBOX, stop_event=None, block_timeout
 
 
 def _resolve_and_run(client, queue_name, outbox):
-    # Queue-url resolution happens on this background thread, not on the
-    # caller's thread -- start_flusher_thread must return immediately so it
-    # never delays the aiohttp app's own startup/readiness.
+    # Resolve the queue url on this background thread so start_flusher_thread can return immediately.
     queue_url = _resolve_queue_url(client, queue_name)
     run_flusher(client, queue_url, outbox=outbox)
 

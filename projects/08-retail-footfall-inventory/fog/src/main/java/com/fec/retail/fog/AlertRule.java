@@ -4,14 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
 
-/**
- * Each enum constant IS a rule: it carries the sensor type it watches, the
- * descriptive metadata for /thresholds, and its own firing predicate as a
- * per-constant lambda body (enum-implementing-functional-interface, rather
- * than a sealed-interface hierarchy of record variants or a field-name
- * switch table). Adding a rule means adding a constant, not touching a
- * shared evaluator method.
- */
+/** Each enum constant is a rule carrying its watched sensor type, /thresholds metadata, and its own firing predicate. */
 public enum AlertRule implements Predicate<WindowAggregate> {
 
     RESTOCK_NEEDED("shelf_stock_pct", "avg", "<", 15) {

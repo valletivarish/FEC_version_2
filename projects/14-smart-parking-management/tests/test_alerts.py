@@ -3,11 +3,11 @@ from conftest import load_module
 alerts = load_module("fog_alerts", "fog/alerts.py")
 
 
-class TestAlertKeyEnum:
+class TestLotAlertEnum:
     def test_every_rule_key_is_an_alertkey_member(self):
-        for sensor_rules in alerts.RULES.values():
+        for sensor_rules in alerts.LOT_ALERT_RULES.values():
             for key in sensor_rules:
-                assert isinstance(key, alerts.AlertKey)
+                assert isinstance(key, alerts.LotAlert)
 
 
 class TestEvaluate:
@@ -46,10 +46,8 @@ class TestThresholdsPayload:
         assert "exit_rate_per_min" not in alerts.thresholds_payload()
 
     def test_descriptions_agree_with_the_real_evaluate_predicates(self):
-        """Cross-check: every description's (field, op, limit) must actually
-        make evaluate() fire the same key it names, guarding against the
-        lambda predicates and THRESHOLD_DESCRIPTIONS drifting apart."""
-        for sensor_type, rules in alerts.THRESHOLD_DESCRIPTIONS.items():
+        """Each description's (field, op, limit) must make evaluate() fire the key it names."""
+        for sensor_type, rules in alerts.LOT_ALERT_DESCRIPTIONS.items():
             for rule in rules:
                 just_over = {rule["field"]: rule["limit"] + 0.01}
                 just_under = {rule["field"]: rule["limit"]}

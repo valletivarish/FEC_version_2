@@ -46,14 +46,7 @@ public class StoreRepository {
         return items;
     }
 
-    /**
-     * Per-store grouping endpoint: for each sensor type, the latest window
-     * reported by each site_id. This is project 08's project-specific
-     * grouping view (a store-first cross-section) distinct from 07's
-     * "fleet roster" (which groups by robot/zone as the primary axis) --
-     * here the dashboard's KPI tiles are the primary view, and this
-     * endpoint only feeds the secondary per-store detail section below them.
-     */
+    /** Per-store grouping: for each sensor type, the latest window reported by each site_id, feeding the secondary store-detail section. */
     public Map<String, Object> byStore(DynamoDbClient client, String tableName, String[] sensorTypes, int historyPerType) {
         Map<String, Map<String, Object>> stores = new TreeMap<>();
         for (String sensorType : sensorTypes) {

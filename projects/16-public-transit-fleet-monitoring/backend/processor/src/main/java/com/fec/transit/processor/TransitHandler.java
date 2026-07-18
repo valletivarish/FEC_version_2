@@ -18,54 +18,45 @@ import java.util.Map;
 public class TransitHandler implements RequestHandler<SQSEvent, Map<String, Object>> {
 
     static final String TABLE_NAME = System.getenv().getOrDefault("TABLE_NAME", "ptf-readings");
-    static DynamoDbClient client;
+    static DynamoDbClient dynamo;
 
-    // Lambda (even under LocalStack) can reuse a warm execution environment
-    // across invocations, so the client is cached in a static field instead
-    // of being rebuilt on every handleRequest() call.
-    static synchronized DynamoDbClient client() {
-        if (client == null) {
+    // Cache the client in a static field so a warm execution environment reuses it across invocations.
+    static synchronized DynamoDbClient dynamo() {
+        if (dynamo == null) {
             String endpoint = System.getenv("AWS_ENDPOINT_URL");
             String region = System.getenv().getOrDefault("AWS_REGION", "eu-west-1");
             var builder = DynamoDbClient.builder().region(Region.of(region));
-            // Static test/test credentials are only valid for LocalStack. A
-            // real Lambda always has AWS_ACCESS_KEY_ID set (its own
-            // execution-role credentials), so gating on that variable would
-            // still misauthenticate in production -- AWS_ENDPOINT_URL is the
-            // actual LocalStack-only signal.
+            // Static test/test credentials only work under LocalStack; AWS_ENDPOINT_URL is the only reliable LocalStack signal.
             if (endpoint != null) {
                 builder.endpointOverride(URI.create(endpoint))
                     .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
             }
-            client = builder.build();
+            dynamo = builder.build();
         }
-        return client;
+        return dynamo;
     }
 
-    static int processRecords(List<SQSEvent.SQSMessage> records, DynamoDbClient dynamo, String tableName) {
-        int processed = 0;
-        for (SQSEvent.SQSMessage record : records) {
+    static int storeWindows(List<SQSEvent.SQSMessage> messages, DynamoDbClient dynamo, String tableName) {
+        int stored = 0;
+        for (SQSEvent.SQSMessage message : messages) {
             try {
                 Map<String, software.amazon.awssdk.services.dynamodb.model.AttributeValue> item =
-                    RecordMapper.toItem(record.getBody());
+                    RecordMapper.toWindowItem(message.getBody());
                 dynamo.putItem(PutItemRequest.builder().tableName(tableName).item(item).build());
-                processed++;
+                stored++;
             } catch (Exception e) {
-                // Deliberately fail the whole batch on any single bad record
-                // rather than skipping it: the SQS event source mapping will
-                // then leave the batch unacked and retry it, which is the
-                // simplest correct behaviour for this CA's demo scale.
+                // Fail the whole batch on any bad record so the SQS mapping leaves it unacked and retries.
                 throw new RuntimeException(e);
             }
         }
-        return processed;
+        return stored;
     }
 
     @Override
     public Map<String, Object> handleRequest(SQSEvent event, Context context) {
-        int processed = processRecords(event.getRecords(), client(), TABLE_NAME);
+        int stored = storeWindows(event.getRecords(), dynamo(), TABLE_NAME);
         Map<String, Object> result = new HashMap<>();
-        result.put("processed", processed);
+        result.put("processed", stored);
         return result;
     }
 }

@@ -45,9 +45,27 @@ h1, h2, h3 { font-family: var(--font); }
 .topbar-title h1 { margin: 0; font-size: 21px; font-weight: 700; color: var(--text); }
 .subtitle { margin: 4px 0 0; font-size: 13px; color: var(--text-muted); }
 
-.status-strip { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
-.status-item { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--text-muted); }
-.dot { width: 9px; height: 9px; border-radius: 50%; background: #cfc4a0; display: inline-block; }
+.health-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  background: var(--accent-soft);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.health-lamp { display: flex; align-items: center; gap: 9px; font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.health-lamp-label { line-height: 1; }
+.dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #cfc4a0;
+  display: inline-block;
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
 .dot.ok { background: var(--sky); }
 .dot.down { background: var(--alert); }
 
@@ -177,7 +195,7 @@ footer { padding: 18px 28px 30px; font-size: 11px; color: var(--text-muted); tex
 @media (max-width: 480px) {
   .topbar { padding: 16px 18px; }
   main { padding: 4px 18px 28px; }
-  .status-strip { gap: 10px; }
+  .health-column { gap: 7px; }
   .arrays-grid { grid-template-columns: 1fr; }
   .reading-row { grid-template-columns: 96px 1fr 78px; }
   .heatmap-row { flex-direction: column; align-items: stretch; gap: 6px; }

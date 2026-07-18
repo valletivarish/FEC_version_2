@@ -16,7 +16,7 @@ class AggregationTest {
 
     @Test
     void rollUpBasicStats() {
-        Aggregation.Summary s = Aggregation.rollUp("motor_temperature", "line-1", "C", READINGS, "start", "end");
+        Aggregation.Summary s = Aggregation.condenseWindow("motor_temperature", "line-1", "C", READINGS, "start", "end");
         assertEquals(3, s.count());
         assertEquals(10.0, s.min());
         assertEquals(30.0, s.max());
@@ -26,7 +26,7 @@ class AggregationTest {
 
     @Test
     void rollUpCarriesMetadata() {
-        Aggregation.Summary s = Aggregation.rollUp("vibration", "line-7", "mm/s", READINGS, "s", "e");
+        Aggregation.Summary s = Aggregation.condenseWindow("vibration", "line-7", "mm/s", READINGS, "s", "e");
         assertEquals("vibration", s.sensorType());
         assertEquals("line-7", s.siteId());
         assertEquals("mm/s", s.unit());
@@ -37,6 +37,6 @@ class AggregationTest {
     @Test
     void latestIsLastReading() {
         List<Reading> readings = List.of(new Reading("t0", 5.0), new Reading("t1", 7.5));
-        assertEquals(7.5, Aggregation.rollUp("power_draw", "l", "kW", readings, "s", "e").latest());
+        assertEquals(7.5, Aggregation.condenseWindow("power_draw", "l", "kW", readings, "s", "e").latest());
     }
 }

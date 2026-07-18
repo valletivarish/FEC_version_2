@@ -40,34 +40,30 @@ def lambda_client():
     return _lambda
 
 
-def unwrap(value):
+def decimals_to_floats(value):
     if isinstance(value, Decimal):
         return float(value)
     if isinstance(value, list):
-        return [unwrap(v) for v in value]
+        return [decimals_to_floats(v) for v in value]
     if isinstance(value, dict):
-        return {k: unwrap(v) for k, v in value.items()}
+        return {k: decimals_to_floats(v) for k, v in value.items()}
     return value
 
 
 def recent_windows(sensor_type, limit=60):
-    """Most recent `limit` windows for one sensor_type across both floors,
-    oldest first (so chart/table consumers render left-to-right without
-    re-sorting)."""
+    """Most recent `limit` windows for one sensor_type across both floors, oldest first so chart/table consumers render left-to-right without re-sorting."""
     resp = table().query(
         KeyConditionExpression=Key("sensor_type").eq(sensor_type),
         ScanIndexForward=False,
         Limit=limit,
     )
-    items = [unwrap(i) for i in resp.get("Items", [])]
+    items = [decimals_to_floats(i) for i in resp.get("Items", [])]
     items.reverse()
     return items
 
 
 def latest_by_site(sensor_type, limit=20):
-    """Most recent window per site_id for one sensor_type. Rows arrive
-    oldest-first from recent_windows, so the last row seen per site_id
-    while scanning ascending is that site's newest window."""
+    """Most recent window per site_id for one sensor_type; rows arrive oldest-first, so the last row seen per site_id while scanning ascending is that site's newest window."""
     latest = {}
     for row in recent_windows(sensor_type, limit):
         latest[row["site_id"]] = row
@@ -75,10 +71,7 @@ def latest_by_site(sensor_type, limit=20):
 
 
 def floor_report():
-    """One entry per configured floor, carrying the latest window (or None
-    if nothing has landed yet) for every sensor_type. Consumed by
-    app.py's /api/floors handler, which layers the efficiency badge on
-    top of this raw per-reading data."""
+    """One entry per configured floor, carrying the latest window (or None) for every sensor_type; the /api/floors handler layers the efficiency badge on top."""
     per_sensor = {sensor_type: latest_by_site(sensor_type) for sensor_type in SENSOR_TYPES}
     return [
         {
@@ -132,9 +125,7 @@ def lambda_active():
 
 
 def items_in_table():
-    """A single Scan(Select=COUNT) call only counts one ~1MB page -- once
-    the table grows past that, the true count needs every page visited via
-    ExclusiveStartKey/LastEvaluatedKey, not just the first."""
+    """A single Scan(Select=COUNT) only counts one ~1MB page, so page through every ExclusiveStartKey/LastEvaluatedKey to get the true count."""
     total = 0
     kwargs = {"Select": "COUNT"}
     while True:

@@ -110,13 +110,35 @@ header h1 .subline {
 
 .relay-status {
   display: flex;
-  gap: 24px;
+  gap: 10px;
   flex-wrap: wrap;
+  align-items: center;
   padding: 16px 40px 32px;
-  font-size: 11px;
-  color: #5b6584;
   border-top: 1px solid #232a4d;
 }
+.hchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: #12152a;
+  border: 1px solid #232a4d;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.hchip-k {
+  color: #8891b3;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+.hchip-v {
+  color: #c7cde3;
+  font-weight: 700;
+}
+.hchip-v.up { color: #34d399; }
+.hchip-v.down { color: #ff5c8a; }
 
 .zdot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
 .zdot.vehicle_count { background: #00d4ff; }

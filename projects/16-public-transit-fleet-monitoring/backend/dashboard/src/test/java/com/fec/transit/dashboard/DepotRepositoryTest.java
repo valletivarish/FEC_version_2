@@ -30,7 +30,7 @@ class DepotRepositoryTest {
         FakeDynamoDbClient fake = new FakeDynamoDbClient(
             Map.of("engine_temp_c", List.of(item("engine_temp_c", "depot-a", "t2", 90.0, 90.0), item("engine_temp_c", "depot-a", "t1", 88.0, 88.0))), 0);
 
-        var items = new DepotRepository().recentWindows(fake, "table", "engine_temp_c", 10);
+        var items = new DepotRepository().recentSensorWindows(fake, "table", "engine_temp_c", 10);
         assertEquals("t1", items.get(0).get("window_end"));
         assertEquals("t2", items.get(1).get("window_end"));
     }
@@ -42,7 +42,7 @@ class DepotRepositoryTest {
             "fuel_level_pct", List.of(item("fuel_level_pct", "depot-a", "t1", 65.0, 65.0))
         ), 0);
 
-        var result = new DepotRepository().byDepot(fake, "table", new String[]{"engine_temp_c", "fuel_level_pct"}, 5);
+        var result = new DepotRepository().depotRoster(fake, "table", new String[]{"engine_temp_c", "fuel_level_pct"}, 5);
         @SuppressWarnings("unchecked")
         var depots = (List<Map<String, Object>>) result.get("depots");
 
@@ -68,7 +68,7 @@ class DepotRepositoryTest {
             "passenger_count", List.of(item("passenger_count", "depot-a", "t1", 40.0, 40.0), item("passenger_count", "depot-b", "t1", 78.0, 78.0))
         ), 0);
 
-        var result = new DepotRepository().byDepot(fake, "table", new String[]{"passenger_count"}, 5);
+        var result = new DepotRepository().depotRoster(fake, "table", new String[]{"passenger_count"}, 5);
         @SuppressWarnings("unchecked")
         var depots = (List<Map<String, Object>>) result.get("depots");
         var byId = depots.stream().collect(java.util.stream.Collectors.toMap(s -> s.get("site_id"), s -> s));
@@ -86,7 +86,7 @@ class DepotRepositoryTest {
     @Test
     void byDepotSkipsSensorTypesWithNoData() {
         FakeDynamoDbClient fake = new FakeDynamoDbClient(Map.of(), 0);
-        var result = new DepotRepository().byDepot(fake, "table", new String[]{"gps_speed_kmh"}, 5);
+        var result = new DepotRepository().depotRoster(fake, "table", new String[]{"gps_speed_kmh"}, 5);
         @SuppressWarnings("unchecked")
         var depots = (List<Map<String, Object>>) result.get("depots");
         assertTrue(depots.isEmpty());

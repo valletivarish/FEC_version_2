@@ -13,9 +13,7 @@ test("publish rejects with a clear error when the pipeline has not been configur
 
 test("useClient wires a real stream.Transform piped into a real stream.Writable", () => {
   publisher.useClient({ send: async () => ({}) });
-  // Reach into the module's internal pipeline via a fresh publish() call
-  // is the black-box way to prove it; here we assert indirectly by
-  // confirming publish() resolves through actual stream plumbing below.
+  // Asserted indirectly: publish() resolves through the real stream plumbing below.
   assert.equal(typeof publisher.publish, "function");
 });
 
@@ -131,9 +129,7 @@ test("publishBatch sends up to 10 groups per SendMessageBatchCommand call", asyn
   assert.equal(calls[1].input.Entries[0].Id, "10");
 });
 
-// Directly exercises the underlying primitives to prove the implementation
-// genuinely uses stream.Transform + stream.Writable, not merely something
-// that behaves similarly.
+// Exercises the underlying primitives to prove real stream.Transform + stream.Writable usage.
 test("the module is built on real Transform/Writable stream primitives", () => {
   const t = new Transform({ objectMode: true, transform(chunk, enc, cb) { this.push(chunk); cb(); } });
   const w = new Writable({ objectMode: true, write(chunk, enc, cb) { cb(); } });

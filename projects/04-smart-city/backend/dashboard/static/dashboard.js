@@ -161,10 +161,10 @@ async function refreshBoard() {
     await Promise.all(METRICS.map(refreshTrend));
 
     document.getElementById("relay-status").innerHTML =
-      `<span>edge relay: ${health.relay ? "online" : "offline"}</span>` +
-      `<span>queue: ${health.queue ? "reachable" : "unreachable"}${backend.queue ? ` (${backend.queue.waiting} pending)` : ""}</span>` +
-      `<span>lambda: ${health.lambda ? "deployed" : "not found"}</span>` +
-      `<span>records archived: ${backend.items_in_table}</span>`;
+      `<span class="hchip"><span class="hchip-k">edge relay</span><span class="hchip-v ${health.relay ? "up" : "down"}">${health.relay ? "ok" : "down"}</span></span>` +
+      `<span class="hchip"><span class="hchip-k">queue</span><span class="hchip-v ${health.queue ? "up" : "down"}">${health.queue ? "ok" : "down"}${backend.queue ? ` (${backend.queue.waiting} pending)` : ""}</span></span>` +
+      `<span class="hchip"><span class="hchip-k">lambda</span><span class="hchip-v ${health.lambda ? "up" : "down"}">${health.lambda ? "ok" : "down"}</span></span>` +
+      `<span class="hchip"><span class="hchip-k">records archived</span><span class="hchip-v">${backend.items_in_table}</span></span>`;
   } catch (e) {
     // backend not ready yet; next poll retries
   }

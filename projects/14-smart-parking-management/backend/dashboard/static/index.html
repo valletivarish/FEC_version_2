@@ -12,11 +12,23 @@
     <h1>Smart Parking Management</h1>
     <p class="subtitle">Fog and Edge Computing CA &mdash; two-lot capacity console</p>
   </div>
-  <div class="status-strip" id="status-strip">
-    <span class="status-item"><span class="dot" id="dot-gateway"></span>Gateway</span>
-    <span class="status-item"><span class="dot" id="dot-queue"></span>Queue</span>
-    <span class="status-item"><span class="dot" id="dot-lambda"></span>Processor</span>
-    <span class="status-item"><span class="dot" id="dot-pipeline"></span>Pipeline</span>
+  <div class="health-meters" id="status-strip">
+    <div class="health-meter">
+      <span class="meter-label">Gateway</span>
+      <span class="meter-track"><span class="meter-fill" id="dot-gateway"></span></span>
+    </div>
+    <div class="health-meter">
+      <span class="meter-label">Queue</span>
+      <span class="meter-track"><span class="meter-fill" id="dot-queue"></span></span>
+    </div>
+    <div class="health-meter">
+      <span class="meter-label">Processor</span>
+      <span class="meter-track"><span class="meter-fill" id="dot-lambda"></span></span>
+    </div>
+    <div class="health-meter">
+      <span class="meter-label">Pipeline</span>
+      <span class="meter-track"><span class="meter-fill" id="dot-pipeline"></span></span>
+    </div>
   </div>
 </header>
 

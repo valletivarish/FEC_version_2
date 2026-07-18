@@ -9,69 +9,65 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 
-/** Single-writer actor-thread ownership over a mailbox queue -- no lock or atomic ever touches the buffer -- the 4th distinct concurrency shape in this CA portfolio. */
+/** Single-writer actor thread owns the till buffers; ingest handlers never block on them. */
 public class BufferActor {
 
-    private final BlockingQueue<IngestEvent> inbox = new LinkedBlockingQueue<>();
-    private final Map<SensorKey, List<Double>> buffers = new HashMap<>();
-    private final Map<String, String> units = new HashMap<>();
-    private Thread worker;
-    private volatile boolean running = true;
+    private final BlockingQueue<IngestEvent> intake = new LinkedBlockingQueue<>();
+    private final Map<SensorKey, List<Double>> readingBins = new HashMap<>();
+    private final Map<String, String> unitByType = new HashMap<>();
+    private Thread tallyThread;
+    private volatile boolean trading = true;
 
     /** Called from HTTP handler threads: never blocks on buffer state. */
     public void enqueue(String sensorType, String siteId, String unit, List<Double> values) {
-        inbox.add(new IngestEvent.Ingest(sensorType, siteId, unit, values));
+        intake.add(new IngestEvent.Ingest(sensorType, siteId, unit, values));
     }
 
     public void start() {
-        worker = new Thread(this::runLoop, "buffer-actor");
-        worker.setDaemon(true);
-        worker.start();
+        tallyThread = new Thread(this::serviceIntake, "buffer-actor");
+        tallyThread.setDaemon(true);
+        tallyThread.start();
     }
 
     public void stop() {
-        running = false;
-        if (worker != null) worker.interrupt();
+        trading = false;
+        if (tallyThread != null) tallyThread.interrupt();
     }
 
-    private void runLoop() {
-        while (running) {
+    private void serviceIntake() {
+        while (trading) {
             try {
-                handle(inbox.take());
+                applyEvent(intake.take());
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
         }
     }
 
-    private void handle(IngestEvent event) {
+    private void applyEvent(IngestEvent event) {
         if (event instanceof IngestEvent.Ingest ingest) {
-            applyIngest(ingest);
+            stockReadings(ingest);
         } else if (event instanceof IngestEvent.Drain drain) {
-            drain.reply().complete(snapshotAndClear());
+            drain.reply().complete(sealAndReset());
         }
     }
 
-    private void applyIngest(IngestEvent.Ingest ingest) {
+    private void stockReadings(IngestEvent.Ingest ingest) {
         SensorKey key = new SensorKey(ingest.sensorType(), ingest.siteId());
-        buffers.computeIfAbsent(key, k -> new ArrayList<>()).addAll(ingest.values());
-        if (ingest.unit() != null && !ingest.unit().isEmpty()) units.put(ingest.sensorType(), ingest.unit());
+        readingBins.computeIfAbsent(key, k -> new ArrayList<>()).addAll(ingest.values());
+        if (ingest.unit() != null && !ingest.unit().isEmpty()) unitByType.put(ingest.sensorType(), ingest.unit());
     }
 
-    private BufferSnapshot snapshotAndClear() {
-        Map<SensorKey, List<Double>> bufferCopy = new LinkedHashMap<>(buffers);
-        buffers.clear();
-        return new BufferSnapshot(bufferCopy, Map.copyOf(units));
+    private BufferSnapshot sealAndReset() {
+        Map<SensorKey, List<Double>> binCopy = new LinkedHashMap<>(readingBins);
+        readingBins.clear();
+        return new BufferSnapshot(binCopy, Map.copyOf(unitByType));
     }
 
-    /**
-     * Blocks the calling thread (the scheduler) until the actor thread has
-     * processed the drain in its own mailbox order, guaranteeing every
-     * ingest enqueued before this call is included in the snapshot.
-     */
+    /** Blocks the scheduler until the actor drains in mailbox order, capturing every prior ingest. */
     public BufferSnapshot drainAll() {
         CompletableFuture<BufferSnapshot> reply = new CompletableFuture<>();
-        inbox.add(new IngestEvent.Drain(reply));
+        intake.add(new IngestEvent.Drain(reply));
         try {
             return reply.get();
         } catch (Exception e) {

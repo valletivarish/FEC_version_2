@@ -1,8 +1,4 @@
-"""Real HTTP-level tests for the dashboard backend, which -- like the fog
-node -- is a hand-written WSGI app on wsgiref.simple_server, not a
-framework. DynamoDB/SQS/Lambda are always faked here; nothing in this file
-touches real AWS or LocalStack.
-"""
+"""Real HTTP-level tests for the dashboard WSGI backend; DynamoDB/SQS/Lambda are always faked, never real AWS."""
 
 import http.client
 import json

@@ -51,10 +51,7 @@ public class PipelineChecks {
         }
     }
 
-    // A single Select.COUNT scan only counts the ~1MB page DynamoDB happens to
-    // return, silently undercounting any table larger than that. Follows
-    // LastEvaluatedKey across pages by recursing on the next page's key
-    // rather than a loop, an iterator, or the SDK's own paginator.
+    // A single Select.COUNT scan only counts one ~1MB page, so recurse across LastEvaluatedKey to sum every page.
     public int itemCount(DynamoDbClient dynamo, String tableName) {
         return itemCount(dynamo, tableName, null);
     }

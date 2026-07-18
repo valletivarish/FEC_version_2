@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI
 
-from aggregation import RollingStat
+from aggregation import ReeferTally
 from alerts import flag_container
 from ingest_routes import router as ingest_router
 from publisher import open_shipment_link
@@ -16,59 +16,51 @@ QUEUE_NAME = os.getenv("SQS_QUEUE_NAME", "fcl-manifest-agg")
 ENDPOINT = os.getenv("AWS_ENDPOINT_URL")
 REGION = os.getenv("AWS_REGION", "eu-west-1")
 
-# Cap on how many queued ingest batches one consumer tick absorbs before
-# yielding back to the event loop; keeps a burst of arrivals from starving
-# the window_publisher task on the same loop.
+# Max queued intake batches absorbed per consumer tick, so bursts don't starve the shipper.
 MAX_DRAIN_PER_TICK = 200
 
 
-def right_now():
+def depot_now():
     return datetime.now(timezone.utc)
 
 
-class WindowAccumulator:
-    """Holds one RollingStat per (sensor_type, site_id) for the current
-    window. Readings are absorbed incrementally as ingest batches arrive;
-    drain_messages() closes out the window, evaluates alerts per reading
-    type, and resets state for the next window."""
+class ManifestWindow:
+    """Holds one ReeferTally per (sensor_type, site_id) for the open window until it is drained."""
 
     def __init__(self):
-        self._stats = {}
+        self._tallies = {}
         self._units = {}
 
     def absorb(self, batch):
         key = (batch.sensor_type, batch.site_id)
-        stat = self._stats.get(key)
-        if stat is None:
-            stat = RollingStat()
-            self._stats[key] = stat
+        tally = self._tallies.get(key)
+        if tally is None:
+            tally = ReeferTally()
+            self._tallies[key] = tally
         for reading in batch.readings:
-            stat.add(reading.value)
+            tally.add(reading.value)
         if batch.unit:
-            # Remember the unit per sensor_type (not per site) since every
-            # container's sensor of a given type reports the same unit.
+            # Unit is tracked per sensor_type since every container reports the same unit for it.
             self._units[batch.sensor_type] = batch.unit
 
     def is_empty(self):
-        return not self._stats
+        return not self._tallies
 
     def drain_messages(self, window_start, window_end):
         messages = []
-        for (sensor_type, site_id), stat in self._stats.items():
-            if len(stat) == 0:
+        for (sensor_type, site_id), tally in self._tallies.items():
+            if len(tally) == 0:
                 continue
             unit = self._units.get(sensor_type, "")
-            summary = stat.snapshot(sensor_type, site_id, unit, window_start, window_end)
+            summary = tally.snapshot(sensor_type, site_id, unit, window_start, window_end)
             summary["alerts"] = flag_container(sensor_type, summary)
             messages.append(summary)
-        self._stats.clear()
+        self._tallies.clear()
         return messages
 
 
-def _drain_ready_batches(inbox, limit):
-    """Pull whatever is already sitting in the queue, up to limit items,
-    without blocking. Returns as soon as the queue reports empty or the
-    cap is hit, so a single slow tick can't starve the rest of the app."""
+def _collect_ready_batches(inbox, limit):
+    """Non-blocking pull of up to `limit` already-queued items; stops on empty or cap."""
     drained = []
     for _ in range(limit):
         try:
@@ -78,16 +70,13 @@ def _drain_ready_batches(inbox, limit):
     return drained
 
 
-async def inbox_consumer(app):
-    # Background task: blocks on the first item, then greedily drains
-    # whatever else is already queued (bounded by MAX_DRAIN_PER_TICK) so
-    # bursts of sensor batches are absorbed in one pass rather than one
-    # event-loop iteration per batch.
+async def intake_worker(app):
+    # Blocks on the first item, then greedily drains the rest of the burst in one pass.
     accumulator = app.state.accumulator
     inbox = app.state.inbox
     while True:
         first = await inbox.get()
-        batches = [first] + _drain_ready_batches(inbox, MAX_DRAIN_PER_TICK - 1)
+        batches = [first] + _collect_ready_batches(inbox, MAX_DRAIN_PER_TICK - 1)
         try:
             for batch in batches:
                 accumulator.absorb(batch)
@@ -96,14 +85,11 @@ async def inbox_consumer(app):
                 inbox.task_done()
 
 
-async def window_publisher(app):
-    # Background task: fires once per WINDOW_SECONDS, closes out whatever
-    # the accumulator collected during that window, and ships one aggregate
-    # message per (sensor_type, site_id) to the queue. Shipping runs in a
-    # worker thread since boto3's SQS client is synchronous.
+async def window_shipper(app):
+    # Fires once per WINDOW_SECONDS, closing out the window and shipping its aggregates.
     while True:
         await asyncio.sleep(WINDOW_SECONDS)
-        window_end = right_now()
+        window_end = depot_now()
         window_start = window_end - timedelta(seconds=WINDOW_SECONDS)
         accumulator = app.state.accumulator
         if accumulator.is_empty():
@@ -117,15 +103,13 @@ async def window_publisher(app):
 
 @asynccontextmanager
 async def lifespan(app):
-    # Wires up the queue connection and the two background tasks (ingest
-    # consumer, window publisher) around the app's lifetime, and tears both
-    # down cleanly on shutdown so no task keeps running against a closed link.
+    # Wires the dispatch queue and the intake/shipper tasks to the app lifetime, tearing both down on shutdown.
     link_ctx = open_shipment_link(ENDPOINT, REGION, QUEUE_NAME)
     app.state.link = await asyncio.to_thread(link_ctx.__enter__)
     app.state.inbox = asyncio.Queue()
-    app.state.accumulator = WindowAccumulator()
-    consumer_task = asyncio.create_task(inbox_consumer(app))
-    publisher_task = asyncio.create_task(window_publisher(app))
+    app.state.accumulator = ManifestWindow()
+    consumer_task = asyncio.create_task(intake_worker(app))
+    publisher_task = asyncio.create_task(window_shipper(app))
     try:
         yield
     finally:

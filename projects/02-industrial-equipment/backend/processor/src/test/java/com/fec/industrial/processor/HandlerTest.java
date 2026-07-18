@@ -22,7 +22,7 @@ class HandlerTest {
     @Test
     void processRecordsWritesEachRecord() {
         FakeDynamoDbClient fake = new FakeDynamoDbClient();
-        int processed = Handler.processRecords(List.of(message(MESSAGE)), fake, "test-table");
+        int processed = Handler.persistWindows(List.of(message(MESSAGE)), fake, "test-table");
 
         assertEquals(1, processed);
         assertEquals(1, fake.puts.size());
@@ -33,7 +33,7 @@ class HandlerTest {
     @Test
     void processRecordsHandlesBatch() {
         FakeDynamoDbClient fake = new FakeDynamoDbClient();
-        int processed = Handler.processRecords(List.of(message(MESSAGE), message(MESSAGE)), fake, "test-table");
+        int processed = Handler.persistWindows(List.of(message(MESSAGE), message(MESSAGE)), fake, "test-table");
 
         assertEquals(2, processed);
         assertEquals(2, fake.puts.size());

@@ -18,8 +18,7 @@ const ALERT_LABELS = {
 const TREND_COLORS = { "depot-a": "#ff5a1f", "depot-b": "#3ecf8e" };
 const trendCharts = {};
 
-// Axis bounds -- the range each reading's <meter> is drawn against, not a
-// decision threshold. Real alert thresholds come from /api/thresholds.
+// Axis bounds for each reading's <meter> -- display range only, not a decision threshold.
 const AXIS_RANGE = {
   engine_temp_c: { lo: 60, hi: 120 },
   brake_pad_wear_pct: { lo: 0, hi: 100 },
@@ -82,12 +81,12 @@ function renderAlertBanner(depots) {
 
 function renderHealth(health) {
   const strip = document.getElementById("health-strip");
-  const pill = (label, ok) => `<span class="health-pill ${ok ? "" : "down"}"><span class="swatch"></span>${label}</span>`;
+  const tab = (label, ok) => `<span class="health-tab ${ok ? "up" : "down"}">${label}</span>`;
   strip.innerHTML =
-    pill("Gateway", health.gateway) +
-    pill("Queue", health.queue) +
-    pill("Lambda", health.lambda) +
-    pill("Pipeline", health.pipeline);
+    tab("Gateway", health.gateway) +
+    tab("Queue", health.queue) +
+    tab("Lambda", health.lambda) +
+    tab("Pipeline", health.pipeline);
 }
 
 function renderBackendStats(backendStats) {

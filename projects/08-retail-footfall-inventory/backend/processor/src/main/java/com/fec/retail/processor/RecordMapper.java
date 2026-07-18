@@ -9,20 +9,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Pure transform from one fog aggregate message body into a DynamoDB item.
- * sort_key = window_end#site_id, so two stores reporting the same
- * sensor_type in the same flush cycle never collide on the table's primary
- * key (sensor_type alone would).
- */
+/** Transforms one fog aggregate message into a DynamoDB item; sort_key = window_end#site_id keeps two stores from colliding. */
 public class RecordMapper {
 
-    private static final String DEFAULT_SITE = "store-1";
+    private static final String FALLBACK_SITE = "store-1";
     private static final ObjectMapper JSON = new ObjectMapper();
 
     public static Map<String, AttributeValue> toItem(String messageBody) throws Exception {
         JsonNode data = JSON.readTree(messageBody);
-        String siteId = data.has("site_id") ? data.get("site_id").asText() : DEFAULT_SITE;
+        String siteId = data.has("site_id") ? data.get("site_id").asText() : FALLBACK_SITE;
         String windowEnd = data.get("window_end").asText();
         String sortKey = windowEnd + "#" + siteId;
 

@@ -1,10 +1,6 @@
 "use strict";
 
-// Kept as its own tiny function taking the upstream URL as a plain
-// parameter, rather than being inlined inside a route handler that reaches
-// into a module-load-time-captured env var several calls deep. That makes
-// it directly unit-testable (success + unreachable-upstream) without
-// spinning up the whole server or mutating process.env.
+// Takes the upstream URL as a parameter so it is directly unit-testable without a running server.
 async function fetchThresholds(fogThresholdsUrl) {
   try {
     const upstream = await fetch(fogThresholdsUrl, { signal: AbortSignal.timeout(5000) });

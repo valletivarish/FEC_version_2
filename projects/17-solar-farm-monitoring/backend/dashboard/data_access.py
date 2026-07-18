@@ -16,12 +16,9 @@ REGION = os.getenv("AWS_REGION", "eu-west-1")
 SENSOR_TYPES = ["irradiance_wm2", "panel_temp_c", "inverter_output_kw", "dc_voltage_v", "soiling_index_pct"]
 SITE_IDS = ["array-1", "array-2"]
 
-# recent_windows(sensor_type, N) returns the N most recent rows across BOTH
-# sites combined (sort_key interleaves them by window_end). To reliably get
-# N windows for one specific site, over-fetch by this multiplier before
-# filtering -- cheap for a 2-site farm, and documented rather than silent.
-SITE_HISTORY_FETCH_MULTIPLIER = 6
-GRID_HISTORY_LENGTH = 12
+# recent_windows interleaves both arrays by window_end, so over-fetch by this factor before filtering to one site.
+SITE_OVERFETCH_MULTIPLIER = 6
+HEATMAP_HISTORY_LENGTH = 12
 
 _table = None
 _sqs = None
@@ -49,54 +46,44 @@ def lambda_client():
     return _lambda
 
 
-def unwrap(value):
+def decode_decimals(value):
     if isinstance(value, Decimal):
         return float(value)
     if isinstance(value, list):
-        return [unwrap(v) for v in value]
+        return [decode_decimals(v) for v in value]
     if isinstance(value, dict):
-        return {k: unwrap(v) for k, v in value.items()}
+        return {k: decode_decimals(v) for k, v in value.items()}
     return value
 
 
 def recent_windows(sensor_type, limit=60):
-    """Most recent `limit` windows for one sensor_type across both arrays,
-    oldest first (so chart/grid consumers render left-to-right without
-    re-sorting)."""
+    """Most recent `limit` windows for one sensor_type across both arrays, oldest first."""
     resp = table().query(
         KeyConditionExpression=Key("sensor_type").eq(sensor_type),
         ScanIndexForward=False,
         Limit=limit,
     )
-    items = [unwrap(i) for i in resp.get("Items", [])]
+    items = [decode_decimals(i) for i in resp.get("Items", [])]
     items.reverse()
     return items
 
 
 def latest_by_site(sensor_type, limit=20):
-    """Most recent window per site_id for one sensor_type. Rows arrive
-    oldest-first from recent_windows, so the last row seen per site_id
-    while scanning ascending is that site's newest window."""
+    """Most recent window per site_id for one sensor_type; ascending scan means the last row per site is newest."""
     latest = {}
     for row in recent_windows(sensor_type, limit):
         latest[row["site_id"]] = row
     return latest
 
 
-def site_windows(sensor_type, site_id, limit=GRID_HISTORY_LENGTH):
-    """Most recent `limit` windows for one sensor_type, filtered down to one
-    site, oldest first. See SITE_HISTORY_FETCH_MULTIPLIER for why this
-    over-fetches before filtering."""
-    rows = recent_windows(sensor_type, limit * SITE_HISTORY_FETCH_MULTIPLIER)
+def site_windows(sensor_type, site_id, limit=HEATMAP_HISTORY_LENGTH):
+    """Most recent `limit` windows for one sensor_type filtered to one site, oldest first (over-fetches first)."""
+    rows = recent_windows(sensor_type, limit * SITE_OVERFETCH_MULTIPLIER)
     return [row for row in rows if row["site_id"] == site_id][-limit:]
 
 
-def paired_history(site_id, limit=GRID_HISTORY_LENGTH):
-    """The efficiency-index heatmap row for one array: pairs that array's
-    most recent inverter_output_kw and panel_temp_c windows position-by-
-    position (both queried oldest-first) and runs each pair through
-    scoring.efficiency_index. Trimmed to the shorter of the two series so a
-    lopsided arrival pattern never zips mismatched windows together."""
+def paired_history(site_id, limit=HEATMAP_HISTORY_LENGTH):
+    """Efficiency-index heatmap row for one array: zip its inverter_output_kw and panel_temp_c windows position-by-position, trimmed to the shorter series."""
     inverter_rows = site_windows("inverter_output_kw", site_id, limit)
     temp_rows = site_windows("panel_temp_c", site_id, limit)
     n = min(len(inverter_rows), len(temp_rows))
@@ -111,10 +98,7 @@ def paired_history(site_id, limit=GRID_HISTORY_LENGTH):
 
 
 def array_report():
-    """One entry per configured array, carrying the latest raw reading (or
-    None if nothing has landed yet) for every sensor_type plus the derived
-    efficiency-index heatmap history. Consumed by app.py's /api/arrays
-    handler."""
+    """One entry per array with the latest raw reading per sensor_type plus its derived efficiency-index heatmap history."""
     per_sensor = {sensor_type: latest_by_site(sensor_type) for sensor_type in SENSOR_TYPES}
     reports = []
     for site_id in SITE_IDS:
@@ -173,9 +157,7 @@ def lambda_active():
 
 
 def items_in_table():
-    """A single Scan(Select=COUNT) call only covers one ~1MB response page,
-    silently undercounting once the table grows past that -- so this walks
-    every page via ExclusiveStartKey/LastEvaluatedKey and sums the counts."""
+    """Walk every Scan(Select=COUNT) page via ExclusiveStartKey/LastEvaluatedKey and sum the counts."""
     total = 0
     scan_kwargs = {"Select": "COUNT"}
     while True:

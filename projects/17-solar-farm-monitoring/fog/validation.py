@@ -1,11 +1,8 @@
-"""Input validation for POST /ingest, kept separate from app.py so it can be
-unit-tested without an event loop or a socket."""
+"""Input validation for POST /ingest, kept separate from app.py so it is unit-testable without an event loop or socket."""
 
 
 def validate_batch(payload):
-    """Return an error message string if payload is not a well-formed
-    ingest batch, or None if it is fine to accept. Never raises -- callers
-    turn a non-None return into a 400 response."""
+    """Return an error message string if payload is not a well-formed ingest batch, else None; never raises."""
     if not isinstance(payload, dict):
         return "request body must be a JSON object"
 

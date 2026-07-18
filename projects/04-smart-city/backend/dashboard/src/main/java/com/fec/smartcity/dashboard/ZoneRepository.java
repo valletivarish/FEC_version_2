@@ -29,7 +29,7 @@ public class ZoneRepository {
         return out;
     }
 
-    static Supplier<QueryRequest> latestByMetricQuery(String tableName, String metric, int limit) {
+    static Supplier<QueryRequest> queryByMetric(String tableName, String metric, int limit) {
         return () -> QueryRequest.builder()
             .tableName(tableName)
             .keyConditionExpression("sensor_type = :st")
@@ -41,12 +41,12 @@ public class ZoneRepository {
 
     public static List<Map<String, Object>> recentWindows(DynamoDbClient client, String tableName,
                                                              String metric, int limit) {
-        QueryRequest request = latestByMetricQuery(tableName, metric, limit).get();
-        LinkedList<Map<String, Object>> chronological = new LinkedList<>();
+        QueryRequest request = queryByMetric(tableName, metric, limit).get();
+        LinkedList<Map<String, Object>> ordered = new LinkedList<>();
         for (var item : client.query(request).items()) {
-            chronological.addFirst(unwrapItem(item));
+            ordered.addFirst(unwrapItem(item));
         }
-        return chronological;
+        return ordered;
     }
 
     public static Map<String, Object> buildZones(DynamoDbClient client, String tableName, String[] metrics) {

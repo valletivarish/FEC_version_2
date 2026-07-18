@@ -1,30 +1,28 @@
-"""Bounded collections.deque(maxlen=MAX_READINGS_PER_KEY) ring buffer per (sensor_type, site_id) key, silently dropping oldest readings once full -- the 4th distinct buffering shape in this portfolio's Python projects."""
+"""Bounded per-(sensor_type, site_id) ring buffer that drops the oldest readings once full."""
 
 import threading
 from collections import defaultdict, deque
 
-MAX_READINGS_PER_KEY = 500
+BAY_BUFFER_LIMIT = 500
 
-_buffers = defaultdict(lambda: deque(maxlen=MAX_READINGS_PER_KEY))
-_units = {}
-_lock = threading.Lock()
+_bay_buffers = defaultdict(lambda: deque(maxlen=BAY_BUFFER_LIMIT))
+_unit_by_metric = {}
+_buffer_lock = threading.Lock()
 
 
 def add_readings(sensor_type, site_id, unit, readings):
     key = (sensor_type, site_id)
-    with _lock:
-        _buffers[key].extend(readings)
+    with _buffer_lock:
+        _bay_buffers[key].extend(readings)
         if unit:
-            _units[sensor_type] = unit
+            _unit_by_metric[sensor_type] = unit
 
 
 def snapshot_and_clear():
-    """Atomically copy out every non-empty (sensor_type, site_id) group as a
-    plain list (so aggregation never has to know about deques) and clear
-    every ring buffer for the next window."""
-    with _lock:
-        snapshot = {key: list(buf) for key, buf in _buffers.items() if buf}
-        for buf in _buffers.values():
+    """Copy every non-empty bay group out as a plain list and reset the buffers for the next window."""
+    with _buffer_lock:
+        snapshot = {key: list(buf) for key, buf in _bay_buffers.items() if buf}
+        for buf in _bay_buffers.values():
             buf.clear()
-        units = dict(_units)
+        units = dict(_unit_by_metric)
     return snapshot, units

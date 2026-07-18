@@ -9,16 +9,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Pure transform from one fog-dispatched SQS message body into a DynamoDB
- * item. sort_key = windowEnd + "#" + siteId, so two depots reporting in the
- * same flush cycle never collide on the table's primary key.
- */
+/** Transforms one fog-dispatched SQS message body into a DynamoDB item, keyed sort_key = windowEnd + "#" + siteId so two depots in the same flush never collide. */
 class RecordMapper {
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
-    static Map<String, AttributeValue> toItem(String messageBody) throws Exception {
+    static Map<String, AttributeValue> toWindowItem(String messageBody) throws Exception {
         JsonNode data = JSON.readTree(messageBody);
 
         String sensorType = data.get("sensor_type").asText();

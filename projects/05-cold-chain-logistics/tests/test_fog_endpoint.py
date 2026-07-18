@@ -30,7 +30,7 @@ def make_batch(sensor_type, site_id, values, unit=""):
 @pytest.fixture
 def fresh_state():
     depot_app.app.state.inbox = asyncio.Queue()
-    depot_app.app.state.accumulator = depot_app.WindowAccumulator()
+    depot_app.app.state.accumulator = depot_app.ManifestWindow()
     return depot_app.app
 
 
@@ -71,7 +71,7 @@ class TestInboxConsumer:
 
         async def run_one_cycle():
             await fresh_state.state.inbox.put(batch)
-            consumer = asyncio.create_task(depot_app.inbox_consumer(fresh_state))
+            consumer = asyncio.create_task(depot_app.intake_worker(fresh_state))
             await fresh_state.state.inbox.join()
             consumer.cancel()
 
@@ -88,7 +88,7 @@ class TestInboxConsumer:
         async def run_one_cycle():
             for batch in batches:
                 await fresh_state.state.inbox.put(batch)
-            consumer = asyncio.create_task(depot_app.inbox_consumer(fresh_state))
+            consumer = asyncio.create_task(depot_app.intake_worker(fresh_state))
             await fresh_state.state.inbox.join()
             consumer.cancel()
 
@@ -100,7 +100,7 @@ class TestInboxConsumer:
         async def run():
             for i in range(5):
                 await fresh_state.state.inbox.put(make_batch("humidity", "container-1", [float(i)]))
-            drained = depot_app._drain_ready_batches(fresh_state.state.inbox, 3)
+            drained = depot_app._collect_ready_batches(fresh_state.state.inbox, 3)
             return drained, fresh_state.state.inbox.qsize()
 
         drained, remaining = asyncio.run(run())
@@ -108,13 +108,13 @@ class TestInboxConsumer:
         assert remaining == 2
 
     def test_drain_ready_batches_returns_empty_when_queue_is_already_empty(self, fresh_state):
-        drained = depot_app._drain_ready_batches(fresh_state.state.inbox, 10)
+        drained = depot_app._collect_ready_batches(fresh_state.state.inbox, 10)
         assert drained == []
 
 
 class TestWindowAccumulator:
     def test_drain_produces_summary_with_alerts_for_single_batch(self):
-        accumulator = depot_app.WindowAccumulator()
+        accumulator = depot_app.ManifestWindow()
         accumulator.absorb(make_batch("storage_temperature", "container-1", [-10.0, -8.0], unit="C"))
         messages = accumulator.drain_messages("s", "e")
 
@@ -128,7 +128,7 @@ class TestWindowAccumulator:
         assert accumulator.is_empty()
 
     def test_multiple_batches_for_same_key_merge_into_one_summary(self):
-        accumulator = depot_app.WindowAccumulator()
+        accumulator = depot_app.ManifestWindow()
         accumulator.absorb(make_batch("humidity", "container-9", [80.0, 90.0], unit="%"))
         accumulator.absorb(make_batch("humidity", "container-9", [100.0]))
 

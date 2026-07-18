@@ -20,16 +20,12 @@ public class RelayClient {
     private static final long INITIAL_DELAY_MS = 250;
     private static final long MAX_DELAY_MS = 4000;
     private static final long GIVE_UP_AFTER_NANOS = TimeUnit.SECONDS.toNanos(60);
-    private static final int BATCH_ENTRY_LIMIT = 10;
+    private static final int SQS_BATCH_CAP = 10;
 
-    private record RelayConfig(String endpointUrl, String region, String queueName) {}
+    private record RelayTarget(String endpointUrl, String region, String queueName) {}
 
-    /**
-     * Retries {@code action} with capped exponential backoff until it succeeds
-     * or {@code budgetNanos} elapses, at which point {@code onExhausted} is
-     * invoked to produce the failure to throw.
-     */
-    private static <T> T retryWithBackoff(
+    // Retries action with capped exponential backoff until it succeeds or budgetNanos elapses, then throws onExhausted.
+    private static <T> T retryUntilDeadline(
         Supplier<T> action,
         long initialDelayMillis,
         long maxDelayMillis,
@@ -51,26 +47,23 @@ public class RelayClient {
         }
     }
 
-    private final RelayConfig config;
+    private final RelayTarget target;
     private final AtomicReference<SqsClient> clientRef = new AtomicReference<>();
     private volatile String queueUrl;
 
     public RelayClient(String endpointUrl, String region, String queueName) {
-        this.config = new RelayConfig(endpointUrl, region, queueName);
+        this.target = new RelayTarget(endpointUrl, region, queueName);
     }
 
     private SqsClient sqs() {
-        return clientRef.updateAndGet(existing -> existing != null ? existing : buildClient());
+        return clientRef.updateAndGet(existing -> existing != null ? existing : connectSqs());
     }
 
-    private SqsClient buildClient() {
-        var builder = SqsClient.builder().region(Region.of(config.region()));
-        // config.endpointUrl() is only set for LocalStack; on a real deployment
-        // it's null, so calling endpointOverride(URI.create(null)) would throw
-        // and the static test/test credentials would shadow the real execution
-        // role's credentials. Gate both on the LocalStack endpoint signal.
-        if (config.endpointUrl() != null) {
-            builder.endpointOverride(URI.create(config.endpointUrl()))
+    private SqsClient connectSqs() {
+        var builder = SqsClient.builder().region(Region.of(target.region()));
+        // endpointUrl is only set for LocalStack; gate the static test credentials on it so a real deployment uses the execution role.
+        if (target.endpointUrl() != null) {
+            builder.endpointOverride(URI.create(target.endpointUrl()))
                 .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
         }
         return builder.build();
@@ -78,13 +71,13 @@ public class RelayClient {
 
     private String queueUrl() throws InterruptedException {
         if (queueUrl == null) {
-            queueUrl = locateQueue(sqs(), config.queueName());
+            queueUrl = discoverQueueUrl(sqs(), target.queueName());
         }
         return queueUrl;
     }
 
-    private static String locateQueue(SqsClient client, String queueName) throws InterruptedException {
-        return retryWithBackoff(
+    private static String discoverQueueUrl(SqsClient client, String queueName) throws InterruptedException {
+        return retryUntilDeadline(
             () -> client.getQueueUrl(GetQueueUrlRequest.builder().queueName(queueName).build()).queueUrl(),
             INITIAL_DELAY_MS,
             MAX_DELAY_MS,
@@ -97,20 +90,17 @@ public class RelayClient {
         emitBatch(List.of(jsonPayload));
     }
 
-    /**
-     * Publishes every payload via SendMessageBatch, chunked at the API's
-     * 10-entry limit, instead of one SendMessage call per payload.
-     */
+    // Publishes every payload via SendMessageBatch, chunked at the API's 10-entry limit.
     public void emitBatch(List<String> jsonPayloads) throws InterruptedException {
         if (jsonPayloads.isEmpty()) return;
         String url = queueUrl();
-        for (int offset = 0; offset < jsonPayloads.size(); offset += BATCH_ENTRY_LIMIT) {
-            List<String> chunk = jsonPayloads.subList(offset, Math.min(offset + BATCH_ENTRY_LIMIT, jsonPayloads.size()));
-            List<SendMessageBatchRequestEntry> entries = new ArrayList<>();
-            for (int i = 0; i < chunk.size(); i++) {
-                entries.add(SendMessageBatchRequestEntry.builder().id(Integer.toString(i)).messageBody(chunk.get(i)).build());
+        for (int offset = 0; offset < jsonPayloads.size(); offset += SQS_BATCH_CAP) {
+            List<String> batch = jsonPayloads.subList(offset, Math.min(offset + SQS_BATCH_CAP, jsonPayloads.size()));
+            List<SendMessageBatchRequestEntry> batchEntries = new ArrayList<>();
+            for (int i = 0; i < batch.size(); i++) {
+                batchEntries.add(SendMessageBatchRequestEntry.builder().id(Integer.toString(i)).messageBody(batch.get(i)).build());
             }
-            sqs().sendMessageBatch(SendMessageBatchRequest.builder().queueUrl(url).entries(entries).build());
+            sqs().sendMessageBatch(SendMessageBatchRequest.builder().queueUrl(url).entries(batchEntries).build());
         }
     }
 }

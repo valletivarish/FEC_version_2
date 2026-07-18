@@ -9,11 +9,7 @@ data_access = load_module("dash_data_access", "backend/dashboard/data_access.py"
 
 
 class FakeTable:
-    """Stands in for the boto3 dynamodb Table resource. Items are supplied
-    chronological-ascending per sensor_type (like real inserts would land);
-    query() mimics ScanIndexForward=False by returning them newest-first,
-    same as a real DynamoDB query would.
-    """
+    """Stands in for the boto3 dynamodb Table; items are supplied oldest-first per sensor_type and query() mimics ScanIndexForward=False by returning them newest-first."""
 
     def __init__(self, items_by_sensor_type):
         self.items_by_sensor_type = items_by_sensor_type
@@ -31,10 +27,7 @@ class FakeTable:
 
 
 class FakeTablePaginatedCount:
-    """Splits a table's count across several Scan pages, each page's
-    response carrying a LastEvaluatedKey that chains to the next page
-    until the final one omits it -- mimics a table too large for a single
-    Scan(Select=COUNT) response to cover in one ~1MB page."""
+    """Splits a table's count across several Scan pages chained by LastEvaluatedKey, mimicking a table too large for a single Scan(Select=COUNT) page."""
 
     def __init__(self, page_counts):
         self.page_counts = page_counts

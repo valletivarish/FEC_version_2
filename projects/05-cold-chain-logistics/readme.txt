@@ -171,8 +171,8 @@ Follow these steps to prepare and deploy it:
    point (lambda_handler(event, context)), so the processor fields above
    can be filled in directly. backend/dashboard has no Lambda-handler
    module yet; add one (an entry point function accepting (event,
-   context), built on top of the existing DataAccess/health-check code in
-   routes.py and health.py) before filling in the dashboard_* fields.
+   context), built on top of the existing ManifestRepository/health-check
+   code in routes.py and health.py) before filling in the dashboard_* fields.
    backend/dashboard/static/dashboard.js currently calls the API via
    relative /api/... paths (same-origin); add a placeholder token to
    index.html and prefix those fetch calls with it before filling in

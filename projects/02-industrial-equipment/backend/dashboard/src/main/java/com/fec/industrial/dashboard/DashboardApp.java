@@ -37,7 +37,7 @@ public class DashboardApp {
     static final String FOG_HEALTH_URL = System.getenv().getOrDefault("FOG_HEALTH_URL", "http://fog:8000/health");
     static final String FOG_THRESHOLDS_URL = System.getenv().getOrDefault("FOG_THRESHOLDS_URL", "http://fog:8000/thresholds");
     static final String[] SENSOR_TYPES = {"vibration", "motor_temperature", "bearing_acoustic", "rotation_speed", "power_draw"};
-    static final int PIPELINE_FRESH_SECONDS = 30;
+    static final int FRESH_WINDOW_SECONDS = 30;
 
     static DynamoDbClient dynamo;
     static SqsClient sqs;
@@ -45,11 +45,7 @@ public class DashboardApp {
     static String thresholdsCache;
     static final HttpClient httpClient = HttpClient.newHttpClient();
 
-    // ENDPOINT is only ever set to point this at LocalStack; real AWS Lambda
-    // supplies its own execution-role credentials via the default provider
-    // chain, so the static "test"/"test" pair must not be attached unless
-    // ENDPOINT is actually present -- attaching it unconditionally would
-    // make every real deployment authenticate as a LocalStack-only identity.
+    // ENDPOINT is only set under LocalStack; when absent, real AWS supplies execution-role credentials, so skip the test pair.
     static synchronized DynamoDbClient dynamo() {
         if (dynamo == null) {
             var builder = DynamoDbClient.builder().region(Region.of(REGION));
@@ -108,7 +104,7 @@ public class DashboardApp {
         }
     }
 
-    static boolean checkFogHealth() {
+    static boolean fogGatewayUp() {
         try {
             HttpRequest request = HttpRequest.newBuilder().uri(URI.create(FOG_HEALTH_URL))
                 .timeout(Duration.ofSeconds(2)).GET().build();
@@ -119,51 +115,41 @@ public class DashboardApp {
         }
     }
 
-    static Map<String, Object> buildHealth() {
-        boolean fogOk = checkFogHealth();
-        boolean queueOk = HealthChecks.queueReachable(sqs(), QUEUE_NAME);
-        boolean lambdaOk = HealthChecks.lambdaActive(lambdaClient(), FUNCTION_NAME);
+    static Map<String, Object> pipelineHealth() {
+        boolean gatewayUp = fogGatewayUp();
+        boolean queueUp = HealthChecks.queueAvailable(sqs(), QUEUE_NAME);
+        boolean lambdaUp = HealthChecks.lambdaHealthy(lambdaClient(), FUNCTION_NAME);
 
-        // "pipeline" health can't be answered by pinging a single component --
-        // fog/queue/lambda can each individually report healthy while the
-        // end-to-end flow has actually stalled (e.g. Lambda's event source
-        // mapping got disabled). So this instead checks a symptom of that:
-        // how long ago the freshest window for ANY sensor type landed in
-        // DynamoDB. Only the newest window per sensor type is fetched
-        // (limit=1) since older ones can't make the freshest age any better.
+        // Each component can look healthy while the flow has stalled, so gauge liveness by how fresh the newest stored window is.
         Double freshestAge = null;
         Instant now = Instant.now();
         for (String sensorType : SENSOR_TYPES) {
-            var recent = DynamoHelper.recentWindows(dynamo(), TABLE_NAME, sensorType, 1);
+            var recent = DynamoHelper.recentRollups(dynamo(), TABLE_NAME, sensorType, 1);
             if (recent.isEmpty()) continue;
             String windowEnd = (String) recent.get(recent.size() - 1).get("window_end");
             double age = Duration.between(Instant.parse(windowEnd), now).toMillis() / 1000.0;
             if (freshestAge == null || age < freshestAge) freshestAge = age;
         }
-        boolean pipelineOk = freshestAge != null && freshestAge <= PIPELINE_FRESH_SECONDS;
+        boolean flowLive = freshestAge != null && freshestAge <= FRESH_WINDOW_SECONDS;
 
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("fog", fogOk);
-        result.put("queue", queueOk);
-        result.put("lambda", lambdaOk);
-        result.put("pipeline", pipelineOk);
+        result.put("fog", gatewayUp);
+        result.put("queue", queueUp);
+        result.put("lambda", lambdaUp);
+        result.put("pipeline", flowLive);
         result.put("freshest_age_seconds", freshestAge);
         return result;
     }
 
-    static Map<String, Object> buildBackendStats() {
+    static Map<String, Object> collectBackendStats() {
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("queue", HealthChecks.queueDepth(sqs(), QUEUE_NAME));
-        result.put("items_in_table", HealthChecks.scanCount(dynamo(), TABLE_NAME));
+        result.put("queue", HealthChecks.queueBacklog(sqs(), QUEUE_NAME));
+        result.put("items_in_table", HealthChecks.storedRecordCount(dynamo(), TABLE_NAME));
         return result;
     }
 
-    // Cached for the process lifetime rather than re-fetched per request:
-    // THRESHOLDS in the fog app is a static, code-defined constant that never
-    // changes at runtime, so refetching it on every /api/thresholds call
-    // would just be a repeated network round-trip to fog with no fresher
-    // data to show for it.
-    static synchronized String fetchThresholds() throws Exception {
+    // Fog's thresholds are a code-defined constant, so cache for the process lifetime instead of refetching per request.
+    static synchronized String cachedThresholds() throws Exception {
         if (thresholdsCache == null) {
             HttpRequest request = HttpRequest.newBuilder().uri(URI.create(FOG_THRESHOLDS_URL))
                 .timeout(Duration.ofSeconds(5)).GET().build();
@@ -187,7 +173,7 @@ public class DashboardApp {
             Map<String, String> q = parseQuery(exchange.getRequestURI().getQuery());
             String sensorType = q.get("sensor_type");
             int limit = q.containsKey("limit") ? Integer.parseInt(q.get("limit")) : 60;
-            var items = DynamoHelper.recentWindows(dynamo(), TABLE_NAME, sensorType, limit);
+            var items = DynamoHelper.recentRollups(dynamo(), TABLE_NAME, sensorType, limit);
             Map<String, Object> body = new LinkedHashMap<>();
             body.put("sensor_type", sensorType);
             body.put("items", items);
@@ -195,31 +181,27 @@ public class DashboardApp {
         });
 
         server.createContext("/api/summary", exchange -> {
-            sendJson(exchange, 200, DynamoHelper.buildSummary(dynamo(), TABLE_NAME, SENSOR_TYPES));
+            sendJson(exchange, 200, DynamoHelper.assetSummary(dynamo(), TABLE_NAME, SENSOR_TYPES));
         });
 
         server.createContext("/api/thresholds", exchange -> {
             try {
-                sendJson(exchange, 200, fetchThresholds());
+                sendJson(exchange, 200, cachedThresholds());
             } catch (Exception e) {
                 sendJson(exchange, 502, "{\"error\":\"thresholds unavailable\"}");
             }
         });
 
         server.createContext("/api/health", exchange -> {
-            sendJson(exchange, 200, buildHealth());
+            sendJson(exchange, 200, pipelineHealth());
         });
 
         server.createContext("/api/backend-stats", exchange -> {
-            sendJson(exchange, 200, buildBackendStats());
+            sendJson(exchange, 200, collectBackendStats());
         });
 
         server.createContext("/static", exchange -> {
-            // Files.readAllBytes() below takes a relative path resolved
-            // against the process cwd (the container's /app/static tree),
-            // so the leading "/" from the URL is stripped to turn
-            // "/static/x.js" into the relative "static/x.js" -- an absolute
-            // path here would instead try to read from the filesystem root.
+            // Strip the leading "/" so the URL resolves relative to the process cwd (the container's static tree).
             String path = exchange.getRequestURI().getPath().substring(1); // "static/..."
             Path file = Path.of(path);
             if (!Files.exists(file)) {

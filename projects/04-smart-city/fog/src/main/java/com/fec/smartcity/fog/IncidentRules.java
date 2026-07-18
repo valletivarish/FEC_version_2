@@ -7,8 +7,7 @@ public class IncidentRules {
 
     public record RuleDescription(String field, String op, double limit, String key) {}
 
-    // RULE_CATALOG is purely declarative metadata surfaced via /thresholds; it does not
-    // drive assess() below. The two representations are kept independent on purpose.
+    // Declarative metadata surfaced via /thresholds; assess() below is kept independent on purpose.
     public static final Map<String, List<RuleDescription>> RULE_CATALOG = Map.of(
         "vehicle_count", List.of(new RuleDescription("avg", ">", 180, "congestion_risk")),
         "air_quality_pm25", List.of(new RuleDescription("avg", ">", 35, "air_quality_alert")),

@@ -2,12 +2,7 @@ package com.fec.transit.fog;
 
 import java.util.List;
 
-/**
- * The real transit fleet threshold rules, evaluated on each window's
- * aggregate. gps_speed_kmh deliberately has no rule -- it is still ingested,
- * windowed, and shown on the dashboard as a secondary detail, it just never
- * fires an alert.
- */
+/** The transit fleet threshold rules evaluated on each window aggregate; gps_speed_kmh has no rule so it is windowed and shown but never alerts. */
 public class TransitAlerts {
 
     static final List<Rule> RULES = List.of(

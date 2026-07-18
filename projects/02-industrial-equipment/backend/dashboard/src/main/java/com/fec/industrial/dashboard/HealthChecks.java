@@ -16,12 +16,8 @@ import java.util.Map;
 
 public class HealthChecks {
 
-    // There is no "ping" API for SQS, so reachability is inferred from being
-    // able to resolve the queue URL and fetch a single cheap attribute
-    // (QUEUE_ARN) -- any failure (queue missing, LocalStack down, network
-    // issue) collapses to "not reachable" rather than distinguishing causes,
-    // since the dashboard only needs a boolean for its health panel.
-    public static boolean queueReachable(SqsClient sqs, String queueName) {
+    // No ping API for SQS, so reachability is inferred from resolving the queue URL and fetching one cheap attribute.
+    public static boolean queueAvailable(SqsClient sqs, String queueName) {
         try {
             String queueUrl = sqs.getQueueUrl(b -> b.queueName(queueName)).queueUrl();
             sqs.getQueueAttributes(GetQueueAttributesRequest.builder().queueUrl(queueUrl)
@@ -32,7 +28,7 @@ public class HealthChecks {
         }
     }
 
-    public static boolean lambdaActive(LambdaClient lambda, String functionName) {
+    public static boolean lambdaHealthy(LambdaClient lambda, String functionName) {
         try {
             var resp = lambda.getFunction(GetFunctionRequest.builder().functionName(functionName).build());
             return "Active".equals(resp.configuration().stateAsString());
@@ -41,7 +37,7 @@ public class HealthChecks {
         }
     }
 
-    public static Map<String, Object> queueDepth(SqsClient sqs, String queueName) {
+    public static Map<String, Object> queueBacklog(SqsClient sqs, String queueName) {
         try {
             String queueUrl = sqs.getQueueUrl(b -> b.queueName(queueName)).queueUrl();
             var attrs = sqs.getQueueAttributes(GetQueueAttributesRequest.builder().queueUrl(queueUrl)
@@ -56,15 +52,8 @@ public class HealthChecks {
         }
     }
 
-    // Select.COUNT asks DynamoDB to return only the matched item count, not
-    // the items themselves -- a full-table scan is otherwise wasteful for a
-    // dashboard stat, and at this CA's data volumes a scan is acceptable
-    // (a GSI/count-shadow-item would be the fix at real production scale).
-    // A single scan() call only ever counts one ~1MB page, so a table larger
-    // than that would be silently undercounted; this keeps re-issuing the
-    // scan with exclusiveStartKey(lastEvaluatedKey) until DynamoDB stops
-    // handing back a continuation key, summing every page along the way.
-    public static int scanCount(DynamoDbClient dynamo, String tableName) {
+    // Select.COUNT returns only the matched count; loop over pages via exclusiveStartKey so a multi-page table is fully summed.
+    public static int storedRecordCount(DynamoDbClient dynamo, String tableName) {
         int total = 0;
         Map<String, AttributeValue> lastKey = null;
         do {

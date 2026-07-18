@@ -11,30 +11,30 @@ import java.util.Map;
 
 public class Normalizer {
 
-    private static final String DEFAULT_ZONE = "zone-1";
+    private static final String FALLBACK_ZONE = "zone-1";
     private static final ObjectMapper JSON = new ObjectMapper();
 
     public static Map<String, AttributeValue> normalize(String messageBody) throws Exception {
-        Map<String, Object> fields = JSON.readValue(messageBody, new TypeReference<LinkedHashMap<String, Object>>() {});
+        Map<String, Object> decoded = JSON.readValue(messageBody, new TypeReference<LinkedHashMap<String, Object>>() {});
 
-        Object rawZone = fields.get("site_id");
-        String zoneId = rawZone == null ? DEFAULT_ZONE : String.valueOf(rawZone);
-        String windowEnd = String.valueOf(fields.get("window_end"));
+        Object rawZone = decoded.get("site_id");
+        String zoneId = rawZone == null ? FALLBACK_ZONE : String.valueOf(rawZone);
+        String windowEnd = String.valueOf(decoded.get("window_end"));
 
-        fields.put("site_id", zoneId);
-        fields.put("sort_key", windowEnd + "#" + zoneId);
-        fields.putIfAbsent("unit", "");
-        fields.putIfAbsent("alerts", new ArrayList<>());
+        decoded.put("site_id", zoneId);
+        decoded.put("sort_key", windowEnd + "#" + zoneId);
+        decoded.putIfAbsent("unit", "");
+        decoded.putIfAbsent("alerts", new ArrayList<>());
 
-        Map<String, AttributeValue> item = new LinkedHashMap<>();
-        for (Map.Entry<String, Object> entry : fields.entrySet()) {
-            item.put(entry.getKey(), toAttributeValue(entry.getValue()));
+        Map<String, AttributeValue> attrs = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : decoded.entrySet()) {
+            attrs.put(entry.getKey(), toAttr(entry.getValue()));
         }
-        return item;
+        return attrs;
     }
 
     @SuppressWarnings("unchecked")
-    private static AttributeValue toAttributeValue(Object value) {
+    private static AttributeValue toAttr(Object value) {
         if (value == null) {
             return AttributeValue.fromNul(true);
         }
@@ -50,14 +50,14 @@ public class Normalizer {
         if (value instanceof Map<?, ?> map) {
             Map<String, AttributeValue> nested = new LinkedHashMap<>();
             for (Map.Entry<?, ?> e : map.entrySet()) {
-                nested.put(String.valueOf(e.getKey()), toAttributeValue(e.getValue()));
+                nested.put(String.valueOf(e.getKey()), toAttr(e.getValue()));
             }
             return AttributeValue.fromM(nested);
         }
         if (value instanceof List<?> list) {
             List<AttributeValue> nested = new ArrayList<>();
             for (Object element : list) {
-                nested.add(toAttributeValue(element));
+                nested.add(toAttr(element));
             }
             return AttributeValue.fromL(nested);
         }

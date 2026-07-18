@@ -17,10 +17,7 @@ public record WindowAggregate(String sensorType, String siteId, String unit, Str
             sum += value;
         }
         double avg = Math.round((sum / values.size()) * 1000.0) / 1000.0;
-        // Values are appended in arrival order and never reordered, so the
-        // last element is the most recently sampled reading -- reported
-        // separately from the window's min/max/avg as "latest" (last-in-order,
-        // not max-timestamp).
+        // Values stay in arrival order, so the last element is the most recent reading, reported as "latest" (last-in-order, not max-timestamp).
         double latest = values.get(values.size() - 1);
         return new WindowAggregate(sensorType, siteId, unit, windowStart, windowEnd, values.size(), min, max, avg, latest);
     }

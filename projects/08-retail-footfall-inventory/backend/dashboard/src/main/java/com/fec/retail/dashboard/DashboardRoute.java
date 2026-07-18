@@ -9,15 +9,7 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
 
-/**
- * Every dashboard endpoint listed once as an enum constant, carrying its
- * path and a factory that binds the real handler off a live
- * StoreDashboardApp instance -- the same enum-Route dispatch shape as the
- * fog module's Route enum, adapted so each constant's handler closes over
- * "app" once wireAll() runs rather than needing static shim methods.
- * wireAll() iterates values() once at startup and attaches each context
- * directly, wrapping every handler in a shared try/catch error boundary.
- */
+/** Each dashboard endpoint as an enum constant binding its handler off a live app; wireAll() attaches them behind a shared error boundary. */
 enum DashboardRoute {
 
     STORES("/api/stores", StoreDashboardApp::handleStores),

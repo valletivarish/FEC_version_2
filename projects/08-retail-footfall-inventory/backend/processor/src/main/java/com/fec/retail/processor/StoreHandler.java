@@ -15,14 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Lambda entry point, registered with a real SQS event-source-mapping.
- * Batch handling attempts every record and only throws once at the end
- * (same attempt-all-then-report-once semantics as the other Java modules in
- * this CA, but folded via Stream.reduce over an immutable Tally record --
- * see Tally.java for how this differs from 02's throw-on-first-failure loop,
- * 04's Collectors.partitioningBy, and 07's mutable BatchTally for-loop).
- */
+/** SQS-triggered Lambda entry point; attempts every record and folds the batch outcome into one Tally, throwing only at the end. */
 public class StoreHandler implements RequestHandler<SQSEvent, Map<String, Object>> {
 
     static final String TABLE_NAME = System.getenv().getOrDefault("TABLE_NAME", "rfi-readings");
@@ -33,11 +26,7 @@ public class StoreHandler implements RequestHandler<SQSEvent, Map<String, Object
             String endpoint = System.getenv("AWS_ENDPOINT_URL");
             String region = System.getenv().getOrDefault("AWS_REGION", "eu-west-1");
             var builder = DynamoDbClient.builder().region(Region.of(region));
-            // The static test/test pair only authenticates against
-            // LocalStack; a real Lambda always has its own execution-role
-            // credentials injected, so both this and the endpoint override
-            // stay gated on the LocalStack-only endpoint variable rather
-            // than applied unconditionally.
+            // Static test/test creds only apply to LocalStack; a real Lambda keeps its own execution-role creds.
             if (endpoint != null) {
                 builder.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
                 builder.endpointOverride(URI.create(endpoint));
@@ -47,7 +36,7 @@ public class StoreHandler implements RequestHandler<SQSEvent, Map<String, Object
         return client;
     }
 
-    private static Tally attemptWrite(SQSEvent.SQSMessage record, DynamoDbClient dynamo, String tableName) {
+    private static Tally storeRecord(SQSEvent.SQSMessage record, DynamoDbClient dynamo, String tableName) {
         try {
             Map<String, AttributeValue> item = RecordMapper.toItem(record.getBody());
             dynamo.putItem(PutItemRequest.builder().tableName(tableName).item(item).build());
@@ -59,7 +48,7 @@ public class StoreHandler implements RequestHandler<SQSEvent, Map<String, Object
 
     static Tally processRecords(List<SQSEvent.SQSMessage> records, DynamoDbClient dynamo, String tableName) {
         return records.stream()
-            .map(record -> attemptWrite(record, dynamo, tableName))
+            .map(record -> storeRecord(record, dynamo, tableName))
             .reduce(Tally.EMPTY, Tally::combine);
     }
 

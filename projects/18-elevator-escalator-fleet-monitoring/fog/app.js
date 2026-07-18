@@ -2,9 +2,9 @@
 
 const http = require("node:http");
 const { createRouter } = require("./router");
-const { createBuffer, addReading, takeSnapshot } = require("./windowBuffer");
-const { startWindowLoop } = require("./scheduler");
-const { summarizeWindow } = require("./aggregation");
+const { openRunLedger, logReading, drainRunLedger } = require("./windowBuffer");
+const { startDispatchCycle } = require("./scheduler");
+const { rollUpRunWindow } = require("./aggregation");
 const { engine, THRESHOLD_TABLE } = require("./alertEngine");
 const publisher = require("./publisher");
 
@@ -69,10 +69,7 @@ function sendJson(res, status, body) {
   res.end(text);
 }
 
-// Middleware #1 of the POST /ingest chain: parses+validates only, and only
-// calls next() when the payload is well-formed. A validation failure sends
-// the 400 itself and returns without calling next(), which short-circuits
-// router.js's handler chain before handleIngest below ever runs.
+// Validation stage of POST /ingest: only calls next() when the payload is well-formed, else sends its own 400.
 function makeValidateIngestMiddleware() {
   return async function validateIngestMiddleware(req, res, ctx, next) {
     let body;
@@ -90,34 +87,27 @@ function makeValidateIngestMiddleware() {
   };
 }
 
-// Middleware #2 of the POST /ingest chain: the actual handler, trusting
-// ctx.body because middleware #1 already validated it. Also records the
-// reading batch's unit against its sensor_type -- the buffer itself only
-// ever stores {ts, value} pairs (see windowBuffer.js), so unit has to be
-// captured somewhere on the ingest path to be available again at flush time.
-function makeIngestHandler(buffer, unitTracker) {
+// Handler stage of POST /ingest: trusts the validated body and records each batch's unit against its sensor_type.
+function makeIngestHandler(runLedger, unitRegistry) {
   return async function handleIngest(req, res, ctx) {
     const body = ctx.body;
-    unitTracker.record(body.sensor_type, body.unit);
+    unitRegistry.record(body.sensor_type, body.unit);
     for (const reading of body.readings) {
-      addReading(buffer, body.sensor_type, body.site_id, { ts: reading.ts, value: reading.value });
+      logReading(runLedger, body.sensor_type, body.site_id, { ts: reading.ts, value: reading.value });
     }
     return sendJson(res, 202, { accepted: body.readings.length });
   };
 }
 
-function buildRouter(buffer, unitTracker) {
+function buildRouter(runLedger, unitRegistry) {
   const router = createRouter();
   router.use("GET", "/health", async (req, res) => sendJson(res, 200, { status: "ok" }));
   router.use("GET", "/thresholds", async (req, res) => sendJson(res, 200, THRESHOLD_TABLE));
-  router.use("POST", "/ingest", makeValidateIngestMiddleware(), makeIngestHandler(buffer, unitTracker));
+  router.use("POST", "/ingest", makeValidateIngestMiddleware(), makeIngestHandler(runLedger, unitRegistry));
   return router;
 }
 
-// Every request passes through this outer try/catch: a validation problem
-// is already turned into a 400 inside the middleware chain, so anything
-// reaching this boundary is a genuine unexpected failure and is reported as
-// a 500.
+// Outer boundary: validation problems are already 400s, so anything reaching here is an unexpected 500.
 function buildHandler(router) {
   return async function handler(req, res) {
     try {
@@ -130,10 +120,8 @@ function buildHandler(router) {
   };
 }
 
-// Units are unknown at buffer-creation time (readings only carry a unit on
-// the wire, not the buffer key), so we track sensor_type -> unit alongside
-// the buffer itself, updated whenever a reading batch supplies one.
-function makeUnitTracker() {
+// Tracks sensor_type -> unit, since readings carry a unit on the wire but the ledger key does not.
+function makeUnitRegistry() {
   const units = new Map();
   return {
     record(sensorType, unit) {
@@ -145,27 +133,27 @@ function makeUnitTracker() {
   };
 }
 
-function sealGroup(group, unit, windowStart, windowEnd) {
-  const summary = summarizeWindow(group.sensorType, group.siteId, unit, group.readings, windowStart, windowEnd);
+function sealCarWindow(group, unit, windowStart, windowEnd) {
+  const summary = rollUpRunWindow(group.sensorType, group.siteId, unit, group.readings, windowStart, windowEnd);
   summary.alerts = engine.evaluate(group.sensorType, summary);
   return summary;
 }
 
-async function flushOnce(buffer, unitTracker) {
+async function flushRunWindow(runLedger, unitRegistry) {
   const windowEnd = new Date().toISOString();
   const windowStart = new Date(Date.now() - WINDOW_SECONDS * 1000).toISOString();
-  const groups = takeSnapshot(buffer);
-  const messages = groups.map((group) => sealGroup(group, unitTracker.get(group.sensorType), windowStart, windowEnd));
+  const groups = drainRunLedger(runLedger);
+  const messages = groups.map((group) => sealCarWindow(group, unitRegistry.get(group.sensorType), windowStart, windowEnd));
   await publisher.publishBatch(messages);
   return messages;
 }
 
-function createApp(buffer = createBuffer()) {
-  const unitTracker = makeUnitTracker();
-  const router = buildRouter(buffer, unitTracker);
+function createApp(runLedger = openRunLedger()) {
+  const unitRegistry = makeUnitRegistry();
+  const router = buildRouter(runLedger, unitRegistry);
   const server = http.createServer(buildHandler(router));
-  server.buffer = buffer;
-  server.unitTracker = unitTracker;
+  server.runLedger = runLedger;
+  server.unitRegistry = unitRegistry;
   return server;
 }
 
@@ -173,8 +161,8 @@ function start() {
   const app = createApp();
   publisher.configure(ENDPOINT, REGION, QUEUE_NAME);
 
-  startWindowLoop(WINDOW_SECONDS, () =>
-    flushOnce(app.buffer, app.unitTracker).catch((err) => console.log(`flush error: ${err.message}`))
+  startDispatchCycle(WINDOW_SECONDS, () =>
+    flushRunWindow(app.runLedger, app.unitRegistry).catch((err) => console.log(`flush error: ${err.message}`))
   );
 
   app.listen(8000, () => console.log("fog listening on :8000"));
@@ -184,4 +172,4 @@ if (require.main === module) {
   start();
 }
 
-module.exports = { createApp, validateIngestBody, flushOnce, sealGroup, buildRouter, makeUnitTracker };
+module.exports = { createApp, validateIngestBody, flushRunWindow, sealCarWindow, buildRouter, makeUnitRegistry };

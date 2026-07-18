@@ -14,7 +14,7 @@ class QueueRelayTest {
         FakeSqsClient client = new FakeSqsClient();
         QueueRelay relay = new QueueRelay(client, "http://queue-url");
 
-        relay.emit("{\"sensor_type\":\"vibration\"}");
+        relay.relaySingle("{\"sensor_type\":\"vibration\"}");
 
         assertEquals(List.of("{\"sensor_type\":\"vibration\"}"), client.singleSends);
         assertTrue(client.batchSizes.isEmpty());
@@ -27,7 +27,7 @@ class QueueRelayTest {
         List<String> payloads = new ArrayList<>();
         for (int i = 0; i < 23; i++) payloads.add("{\"i\":" + i + "}");
 
-        relay.emitBatch(payloads);
+        relay.relayWindow(payloads);
 
         assertEquals(List.of(10, 10, 3), client.batchSizes);
         assertTrue(client.singleSends.isEmpty(), "batching must not fall back to per-message sendMessage calls");
@@ -38,7 +38,7 @@ class QueueRelayTest {
         FakeSqsClient client = new FakeSqsClient();
         QueueRelay relay = new QueueRelay(client, "http://queue-url");
 
-        relay.emitBatch(List.of());
+        relay.relayWindow(List.of());
 
         assertTrue(client.batchSizes.isEmpty());
     }
@@ -50,7 +50,7 @@ class QueueRelayTest {
         List<String> payloads = new ArrayList<>();
         for (int i = 0; i < 10; i++) payloads.add("{\"i\":" + i + "}");
 
-        relay.emitBatch(payloads);
+        relay.relayWindow(payloads);
 
         assertEquals(List.of(10), client.batchSizes);
     }

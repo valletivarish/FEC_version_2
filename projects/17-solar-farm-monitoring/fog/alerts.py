@@ -1,13 +1,10 @@
-"""Class-based Strategy pattern with polymorphic evaluate() dispatch through an abc.ABC base -- the 4th distinct alert-rule idiom in this portfolio's Python projects."""
+"""Fault rules as a Strategy pattern: one concrete rule per exception condition, dispatched through a polymorphic evaluate()."""
 
 from abc import ABC, abstractmethod
 
 
-class ThresholdRule(ABC):
-    """Strategy interface: one concrete rule per exception condition. Every
-    subclass owns the sensor_type it applies to and the alert key it fires,
-    and decides for itself (in evaluate()) whether a given window summary
-    trips it."""
+class FaultRule(ABC):
+    """Strategy interface: each rule owns the sensor_type it applies to and the alert key it fires."""
 
     def __init__(self, sensor_type, key):
         self.sensor_type = sensor_type
@@ -15,11 +12,10 @@ class ThresholdRule(ABC):
 
     @abstractmethod
     def evaluate(self, summary):
-        """Return self.key if summary trips this rule, else None. summary
-        is only inspected if it belongs to this rule's sensor_type."""
+        """Return self.key if summary trips this rule, else None."""
 
 
-class AboveLimitRule(ThresholdRule):
+class CeilingFaultRule(FaultRule):
     def __init__(self, sensor_type, field, limit, key):
         super().__init__(sensor_type, key)
         self.field = field
@@ -33,7 +29,7 @@ class AboveLimitRule(ThresholdRule):
         return None
 
 
-class BelowLimitRule(ThresholdRule):
+class FloorFaultRule(FaultRule):
     def __init__(self, sensor_type, field, limit, key):
         super().__init__(sensor_type, key)
         self.field = field
@@ -47,38 +43,31 @@ class BelowLimitRule(ThresholdRule):
         return None
 
 
-# One rule instance per exception condition. irradiance_wm2 intentionally
-# carries no rule -- it is an environmental input reading only.
-RULES = [
-    AboveLimitRule("panel_temp_c", "avg", 65, "thermal_derate_risk"),
-    BelowLimitRule("inverter_output_kw", "avg", 50, "inverter_underperformance"),
-    BelowLimitRule("dc_voltage_v", "min", 350, "undervoltage_fault"),
-    AboveLimitRule("soiling_index_pct", "avg", 25, "cleaning_required"),
+# One rule per exception condition; irradiance_wm2 carries no rule as it is an environmental input only.
+FAULT_RULES = [
+    CeilingFaultRule("panel_temp_c", "avg", 65, "thermal_derate_risk"),
+    FloorFaultRule("inverter_output_kw", "avg", 50, "inverter_underperformance"),
+    FloorFaultRule("dc_voltage_v", "min", 350, "undervoltage_fault"),
+    CeilingFaultRule("soiling_index_pct", "avg", 25, "cleaning_required"),
 ]
 
 
 def evaluate(sensor_type, summary):
-    """The alert keys that fire for this sensor_type's window summary.
-    Calls .evaluate() on every rule in the flat RULES list -- each rule
-    strategy decides for itself whether it applies and whether it fires,
-    rather than the caller pre-filtering by sensor_type."""
-    fired = []
-    for rule in RULES:
+    """The alert keys that fire for this sensor_type's window summary; each rule decides for itself whether it applies."""
+    tripped = []
+    for rule in FAULT_RULES:
         key = rule.evaluate(summary)
         if key is not None:
-            fired.append(key)
-    return fired
+            tripped.append(key)
+    return tripped
 
 
 def thresholds_payload():
-    """Group RULES by sensor_type for the purely-descriptive /thresholds
-    endpoint. Built fresh from RULES (via each rule's own attributes) on
-    every call, so the endpoint can never drift from what evaluate()
-    actually enforces."""
-    grouped = {}
-    for rule in RULES:
-        op = ">" if isinstance(rule, AboveLimitRule) else "<"
-        grouped.setdefault(rule.sensor_type, []).append(
-            {"field": rule.field, "op": op, "limit": rule.limit, "key": rule.key}
+    """Group FAULT_RULES by sensor_type for the descriptive /thresholds endpoint, rebuilt fresh on every call."""
+    by_sensor = {}
+    for rule in FAULT_RULES:
+        operator_symbol = ">" if isinstance(rule, CeilingFaultRule) else "<"
+        by_sensor.setdefault(rule.sensor_type, []).append(
+            {"field": rule.field, "op": operator_symbol, "limit": rule.limit, "key": rule.key}
         )
-    return grouped
+    return by_sensor

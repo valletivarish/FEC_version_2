@@ -5,12 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Parses and validates an /ingest request body. Rejects malformed or
- * missing-field payloads with a descriptive reason instead of throwing an
- * unchecked NPE deep in field access -- the caller turns a non-null
- * rejection reason into a 400 response.
- */
+/** Parses and validates an /ingest request body, rejecting malformed payloads with a descriptive reason the caller turns into a 400. */
 record IngestPayload(String sensorType, String siteId, String unit, List<Double> values) {
 
     static final class ValidationException extends RuntimeException {

@@ -1,9 +1,6 @@
 const SENSORS = ["vibration", "motor_temperature", "bearing_acoustic", "rotation_speed", "power_draw"];
 
-// Axis bounds only (the range each reading's <meter> is drawn against) —
-// purely cosmetic scaling, not a decision threshold. Real alert thresholds
-// come from /api/thresholds, fetched live from the fog node's own
-// Alerts.java, not duplicated here.
+// Cosmetic <meter> axis bounds only; real alarm thresholds come live from /api/thresholds.
 const AXIS_RANGE = {
   vibration: { lo: 0.2, hi: 9.0 },
   motor_temperature: { lo: 30, hi: 110 },
@@ -40,14 +37,11 @@ function secondsAgo(iso) {
 function readingMeter(sensor, value, alertsFired) {
   const { lo, hi } = AXIS_RANGE[sensor];
   const danger = alertsFired.length > 0;
-  // <meter> is a real native form control for "a scalar value within a known
-  // range" -- exactly what a sensor reading against its configured axis is --
-  // so the range is rendered by the browser itself, not a hand-drawn graphic.
+  // Native <meter> renders the reading against its configured axis instead of a hand-drawn graphic.
   return `<meter class="reading-meter${danger ? " danger" : ""}" min="${lo}" max="${hi}" value="${value}"></meter>`;
 }
 
-// Plain text, not a drawn arc: the real alarm rule(s) for this sensor,
-// straight from /api/thresholds (the fog gateway's own configured limits).
+// The sensor's real alarm rule(s) as plain text, straight from /api/thresholds.
 function limitNote(sensor) {
   const rules = THRESHOLDS[sensor];
   if (!rules || !rules.length) return "";
@@ -173,11 +167,12 @@ async function tick() {
     await Promise.all(SENSORS.map(refreshTrend));
 
     const box = document.getElementById("system-status");
+    const waiting = backend.queue ? backend.queue.waiting : "?";
     box.innerHTML =
-      `<span>Fog gateway: <b>${health.fog ? "ok" : "down"}</b></span>` +
-      `<span>Queue: <b>${health.queue ? "ok" : "down"}</b> (${backend.queue ? backend.queue.waiting : "?"} waiting)</span>` +
-      `<span>Lambda: <b>${health.lambda ? "deployed" : "not found"}</b></span>` +
-      `<span>Data flow: <b>${health.pipeline ? "live" : "stalled"}</b></span>`;
+      `<div class="status-seg ${health.fog ? "up" : "down"}"><span class="seg-label">Gateway</span></div>` +
+      `<div class="status-seg ${health.queue ? "up" : "down"}"><span class="seg-label">Queue</span><span class="seg-note">${waiting} waiting</span></div>` +
+      `<div class="status-seg ${health.lambda ? "up" : "down"}"><span class="seg-label">Lambda</span></div>` +
+      `<div class="status-seg ${health.pipeline ? "up" : "down"}"><span class="seg-label">Pipeline</span></div>`;
   } catch (e) {
     // backend not ready yet; next tick retries
   }

@@ -1,6 +1,6 @@
 "use strict";
 
-// Hand-rolled middleware-chain router: routes hold multiple handlers composed in sequence via a next() continuation, Express-style -- distinct from the regex-table single-handler idiom used in 03/06/10/11's routers and backend/dashboard/router.js.
+// Middleware-chain router: routes hold multiple handlers composed via a next() continuation, Express-style.
 function createRouter() {
   const routes = [];
 
@@ -13,8 +13,7 @@ function createRouter() {
     return path.split("/").filter((segment) => segment.length > 0);
   }
 
-  // Segment-by-segment match against a route's precompiled path, capturing
-  // ":name" segments into a plain params object. No dependency on RegExp.
+  // Segment-by-segment match, capturing ":name" segments into a params object.
   function matchSegments(routeSegments, pathname) {
     const pathSegments = splitPath(pathname);
     if (routeSegments.length !== pathSegments.length) return null;
@@ -40,19 +39,12 @@ function createRouter() {
     return null;
   }
 
-  // Walks the matched route's handler chain in sequence. Each handler
-  // receives (req, res, ctx, next); calling next() advances to the next
-  // handler, and a handler that never calls next() (e.g. a validation
-  // middleware that already sent a 400) short-circuits the rest of the
-  // chain -- the same composition contract Express middleware uses.
+  // Walks the matched route's handler chain; a handler that skips next() short-circuits the rest.
   async function dispatch(method, pathname, req, res, ctx = {}) {
     const found = find(method, pathname);
     if (!found) return false;
 
-    // One shared ctx object for the whole chain -- built once, not
-    // recreated per handler -- so a field an earlier handler writes onto it
-    // (e.g. a validation middleware attaching the parsed body) is still
-    // visible to the handlers that run after it via next().
+    // One shared ctx object for the whole chain, so fields written by earlier handlers stay visible.
     const chainCtx = { ...ctx, params: found.params };
     let index = 0;
     async function next() {

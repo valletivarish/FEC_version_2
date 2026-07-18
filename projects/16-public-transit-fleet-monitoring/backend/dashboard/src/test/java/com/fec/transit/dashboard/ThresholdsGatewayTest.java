@@ -25,7 +25,7 @@ class ThresholdsGatewayTest {
         upstream.start();
         try {
             int port = upstream.getAddress().getPort();
-            String result = new ThresholdsGateway().fetch(HttpClient.newHttpClient(), "http://localhost:" + port + "/thresholds");
+            String result = new ThresholdsGateway().fetchThresholds(HttpClient.newHttpClient(), "http://localhost:" + port + "/thresholds");
             assertTrue(result.contains("engine_overheat_risk"));
         } finally {
             upstream.stop(0);
@@ -35,6 +35,6 @@ class ThresholdsGatewayTest {
     @Test
     void fetchThrowsWhenTheUpstreamIsUnreachable() {
         assertThrows(Exception.class, () ->
-            new ThresholdsGateway().fetch(HttpClient.newHttpClient(), "http://127.0.0.1:1/thresholds"));
+            new ThresholdsGateway().fetchThresholds(HttpClient.newHttpClient(), "http://127.0.0.1:1/thresholds"));
     }
 }

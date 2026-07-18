@@ -18,7 +18,7 @@ class SensorType(Enum):
     SOILING_INDEX_PCT = "soiling_index_pct"
 
 
-class SightingState(Enum):
+class LandingState(Enum):
     PENDING = auto()
     CONFIRMED = auto()
 
@@ -41,25 +41,25 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
-def poll_until_seen(client, table_name, deadline, poll_interval):
-    """Repeatedly re-check every sensor type; returns {SensorType: SightingState} once done or timed out."""
-    states = {sensor_type: SightingState.PENDING for sensor_type in SensorType}
+def poll_until_landed(client, table_name, deadline, poll_interval):
+    """Repeatedly re-check every sensor type; returns {sensor_type: has_landed} once all confirmed or timed out."""
+    states = {sensor_type: LandingState.PENDING for sensor_type in SensorType}
 
     while True:
         for sensor_type, state in states.items():
-            if state is SightingState.CONFIRMED:
+            if state is LandingState.CONFIRMED:
                 continue
             if has_records(client, table_name, sensor_type.value):
-                states[sensor_type] = SightingState.CONFIRMED
+                states[sensor_type] = LandingState.CONFIRMED
                 print(f"  ok: {sensor_type.value}")
 
-        all_confirmed = all(state is SightingState.CONFIRMED for state in states.values())
+        all_confirmed = all(state is LandingState.CONFIRMED for state in states.values())
         timed_out = time.monotonic() >= deadline
         if all_confirmed or timed_out:
             break
         time.sleep(poll_interval)
 
-    return {sensor_type.value: (state is SightingState.CONFIRMED) for sensor_type, state in states.items()}
+    return {sensor_type.value: (state is LandingState.CONFIRMED) for sensor_type, state in states.items()}
 
 
 def main(argv=None):
@@ -67,7 +67,7 @@ def main(argv=None):
     deadline = time.monotonic() + args.timeout
     client = boto3.client("dynamodb", endpoint_url=ENDPOINT, region_name=REGION)
 
-    found = poll_until_seen(client, args.table, deadline, args.poll_interval)
+    found = poll_until_landed(client, args.table, deadline, args.poll_interval)
 
     missing = sorted(rt for rt, ok in found.items() if not ok)
     if missing:

@@ -18,7 +18,7 @@ class SensorType(Enum):
     WATER_USAGE_LPM = "water_usage_lpm"
 
 
-class SightingState(Enum):
+class LandingState(Enum):
     PENDING = auto()
     CONFIRMED = auto()
 
@@ -42,24 +42,24 @@ def parse_args(argv=None):
 
 
 def poll_until_seen(client, table_name, deadline, poll_interval):
-    """Repeatedly re-check every sensor type; returns {SensorType: SightingState} once done or timed out."""
-    states = {sensor_type: SightingState.PENDING for sensor_type in SensorType}
+    """Repeatedly re-check every sensor type; returns {SensorType: LandingState} once done or timed out."""
+    states = {sensor_type: LandingState.PENDING for sensor_type in SensorType}
 
     while True:
         for sensor_type, state in states.items():
-            if state is SightingState.CONFIRMED:
+            if state is LandingState.CONFIRMED:
                 continue
             if has_records(client, table_name, sensor_type.value):
-                states[sensor_type] = SightingState.CONFIRMED
+                states[sensor_type] = LandingState.CONFIRMED
                 print(f"  ok: {sensor_type.value}")
 
-        all_confirmed = all(state is SightingState.CONFIRMED for state in states.values())
+        all_confirmed = all(state is LandingState.CONFIRMED for state in states.values())
         timed_out = time.monotonic() >= deadline
         if all_confirmed or timed_out:
             break
         time.sleep(poll_interval)
 
-    return {sensor_type.value: (state is SightingState.CONFIRMED) for sensor_type, state in states.items()}
+    return {sensor_type.value: (state is LandingState.CONFIRMED) for sensor_type, state in states.items()}
 
 
 def main(argv=None):

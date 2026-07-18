@@ -1,10 +1,4 @@
-"""Real HTTP-level tests against a genuine wsgiref.simple_server instance
-bound to an ephemeral port (port 0), driven with http.client -- fog/app.py
-is a hand-written WSGI callable (def app(environ, start_response)), not a
-framework app, so there is no in-memory TestClient to dispatch through.
-Same discipline as the portfolio's plain-stdlib-HTTP siblings, applied here
-on top of wsgiref.simple_server instead of http.server/FastAPI/Flask.
-"""
+"""Real HTTP-level tests against a wsgiref.simple_server on an ephemeral port, driven with http.client since fog/app.py is a hand-written WSGI callable."""
 
 import http.client
 import json
@@ -17,18 +11,14 @@ import pytest
 from conftest import load_module
 
 fog_app = load_module("fog_app", "fog/app.py")
-# fog_app.py does `from buffering import add_readings, snapshot_and_clear`,
-# which as a side effect leaves the real "buffering" module (the exact
-# instance fog_app's imported functions are bound to) registered in
-# sys.modules -- grab that same instance rather than re-importing a second,
-# disconnected copy via load_module.
+# grab the same buffering instance fog_app's imports are bound to, left in sys.modules by that import
 buffering = sys.modules["buffering"]
 
 
 @pytest.fixture
 def running_server():
-    buffering._buffers.clear()
-    buffering._units.clear()
+    buffering._bay_buffers.clear()
+    buffering._unit_by_metric.clear()
 
     httpd = make_server(
         "127.0.0.1", 0, fog_app.app, fog_app.ThreadingWSGIServer, handler_class=fog_app.QuietWSGIRequestHandler,

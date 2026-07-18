@@ -16,7 +16,7 @@ MAX_BACKOFF_SECONDS = 10.0
 BACKOFF_BUDGET_SECONDS = 180.0
 
 
-class Retrier:
+class BackoffRetrier:
     """Polls a callable with exponential backoff until it succeeds or a budget expires."""
 
     def __init__(self, budget_seconds=BACKOFF_BUDGET_SECONDS,
@@ -26,9 +26,7 @@ class Retrier:
         self.max_delay = max_delay
 
     def run(self, fn, failure_message):
-        # Retries fn() until it returns without raising, or the budget runs
-        # out (LocalStack's SQS/Lambda services can take a few seconds to
-        # finish starting up after the container is "up").
+        # Retry fn() until it stops raising or the budget runs out.
         deadline = time.monotonic() + self.budget_seconds
         delay = self.initial_delay
         last_exc = None
@@ -42,9 +40,7 @@ class Retrier:
         raise RuntimeError(f"{failure_message}: {last_exc}")
 
     def poll_until(self, predicate, failure_message):
-        # Same backoff loop as run(), but for waiting on a boolean condition
-        # (e.g. the Lambda function reaching "Active" state) rather than a
-        # call that raises until it succeeds.
+        # Same backoff loop as run(), but waiting on a boolean condition instead.
         deadline = time.monotonic() + self.budget_seconds
         delay = self.initial_delay
         while time.monotonic() < deadline:
@@ -55,7 +51,7 @@ class Retrier:
         raise RuntimeError(failure_message)
 
 
-class LambdaDeployer:
+class ProcessorDeployer:
     """Packages, publishes and wires the manifest-aggregation lambda to its queue."""
 
     def __init__(self, sqs_client, lambda_client, function_name, table_name,
@@ -67,14 +63,10 @@ class LambdaDeployer:
         self.queue_name = queue_name
         self.endpoint = endpoint
         self.region = region
-        self.retrier = Retrier()
+        self.retrier = BackoffRetrier()
 
     def deploy(self):
-        # Ordered steps: the queue must exist before its ARN can be wired to
-        # the function, and the function must be Active before an event
-        # source mapping can reference it. self._ctx passes the resolved
-        # queue ARN from step 1 to step 4 without exposing it as an
-        # instance attribute that would outlive a single deploy() call.
+        # Ordered steps; self._ctx carries the resolved queue ARN from step 1 to step 4.
         self._ctx = {}
         pipeline = (
             self._step_resolve_queue_arn,
@@ -117,10 +109,7 @@ class LambdaDeployer:
         return attrs["QueueArn"]
 
     def _publish_function(self):
-        # create_function on first deploy; if the function already exists
-        # (ResourceConflictException, e.g. after `docker compose up` reruns
-        # against a LocalStack volume that kept state), fall back to
-        # updating its code so redeploys are idempotent.
+        # create_function on first deploy; fall back to update_function_code if it already exists.
         code = self._package("handler.py", "reshape.py")
         try:
             self.lam.create_function(
@@ -162,7 +151,7 @@ def main():
     sqs = boto3.client("sqs", endpoint_url=ENDPOINT, region_name=REGION)
     lam = boto3.client("lambda", endpoint_url=ENDPOINT, region_name=REGION)
 
-    deployer = LambdaDeployer(
+    deployer = ProcessorDeployer(
         sqs_client=sqs,
         lambda_client=lam,
         function_name=FUNCTION_NAME,

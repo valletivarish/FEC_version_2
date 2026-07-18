@@ -47,24 +47,10 @@ body {
 .topbar h1 { margin: 0; font-size: 19px; font-weight: 700; }
 .brand-sub { margin: 2px 0 0; font-size: 12px; color: var(--ink-dim); }
 
-.health-strip { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; }
-.health-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: var(--ok-soft);
-  color: var(--ok);
-  font-weight: 600;
-}
-.health-pill.down { background: var(--danger-soft); color: var(--danger); }
-.health-pill .swatch {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: currentColor;
-}
+.health-strip { font-size: 12px; color: var(--ink); font-weight: 500; }
+.health-stat { white-space: nowrap; }
+.health-stat.down { color: var(--danger); font-weight: 700; }
+.health-sep { color: var(--ink-dim); }
 
 .alert-banner {
   padding: 10px 24px;

@@ -1,6 +1,6 @@
 import pytest
 
-from alerts import THRESHOLD_DESCRIPTIONS, flag_container
+from alerts import EXCURSION_RULES, flag_container
 
 METRIC_KEYS = {
     "storage_temperature", "humidity", "door_open_seconds", "shock_vibration", "co2_level",
@@ -27,7 +27,7 @@ class TestAlertEvaluation:
 class TestThresholdDescriptions:
     def test_cold_chain_rule_metadata_matches_breach_definition(self):
         rule = {"field": "avg", "op": ">", "limit": -15, "key": "cold_chain_breach"}
-        assert rule in THRESHOLD_DESCRIPTIONS["storage_temperature"]
+        assert rule in EXCURSION_RULES["storage_temperature"]
 
     def test_registers_rules_for_every_tracked_metric(self):
-        assert set(THRESHOLD_DESCRIPTIONS.keys()) == METRIC_KEYS
+        assert set(EXCURSION_RULES.keys()) == METRIC_KEYS

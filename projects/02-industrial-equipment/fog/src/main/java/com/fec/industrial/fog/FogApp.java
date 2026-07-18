@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 
 public class FogApp {
 
-    record PendingKey(String sensorType, String siteId) {}
+    record MachineChannel(String sensorType, String siteId) {}
 
     static final ObjectMapper JSON = new ObjectMapper();
     static final double WINDOW_SECONDS = Double.parseDouble(System.getenv().getOrDefault("WINDOW_SECONDS", "10"));
@@ -30,45 +30,36 @@ public class FogApp {
     static final String ENDPOINT = System.getenv("AWS_ENDPOINT_URL");
     static final String REGION = System.getenv().getOrDefault("AWS_REGION", "eu-west-1");
 
-    final Object lock = new Object();
-    final Map<PendingKey, List<Reading>> pending = new HashMap<>();
-    final Map<String, String> units = new HashMap<>();
+    final Object bufferLock = new Object();
+    final Map<MachineChannel, List<Reading>> windowBuffer = new HashMap<>();
+    final Map<String, String> unitByType = new HashMap<>();
     QueueRelay relay;
 
-    // Readings arrive on the HTTP handler's thread pool while the scheduler
-    // thread flushes on its own timer, so pending/units are shared mutable
-    // state guarded by a single lock; keeping ingest() and the snapshot copy
-    // in flushWindow() both short and synchronized avoids holding the lock
-    // while doing aggregation/network work.
-    void ingest(String sensorType, String siteId, String unit, List<Reading> readings) {
-        synchronized (lock) {
-            pending.computeIfAbsent(new PendingKey(sensorType, siteId), k -> new ArrayList<>()).addAll(readings);
-            if (unit != null && !unit.isEmpty()) units.put(sensorType, unit);
+    // Readings arrive on the HTTP pool while the scheduler flushes on its timer, so the shared buffer is guarded by one lock.
+    void bufferReadings(String sensorType, String siteId, String unit, List<Reading> readings) {
+        synchronized (bufferLock) {
+            windowBuffer.computeIfAbsent(new MachineChannel(sensorType, siteId), k -> new ArrayList<>()).addAll(readings);
+            if (unit != null && !unit.isEmpty()) unitByType.put(sensorType, unit);
         }
     }
 
-    List<Aggregation.Summary> flushWindow() {
-        // windowStart/windowEnd are wall-clock bounds, not the timestamps of the
-        // buffered readings themselves -- readings are grouped by which flush
-        // cycle they arrived in, not re-bucketed by their own ts, so the window
-        // label is an approximation of "since the last flush" rather than an
-        // exact per-reading interval.
+    List<Aggregation.Summary> closeWindow() {
+        // Wall-clock bounds labelling "since the last flush", not per-reading timestamps.
         String windowEnd = Instant.now().toString();
         String windowStart = Instant.now().minusSeconds((long) WINDOW_SECONDS).toString();
-        Map<PendingKey, List<Reading>> snapshot;
+        Map<MachineChannel, List<Reading>> snapshot;
         Map<String, String> unitsSnapshot;
-        synchronized (lock) {
-            // Swap in a fresh map and hand the old one off for processing
-            // outside the lock, so ingest() is never blocked by aggregation.
-            snapshot = new HashMap<>(pending);
-            pending.clear();
-            unitsSnapshot = new HashMap<>(units);
+        synchronized (bufferLock) {
+            // Swap in a fresh buffer and process the old one outside the lock so ingest is never blocked.
+            snapshot = new HashMap<>(windowBuffer);
+            windowBuffer.clear();
+            unitsSnapshot = new HashMap<>(unitByType);
         }
         List<Aggregation.Summary> summaries = new ArrayList<>();
-        for (Map.Entry<PendingKey, List<Reading>> entry : snapshot.entrySet()) {
+        for (Map.Entry<MachineChannel, List<Reading>> entry : snapshot.entrySet()) {
             if (entry.getValue().isEmpty()) continue;
-            PendingKey key = entry.getKey();
-            Aggregation.Summary summary = Aggregation.rollUp(
+            MachineChannel key = entry.getKey();
+            Aggregation.Summary summary = Aggregation.condenseWindow(
                 key.sensorType(), key.siteId(), unitsSnapshot.getOrDefault(key.sensorType(), ""),
                 entry.getValue(), windowStart, windowEnd
             );
@@ -77,7 +68,7 @@ public class FogApp {
         return summaries;
     }
 
-    String summaryToJson(Aggregation.Summary summary, List<String> firedAlerts) {
+    String encodeSummary(Aggregation.Summary summary, List<String> firedAlerts) {
         ObjectNode node = JSON.createObjectNode();
         node.put("sensor_type", summary.sensorType());
         node.put("site_id", summary.siteId());
@@ -94,24 +85,24 @@ public class FogApp {
         return node.toString();
     }
 
-    void runWindowCycle() {
+    void runFlushCycle() {
         try {
             List<String> payloads = new ArrayList<>();
-            for (Aggregation.Summary summary : flushWindow()) {
-                List<String> fired = Alerts.evaluate(summary.sensorType(), summary);
-                payloads.add(summaryToJson(summary, fired));
+            for (Aggregation.Summary summary : closeWindow()) {
+                List<String> fired = Alerts.diagnoseFaults(summary.sensorType(), summary);
+                payloads.add(encodeSummary(summary, fired));
             }
-            relay.emitBatch(payloads);
+            relay.relayWindow(payloads);
         } catch (Exception exc) {
             System.out.println("window flush failed: " + exc.getMessage());
         }
     }
 
-    String thresholdsJson() {
+    String faultRulesJson() {
         ObjectNode root = JSON.createObjectNode();
-        Alerts.THRESHOLDS.forEach((sensorType, rules) -> {
+        Alerts.FAULT_RULES.forEach((sensorType, rules) -> {
             ArrayNode arr = root.putArray(sensorType);
-            for (Alerts.Rule rule : rules) {
+            for (Alerts.FaultRule rule : rules) {
                 ObjectNode r = JSON.createObjectNode();
                 r.put("field", rule.field());
                 r.put("op", rule.op());
@@ -147,7 +138,7 @@ public class FogApp {
         });
 
         server.createContext("/thresholds", exchange -> {
-            sendJson(exchange, 200, app.thresholdsJson());
+            sendJson(exchange, 200, app.faultRulesJson());
         });
 
         server.createContext("/ingest", exchange -> {
@@ -163,7 +154,7 @@ public class FogApp {
             for (JsonNode r : body.get("readings")) {
                 readings.add(new Reading(r.get("ts").asText(), r.get("value").asDouble()));
             }
-            app.ingest(sensorType, siteId, unit, readings);
+            app.bufferReadings(sensorType, siteId, unit, readings);
             sendJson(exchange, 202, "{\"accepted\":" + readings.size() + "}");
         });
 
@@ -173,10 +164,7 @@ public class FogApp {
 
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
         long periodMs = (long) (WINDOW_SECONDS * 1000);
-        // Initial delay is also periodMs (not 0) so the first flush only fires
-        // once a full window has actually accumulated -- flushing at t=0 would
-        // emit an aggregate over an empty/near-empty buffer before any sensor
-        // has had a chance to dispatch a reading into it.
-        scheduler.scheduleAtFixedRate(app::runWindowCycle, periodMs, periodMs, TimeUnit.MILLISECONDS);
+        // Initial delay is periodMs (not 0) so the first flush only fires once a full window has accumulated.
+        scheduler.scheduleAtFixedRate(app::runFlushCycle, periodMs, periodMs, TimeUnit.MILLISECONDS);
     }
 }

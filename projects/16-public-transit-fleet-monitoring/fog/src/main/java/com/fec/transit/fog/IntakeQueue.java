@@ -6,22 +6,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-/** Lock-free ConcurrentLinkedQueue.offer() per ingest with no shared map or per-key lock until drainAndGroup() flushes and groups by (sensor_type, site_id) -- the sixth distinct Java buffering shape in this portfolio. */
+/** Lock-free ConcurrentLinkedQueue.offer() per reading, with no shared map or per-key lock until drainByGroup() flushes and groups by (sensor_type, site_id). */
 final class IntakeQueue {
 
-    private final ConcurrentLinkedQueue<ReadingEvent> queue = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<ReadingEvent> pending = new ConcurrentLinkedQueue<>();
 
-    void ingest(ReadingEvent event) {
-        queue.offer(event);
+    void enqueue(ReadingEvent event) {
+        pending.offer(event);
     }
 
     /** Drains the queue completely and groups the drained events by (sensor_type, site_id). */
-    Map<GroupKey, List<ReadingEvent>> drainAndGroup() {
-        Map<GroupKey, List<ReadingEvent>> grouped = new LinkedHashMap<>();
+    Map<GroupKey, List<ReadingEvent>> drainByGroup() {
+        Map<GroupKey, List<ReadingEvent>> buckets = new LinkedHashMap<>();
         ReadingEvent event;
-        while ((event = queue.poll()) != null) {
-            grouped.computeIfAbsent(new GroupKey(event.sensorType(), event.siteId()), k -> new ArrayList<>()).add(event);
+        while ((event = pending.poll()) != null) {
+            buckets.computeIfAbsent(new GroupKey(event.sensorType(), event.siteId()), k -> new ArrayList<>()).add(event);
         }
-        return grouped;
+        return buckets;
     }
 }

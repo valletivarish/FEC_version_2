@@ -10,15 +10,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Executors;
 
-/**
- * Every endpoint this gateway exposes, listed once as an enum constant with
- * its path and its handler as a lambda field -- no fluent builder, no
- * Map<String,HttpHandler> accumulated first. wireAll() iterates the enum's
- * own values() at startup and attaches each straight to the HttpServer,
- * wrapping every handler in the same try/catch error boundary so an
- * uncaught exception always becomes a structured 500 JSON response instead
- * of silently dropping the connection.
- */
+/** Each gateway endpoint as an enum constant; wireAll() attaches them, wrapping every handler in a 500 error boundary. */
 enum Route {
 
     HEALTH("/health", exchange -> respond(exchange, 200, "{\"status\":\"ok\"}")),

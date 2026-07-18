@@ -1,4 +1,4 @@
-"""Smart-parking fog node: a raw `app(environ, start_response)` WSGI callable served via wsgiref.simple_server + socketserver.ThreadingMixIn (stdlib only, no framework) -- a distinct stdlib HTTP model from project 12's http.server.BaseHTTPRequestHandler."""
+"""Smart-parking fog node: a raw app(environ, start_response) WSGI callable served via wsgiref.simple_server, stdlib only."""
 
 import json
 import os
@@ -18,7 +18,7 @@ WINDOW_SECONDS = float(os.getenv("WINDOW_SECONDS", "10"))
 QUEUE_NAME = os.getenv("SQS_QUEUE_NAME", "spm-lot-agg")
 ENDPOINT = os.getenv("AWS_ENDPOINT_URL")
 REGION = os.getenv("AWS_REGION", "eu-west-1")
-DEFAULT_SITE = "lot-a"
+DEFAULT_LOT = "lot-a"
 
 _REASON = {200: "OK", 202: "Accepted", 400: "Bad Request", 404: "Not Found", 500: "Internal Server Error"}
 
@@ -29,8 +29,7 @@ class ThreadingWSGIServer(ThreadingMixIn, WSGIServer):
 
 class QuietWSGIRequestHandler(WSGIRequestHandler):
     def log_message(self, fmt, *args):
-        # Silence the default per-request stderr access log; container logs
-        # stay limited to the explicit prints below.
+        # Silence the default per-request stderr access log.
         pass
 
 
@@ -38,7 +37,7 @@ def utcnow():
     return datetime.now(timezone.utc)
 
 
-def _json_response(start_response, status, body):
+def _json_reply(start_response, status, body):
     payload = json.dumps(body).encode("utf-8")
     status_line = f"{status} {_REASON.get(status, 'OK')}"
     headers = [("Content-Type", "application/json"), ("Content-Length", str(len(payload)))]
@@ -46,7 +45,7 @@ def _json_response(start_response, status, body):
     return [payload]
 
 
-def _read_json_body(environ):
+def _decode_body(environ):
     try:
         length = int(environ.get("CONTENT_LENGTH") or 0)
     except ValueError:
@@ -57,84 +56,78 @@ def _read_json_body(environ):
     return json.loads(raw)
 
 
-def _handle_ingest(environ, start_response):
+def _admit_batch(environ, start_response):
     try:
-        payload = _read_json_body(environ)
+        payload = _decode_body(environ)
     except (ValueError, json.JSONDecodeError):
-        return _json_response(start_response, 400, {"error": "request body must be valid JSON"})
+        return _json_reply(start_response, 400, {"error": "request body must be valid JSON"})
 
     error = validate_batch(payload)
     if error is not None:
-        return _json_response(start_response, 400, {"error": error})
+        return _json_reply(start_response, 400, {"error": error})
 
     add_readings(
         payload["sensor_type"],
-        payload.get("site_id", DEFAULT_SITE),
+        payload.get("site_id", DEFAULT_LOT),
         payload.get("unit", ""),
         payload["readings"],
     )
-    return _json_response(start_response, 202, {"accepted": len(payload["readings"])})
+    return _json_reply(start_response, 202, {"accepted": len(payload["readings"])})
 
 
 def app(environ, start_response):
-    """The WSGI application callable itself -- environ/start_response only,
-    no framework request/response objects anywhere in this call chain."""
+    """The WSGI application callable itself -- environ/start_response only, no framework objects."""
     method = environ.get("REQUEST_METHOD", "GET")
     path = environ.get("PATH_INFO", "")
     try:
         if method == "GET" and path == "/health":
-            return _json_response(start_response, 200, {"status": "ok"})
+            return _json_reply(start_response, 200, {"status": "ok"})
         if method == "GET" and path == "/thresholds":
-            return _json_response(start_response, 200, thresholds_payload())
+            return _json_reply(start_response, 200, thresholds_payload())
         if method == "POST" and path == "/ingest":
-            return _handle_ingest(environ, start_response)
-        return _json_response(start_response, 404, {"error": f"no such route: {path}"})
+            return _admit_batch(environ, start_response)
+        return _json_reply(start_response, 404, {"error": f"no such route: {path}"})
     except Exception as exc:
-        return _json_response(start_response, 500, {"error": "internal server error", "detail": str(exc)})
+        return _json_reply(start_response, 500, {"error": "internal server error", "detail": str(exc)})
 
 
-def flush_once(publish):
-    """Snapshot + clear the ring buffers, aggregate and evaluate alerts for
-    every non-empty (sensor_type, site_id) group, then ship the whole
-    window's summaries in one publish.batch() call rather than one
-    SendMessage per group. Never reduces a raw list without going through
-    aggregate(), so the published payload always carries genuine window
-    statistics."""
+def sweep_window(publish):
+    """Snapshot + clear the buffers, aggregate and evaluate each non-empty group, then publish the window in one batch."""
     window_end = utcnow()
     window_start = window_end - timedelta(seconds=WINDOW_SECONDS)
     snapshot, units = snapshot_and_clear()
 
-    summaries = []
+    window_tallies = []
     for (sensor_type, site_id), readings in snapshot.items():
-        summary = aggregate(
+        tally = aggregate(
             sensor_type, site_id, units.get(sensor_type, ""),
             readings, window_start.isoformat(), window_end.isoformat(),
         )
-        summary["alerts"] = evaluate(sensor_type, summary)
-        summaries.append(summary)
+        tally["alerts"] = evaluate(sensor_type, tally)
+        window_tallies.append(tally)
 
-    if summaries:
-        publish.batch(summaries)
+    if window_tallies:
+        publish.batch(window_tallies)
 
 
-def flush_loop(publish):
+def sweep_loop(publish):
     while True:
         time.sleep(WINDOW_SECONDS)
         try:
-            flush_once(publish)
+            sweep_window(publish)
         except Exception as exc:
             print(f"flush failed: {exc}", flush=True)
 
 
-def start_flush_thread(publish):
-    thread = threading.Thread(target=flush_loop, args=(publish,), name="fog-window-flush", daemon=True)
+def start_sweep_thread(publish):
+    thread = threading.Thread(target=sweep_loop, args=(publish,), name="fog-window-flush", daemon=True)
     thread.start()
     return thread
 
 
 def main():
     publish = make_publisher(ENDPOINT, REGION, QUEUE_NAME)
-    start_flush_thread(publish)
+    start_sweep_thread(publish)
     with make_server("0.0.0.0", 8000, app, ThreadingWSGIServer, handler_class=QuietWSGIRequestHandler) as httpd:
         print(f"fog node listening on :8000 (window={WINDOW_SECONDS}s, queue={QUEUE_NAME})", flush=True)
         httpd.serve_forever()

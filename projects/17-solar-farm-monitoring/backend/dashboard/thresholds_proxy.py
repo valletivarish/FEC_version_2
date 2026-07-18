@@ -1,5 +1,4 @@
-"""Isolated so it can be unit-tested with a real local server standing in
-for the fog node, without booting the whole dashboard."""
+"""Isolated so it is unit-testable against a real local server standing in for the fog node, without booting the dashboard."""
 
 import json
 import urllib.error
@@ -7,14 +6,11 @@ import urllib.request
 
 
 class ThresholdsUnavailable(Exception):
-    """Raised when the upstream fog node cannot be reached or returns a
-    response that isn't valid JSON."""
+    """Raised when the upstream fog node is unreachable or returns non-JSON."""
 
 
 def fetch_thresholds(url, timeout=5):
-    """GET `url` and parse the response body as JSON. Takes the URL as a
-    plain parameter (rather than reading an env var internally) so it is
-    directly unit-testable against any fake/real endpoint."""
+    """GET `url` and parse the response body as JSON; takes the URL as a parameter so it stays directly testable."""
     try:
         with urllib.request.urlopen(url, timeout=timeout) as resp:
             return json.loads(resp.read())

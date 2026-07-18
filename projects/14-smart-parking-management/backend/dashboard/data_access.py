@@ -15,60 +15,56 @@ SENSOR_TYPES = ["occupied_spaces", "entry_rate_per_min", "exit_rate_per_min", "a
 SITE_IDS = ["lot-a", "lot-b"]
 LOT_CAPACITY = 300
 
-_table = None
-_sqs = None
-_lambda = None
+_dynamo_table = None
+_sqs_client = None
+_lambda_conn = None
 
 
 def table():
-    global _table
-    if _table is None:
-        _table = boto3.resource("dynamodb", endpoint_url=ENDPOINT, region_name=REGION).Table(TABLE_NAME)
-    return _table
+    global _dynamo_table
+    if _dynamo_table is None:
+        _dynamo_table = boto3.resource("dynamodb", endpoint_url=ENDPOINT, region_name=REGION).Table(TABLE_NAME)
+    return _dynamo_table
 
 
 def sqs():
-    global _sqs
-    if _sqs is None:
-        _sqs = boto3.client("sqs", endpoint_url=ENDPOINT, region_name=REGION)
-    return _sqs
+    global _sqs_client
+    if _sqs_client is None:
+        _sqs_client = boto3.client("sqs", endpoint_url=ENDPOINT, region_name=REGION)
+    return _sqs_client
 
 
 def lambda_client():
-    global _lambda
-    if _lambda is None:
-        _lambda = boto3.client("lambda", endpoint_url=ENDPOINT, region_name=REGION)
-    return _lambda
+    global _lambda_conn
+    if _lambda_conn is None:
+        _lambda_conn = boto3.client("lambda", endpoint_url=ENDPOINT, region_name=REGION)
+    return _lambda_conn
 
 
-def unwrap(value):
+def demote_decimals(value):
     if isinstance(value, Decimal):
         return float(value)
     if isinstance(value, list):
-        return [unwrap(v) for v in value]
+        return [demote_decimals(v) for v in value]
     if isinstance(value, dict):
-        return {k: unwrap(v) for k, v in value.items()}
+        return {k: demote_decimals(v) for k, v in value.items()}
     return value
 
 
 def recent_windows(sensor_type, limit=60):
-    """Most recent `limit` windows for one sensor_type across both lots,
-    oldest first (so chart/table consumers render left-to-right without
-    re-sorting)."""
+    """Most recent `limit` windows for one sensor_type across both lots, oldest first."""
     resp = table().query(
         KeyConditionExpression=Key("sensor_type").eq(sensor_type),
         ScanIndexForward=False,
         Limit=limit,
     )
-    items = [unwrap(i) for i in resp.get("Items", [])]
+    items = [demote_decimals(i) for i in resp.get("Items", [])]
     items.reverse()
     return items
 
 
 def latest_by_site(sensor_type, limit=20):
-    """Most recent window per site_id for one sensor_type. Rows arrive
-    oldest-first from recent_windows, so the last row seen per site_id while
-    scanning ascending is that site's newest window."""
+    """Most recent window per site_id; rows arrive oldest-first so the last row seen per site is its newest window."""
     latest = {}
     for row in recent_windows(sensor_type, limit):
         latest[row["site_id"]] = row
@@ -76,10 +72,7 @@ def latest_by_site(sensor_type, limit=20):
 
 
 def lot_report():
-    """One entry per configured lot, carrying the latest window (or None if
-    nothing has landed yet) for every sensor_type, plus the fixed capacity.
-    Consumed by app.py's /api/lots handler, which layers the occupancy
-    percentage/status badge on top of this raw per-reading data."""
+    """One entry per configured lot carrying the latest window (or None) for every sensor_type, plus the fixed capacity."""
     per_sensor = {sensor_type: latest_by_site(sensor_type) for sensor_type in SENSOR_TYPES}
     return [
         {
@@ -134,11 +127,7 @@ def lambda_active():
 
 
 def items_in_table():
-    """A single Scan(Select=COUNT) call silently undercounts once a table's
-    scanned page exceeds DynamoDB's 1MB response limit -- LastEvaluatedKey
-    signals there's another page, and it must be followed until exhausted.
-    Expressed here as a plain summing loop over successive scan() calls,
-    reusing whatever ExclusiveStartKey the prior page handed back."""
+    """Sum scan(Select=COUNT) across every page, following LastEvaluatedKey until it is absent."""
     total = 0
     start_key = None
     while True:

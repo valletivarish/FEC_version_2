@@ -11,9 +11,7 @@ ENDPOINT = os.getenv("AWS_ENDPOINT_URL", "http://localhost:4579")
 REGION = os.getenv("AWS_REGION", "eu-west-1")
 QUEUE_NAME = os.getenv("SQS_QUEUE_NAME", "spm-lot-agg")
 
-# Synthetic type names distinct from the 5 real sensor types, so burst
-# traffic never lands in the DynamoDB partitions the live dashboard reads
-# from.
+# Synthetic types distinct from the 5 real ones so burst traffic never lands in dashboard partitions.
 LOAD_TYPES = ["loadtest_a", "loadtest_b", "loadtest_c", "loadtest_d", "loadtest_e"]
 
 BASE = datetime.now(timezone.utc)
@@ -88,10 +86,7 @@ def main():
         waiting_after, in_flight_after = queue_depth(sqs, queue_url)
         remaining = waiting_after + in_flight_after
         print(f"queue depth after timeout: waiting={waiting_after} in_flight={in_flight_after}")
-        # Under LocalStack's single-container Lambda emulation, 2000 messages can
-        # genuinely take longer than the timeout to fully drain -- that alone isn't
-        # a broken pipeline. What would be broken is the consumer making NO progress
-        # at all, so assert real throughput happened even when drain isn't complete.
+        # Slow drain under LocalStack isn't a broken pipeline; assert the consumer made real progress.
         assert remaining < initial_total, (
             f"expected the queue to show real processing progress within the timeout "
             f"(remaining={remaining} should be less than the immediate post-burst "

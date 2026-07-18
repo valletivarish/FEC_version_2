@@ -10,8 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class TransitAlertsTest {
 
     private static WindowAggregate windowWithAvg(String sensorType, double avg) {
-        // avg is computed from the values, so a single-value window makes
-        // avg == that value, letting each test target avg precisely.
+        // A single-value window makes avg == that value, letting each test target avg precisely.
         return WindowAggregate.of(sensorType, "depot-a", "unit", List.of(avg), "start", "end");
     }
 

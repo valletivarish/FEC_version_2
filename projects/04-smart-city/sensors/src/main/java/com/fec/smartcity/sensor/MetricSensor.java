@@ -27,13 +27,13 @@ public class MetricSensor {
         }
 
         double nextFrom(double current, RandomGenerator rng) {
-            double delta = rng.nextDouble(-step, step);
-            double confined = confine(current + delta);
-            return Math.round(confined * 100.0) / 100.0;
+            double drift = rng.nextDouble(-step, step);
+            double bounded = confine(current + drift);
+            return Math.round(bounded * 100.0) / 100.0;
         }
     }
 
-    record TimedValue(double value, Instant ts) {}
+    record StampedSample(double value, Instant ts) {}
 
     static final Map<String, Profile> METRIC_PROFILES = Map.of(
         "vehicle_count",     new Profile("veh/min", 0, 300, 60, 15.0),
@@ -43,15 +43,15 @@ public class MetricSensor {
         "ambient_light",     new Profile("lux", 0, 50000, 8000, 1500.0)
     );
 
-    static String buildPayload(String metric, String zoneId, String unit, Deque<TimedValue> readings) {
-        StringJoiner joiner = new StringJoiner(",", "[", "]");
-        for (TimedValue reading : readings) {
-            joiner.add("{\"ts\":\"" + reading.ts() + "\",\"value\":" + reading.value() + "}");
+    static String encodeBatch(String metric, String zoneId, String unit, Deque<StampedSample> readings) {
+        StringJoiner samplesJson = new StringJoiner(",", "[", "]");
+        for (StampedSample sample : readings) {
+            samplesJson.add("{\"ts\":\"" + sample.ts() + "\",\"value\":" + sample.value() + "}");
         }
         return "{\"sensor_type\":\"" + metric + "\","
             + "\"site_id\":\"" + zoneId + "\","
             + "\"unit\":\"" + unit + "\","
-            + "\"readings\":" + joiner + "}";
+            + "\"readings\":" + samplesJson + "}";
     }
 
     public static void main(String[] args) throws Exception {
@@ -65,32 +65,32 @@ public class MetricSensor {
         Profile profile = METRIC_PROFILES.get(metric);
         if (profile == null) throw new IllegalStateException("unknown SENSOR_TYPE: " + metric);
 
-        HttpClient client = HttpClient.newHttpClient();
+        HttpClient http = HttpClient.newHttpClient();
         RandomGenerator rng = ThreadLocalRandom.current();
-        AtomicReference<Double> current = new AtomicReference<>(profile.start());
-        Deque<TimedValue> buffer = new ArrayDeque<>();
+        AtomicReference<Double> level = new AtomicReference<>(profile.start());
+        Deque<StampedSample> buffer = new ArrayDeque<>();
 
         System.out.printf("%s@%s sampling every %ss, dispatching every %ss%n", metric, zoneId, sampleInterval, dispatchInterval);
 
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
 
         scheduler.scheduleAtFixedRate(() -> {
-            double next = profile.nextFrom(current.get(), rng);
-            current.set(next);
+            double nextLevel = profile.nextFrom(level.get(), rng);
+            level.set(nextLevel);
             synchronized (buffer) {
-                buffer.addLast(new TimedValue(next, Instant.now()));
+                buffer.addLast(new StampedSample(nextLevel, Instant.now()));
             }
-            System.out.printf("%s sampled %.2f%n", metric, next);
+            System.out.printf("%s sampled %.2f%n", metric, nextLevel);
         }, 0, (long) (sampleInterval * 1000), TimeUnit.MILLISECONDS);
 
         scheduler.scheduleAtFixedRate(() -> {
-            Deque<TimedValue> drained;
+            Deque<StampedSample> drained;
             synchronized (buffer) {
                 if (buffer.isEmpty()) return;
                 drained = new ArrayDeque<>(buffer);
                 buffer.clear();
             }
-            String body = buildPayload(metric, zoneId, profile.unit(), drained);
+            String body = encodeBatch(metric, zoneId, profile.unit(), drained);
             try {
                 HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(fogUrl))
@@ -98,7 +98,7 @@ public class MetricSensor {
                     .POST(HttpRequest.BodyPublishers.ofString(body))
                     .timeout(Duration.ofSeconds(5))
                     .build();
-                client.send(request, HttpResponse.BodyHandlers.discarding());
+                http.send(request, HttpResponse.BodyHandlers.discarding());
                 System.out.printf("%s dispatched %d readings%n", metric, drained.size());
             } catch (Exception exc) {
                 System.out.printf("%s dispatch failed, will retry: %s%n", metric, exc.getMessage());

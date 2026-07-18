@@ -17,11 +17,11 @@ class IntakeQueueTest {
     @Test
     void drainAndGroupGroupsBySensorTypeAndSiteId() {
         IntakeQueue queue = new IntakeQueue();
-        queue.ingest(new ReadingEvent("engine_temp_c", "depot-a", "C", 88.0));
-        queue.ingest(new ReadingEvent("engine_temp_c", "depot-a", "C", 90.0));
-        queue.ingest(new ReadingEvent("engine_temp_c", "depot-b", "C", 95.0));
+        queue.enqueue(new ReadingEvent("engine_temp_c", "depot-a", "C", 88.0));
+        queue.enqueue(new ReadingEvent("engine_temp_c", "depot-a", "C", 90.0));
+        queue.enqueue(new ReadingEvent("engine_temp_c", "depot-b", "C", 95.0));
 
-        Map<GroupKey, List<ReadingEvent>> grouped = queue.drainAndGroup();
+        Map<GroupKey, List<ReadingEvent>> grouped = queue.drainByGroup();
         assertEquals(2, grouped.size());
         assertEquals(2, grouped.get(new GroupKey("engine_temp_c", "depot-a")).size());
         assertEquals(1, grouped.get(new GroupKey("engine_temp_c", "depot-b")).size());
@@ -30,29 +30,29 @@ class IntakeQueueTest {
     @Test
     void distinctSensorTypesAtTheSameDepotStayInSeparateGroups() {
         IntakeQueue queue = new IntakeQueue();
-        queue.ingest(new ReadingEvent("engine_temp_c", "depot-a", "C", 88.0));
-        queue.ingest(new ReadingEvent("fuel_level_pct", "depot-a", "%", 70.0));
+        queue.enqueue(new ReadingEvent("engine_temp_c", "depot-a", "C", 88.0));
+        queue.enqueue(new ReadingEvent("fuel_level_pct", "depot-a", "%", 70.0));
 
-        Map<GroupKey, List<ReadingEvent>> grouped = queue.drainAndGroup();
+        Map<GroupKey, List<ReadingEvent>> grouped = queue.drainByGroup();
         assertEquals(2, grouped.size());
     }
 
     @Test
     void drainAndGroupEmptiesTheQueueSoASecondDrainIsEmpty() {
         IntakeQueue queue = new IntakeQueue();
-        queue.ingest(new ReadingEvent("gps_speed_kmh", "depot-a", "km/h", 42.0));
-        assertEquals(1, queue.drainAndGroup().size());
-        assertTrue(queue.drainAndGroup().isEmpty());
+        queue.enqueue(new ReadingEvent("gps_speed_kmh", "depot-a", "km/h", 42.0));
+        assertEquals(1, queue.drainByGroup().size());
+        assertTrue(queue.drainByGroup().isEmpty());
     }
 
     @Test
     void groupPreservesArrivalOrderSoLastElementIsTheMostRecentReading() {
         IntakeQueue queue = new IntakeQueue();
-        queue.ingest(new ReadingEvent("passenger_count", "depot-a", "people", 20.0));
-        queue.ingest(new ReadingEvent("passenger_count", "depot-a", "people", 55.0));
-        queue.ingest(new ReadingEvent("passenger_count", "depot-a", "people", 10.0));
+        queue.enqueue(new ReadingEvent("passenger_count", "depot-a", "people", 20.0));
+        queue.enqueue(new ReadingEvent("passenger_count", "depot-a", "people", 55.0));
+        queue.enqueue(new ReadingEvent("passenger_count", "depot-a", "people", 10.0));
 
-        List<ReadingEvent> events = queue.drainAndGroup().get(new GroupKey("passenger_count", "depot-a"));
+        List<ReadingEvent> events = queue.drainByGroup().get(new GroupKey("passenger_count", "depot-a"));
         assertEquals(10.0, events.get(events.size() - 1).value());
     }
 
@@ -76,7 +76,7 @@ class IntakeQueueTest {
                     Thread.currentThread().interrupt();
                 }
                 for (int i = 0; i < perThread; i++) {
-                    queue.ingest(new ReadingEvent("brake_pad_wear_pct", "depot-a", "%", i));
+                    queue.enqueue(new ReadingEvent("brake_pad_wear_pct", "depot-a", "%", i));
                 }
             });
         }
@@ -85,7 +85,7 @@ class IntakeQueueTest {
         pool.shutdown();
         assertTrue(pool.awaitTermination(10, java.util.concurrent.TimeUnit.SECONDS));
 
-        Map<GroupKey, List<ReadingEvent>> grouped = queue.drainAndGroup();
+        Map<GroupKey, List<ReadingEvent>> grouped = queue.drainByGroup();
         assertEquals(threads * perThread, grouped.get(new GroupKey("brake_pad_wear_pct", "depot-a")).size(),
             "no reading should be lost to a race between concurrent offer() calls");
     }

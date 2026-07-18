@@ -20,9 +20,7 @@ class FakeDynamoDbClient implements DynamoDbClient {
         this(itemsBySensorType, List.of(scanCount));
     }
 
-    // Simulates a table whose Scan(Select=COUNT) is split across several
-    // ~1MB pages, each page's count only reachable by following
-    // LastEvaluatedKey -- what itemCount()'s scanPaginator() fix is for.
+    // Simulates a COUNT scan split across several pages reachable only via LastEvaluatedKey -- what storedWindowCount()'s scanPaginator() walks.
     FakeDynamoDbClient(Map<String, List<Map<String, AttributeValue>>> itemsBySensorType, List<Integer> scanCountPages) {
         this.itemsBySensorType = itemsBySensorType;
         this.scanCountPages = scanCountPages;

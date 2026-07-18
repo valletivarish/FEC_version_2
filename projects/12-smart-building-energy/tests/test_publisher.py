@@ -25,8 +25,7 @@ class FakeSqsClient:
 
 
 class FlakyThenOkSqsClient(FakeSqsClient):
-    """Raises on the first get_queue_url call (simulating LocalStack not
-    having provisioned the queue yet), then succeeds."""
+    """Raises on the first get_queue_url call (queue not provisioned yet), then succeeds."""
 
     def get_queue_url(self, QueueName):
         self.get_queue_url_calls += 1
@@ -46,8 +45,7 @@ class TestPublish:
     def test_publish_sends_json_body_to_resolved_queue_url(self, monkeypatch):
         fake_client = FakeSqsClient()
         monkeypatch.setattr(publisher, "_client", lambda endpoint_url, region: fake_client)
-        # _queue_url is itself lru_cache-wrapped and calls the (now patched)
-        # _client, so clearing it lets the patched client take effect.
+        # _queue_url is lru_cache-wrapped and calls the now-patched _client, so clear it to let the patch take effect.
         publisher._queue_url.cache_clear()
 
         publisher.publish("http://localstack:4566", "eu-west-1", "sbe-floor-agg", {"a": 1})
@@ -114,6 +112,5 @@ class TestPublishBatch:
         assert [len(entries) for _, entries in fake_client.batch_calls] == [10, 10, 3]
         sent_total = sum(json.loads(e["MessageBody"])["a"] for _, entries in fake_client.batch_calls for e in entries)
         assert sent_total == sum(m["a"] for m in messages)
-        # get_queue_url is itself lru_cache-memoized, so three chunked
-        # batch calls still only resolve the queue URL once.
+        # get_queue_url is lru_cache-memoized, so three chunked batch calls still resolve the queue URL only once.
         assert fake_client.get_queue_url_calls == 1

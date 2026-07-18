@@ -16,18 +16,13 @@ async function latestWindowsFor(doc, tableName, sensorType, limit) {
   return (resp.Items || []).slice().reverse();
 }
 
-function emptyTower(siteId) {
+function vacantTower(siteId) {
   return { site_id: siteId, metrics: {}, alerts: [], nominal: true };
 }
 
-// Project-specific per-site grouping endpoint: one entry per tower, each
-// carrying the latest window for all 5 elevator/escalator sensor types plus
-// a plain `nominal` boolean -- true only when none of that tower's latest
-// windows currently carry an alert. Computed on read from the same
-// latest-window items already fetched for the metrics themselves; never
-// stored in DynamoDB as its own attribute.
+// One entry per tower with the latest window per sensor type; nominal is true only when no latest window carries an alert.
 async function buildTowerSummaries(doc, tableName) {
-  const towers = new Map(SITE_IDS.map((id) => [id, emptyTower(id)]));
+  const towers = new Map(SITE_IDS.map((id) => [id, vacantTower(id)]));
 
   for (const sensorType of SENSOR_TYPES) {
     const windows = await latestWindowsFor(doc, tableName, sensorType, 30);
@@ -35,7 +30,7 @@ async function buildTowerSummaries(doc, tableName) {
     for (const item of windows) latestPerSite.set(item.site_id, item);
 
     for (const [siteId, item] of latestPerSite) {
-      if (!towers.has(siteId)) towers.set(siteId, emptyTower(siteId));
+      if (!towers.has(siteId)) towers.set(siteId, vacantTower(siteId));
       const tower = towers.get(siteId);
       tower.metrics[sensorType] = {
         latest: item.latest,

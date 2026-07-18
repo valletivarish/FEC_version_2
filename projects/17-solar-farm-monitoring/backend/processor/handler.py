@@ -13,19 +13,15 @@ REGION = os.getenv("AWS_REGION", "eu-west-1")
 _table = boto3.resource("dynamodb", endpoint_url=ENDPOINT, region_name=REGION).Table(TABLE_NAME)
 
 
-def _as_dynamo_number_safe(record):
-    # DynamoDB's resource-level Table API rejects native Python float; round
-    # tripping through json with parse_float=Decimal converts every float in
-    # the record into a Decimal without hand-walking the dict.
+def _floats_to_decimals(record):
+    # DynamoDB's Table API rejects native float; a json round-trip with parse_float=Decimal converts them all.
     return json.loads(json.dumps(record), parse_float=Decimal)
 
 
 def lambda_handler(event, context):
-    """SQS-triggered entry point (wired up by deploy_lambda.py via a real
-    event source mapping): one invocation carries a batch of queue messages
-    in event["Records"], one per window-aggregate the fog node published."""
+    """SQS-triggered entry point: one invocation carries a batch of window-aggregate messages in event["Records"]."""
     records = event["Records"]
     for record in records:
-        item = _as_dynamo_number_safe(to_item(record["body"]))
+        item = _floats_to_decimals(to_item(record["body"]))
         _table.put_item(Item=item)
     return {"processed": len(records)}

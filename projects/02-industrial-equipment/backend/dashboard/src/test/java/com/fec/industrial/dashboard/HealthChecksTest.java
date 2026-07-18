@@ -15,31 +15,31 @@ class HealthChecksTest {
     @Test
     void queueReachableTrueWhenQueueExists() {
         var sqs = new FakeSqsClient(true, Map.of("QueueArn", "arn:aws:sqs:eu-west-1:000000000000:fei-sensor-agg"));
-        assertTrue(HealthChecks.queueReachable(sqs, "fei-sensor-agg"));
+        assertTrue(HealthChecks.queueAvailable(sqs, "fei-sensor-agg"));
     }
 
     @Test
     void queueReachableFalseWhenQueueMissing() {
         var sqs = new FakeSqsClient(false, Map.of());
-        assertFalse(HealthChecks.queueReachable(sqs, "fei-sensor-agg"));
+        assertFalse(HealthChecks.queueAvailable(sqs, "fei-sensor-agg"));
     }
 
     @Test
     void lambdaActiveTrueWhenStateActive() {
         var lambda = new FakeLambdaClient(true, State.ACTIVE);
-        assertTrue(HealthChecks.lambdaActive(lambda, "fei-processor"));
+        assertTrue(HealthChecks.lambdaHealthy(lambda, "fei-processor"));
     }
 
     @Test
     void lambdaActiveFalseWhenPending() {
         var lambda = new FakeLambdaClient(true, State.PENDING);
-        assertFalse(HealthChecks.lambdaActive(lambda, "fei-processor"));
+        assertFalse(HealthChecks.lambdaHealthy(lambda, "fei-processor"));
     }
 
     @Test
     void lambdaActiveFalseWhenFunctionMissing() {
         var lambda = new FakeLambdaClient(false, State.ACTIVE);
-        assertFalse(HealthChecks.lambdaActive(lambda, "fei-processor"));
+        assertFalse(HealthChecks.lambdaHealthy(lambda, "fei-processor"));
     }
 
     @Test
@@ -48,7 +48,7 @@ class HealthChecksTest {
             "ApproximateNumberOfMessages", "3",
             "ApproximateNumberOfMessagesNotVisible", "1"
         ));
-        var depth = HealthChecks.queueDepth(sqs, "fei-sensor-agg");
+        var depth = HealthChecks.queueBacklog(sqs, "fei-sensor-agg");
         assertEquals(3, depth.get("waiting"));
         assertEquals(1, depth.get("in_flight"));
     }
@@ -56,13 +56,13 @@ class HealthChecksTest {
     @Test
     void queueDepthNullWhenUnreachable() {
         var sqs = new FakeSqsClient(false, Map.of());
-        assertNull(HealthChecks.queueDepth(sqs, "fei-sensor-agg"));
+        assertNull(HealthChecks.queueBacklog(sqs, "fei-sensor-agg"));
     }
 
     @Test
     void scanCountReturnsFakeCount() {
         var dynamo = new FakeDynamoDbClient(Map.of(), 42);
-        assertEquals(42, HealthChecks.scanCount(dynamo, "fei-readings"));
+        assertEquals(42, HealthChecks.storedRecordCount(dynamo, "fei-readings"));
     }
 
     @Test
@@ -73,7 +73,7 @@ class HealthChecksTest {
             ScanResponse.builder().count(340).lastEvaluatedKey(Map.of("sensor_type", key)).build(),
             ScanResponse.builder().count(65).build());
         var dynamo = new FakeDynamoDbClient(pages);
-        assertEquals(1105, HealthChecks.scanCount(dynamo, "fei-readings"),
+        assertEquals(1105, HealthChecks.storedRecordCount(dynamo, "fei-readings"),
             "every page must be summed, not just the first page's 700");
     }
 }

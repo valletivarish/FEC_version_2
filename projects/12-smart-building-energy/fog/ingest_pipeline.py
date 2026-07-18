@@ -1,53 +1,48 @@
-"""Thread-safe stdlib queue.Queue feeding a single dedicated consumer thread that owns _buffers exclusively -- the 3rd distinct buffering shape in this portfolio's Python projects."""
+"""Thread-safe queue feeding one dedicated consumer thread that owns the window buffers exclusively."""
 
 import queue
 import threading
 
-INBOX = queue.Queue()
+TELEMETRY_INBOX = queue.Queue()
 
-_buffers = {}
-_units = {}
-_lock = threading.Lock()
-
-
-def enqueue_batch(sensor_type, site_id, unit, readings):
-    """Called from an HTTP worker thread inside POST /ingest. Never touches
-    _buffers directly -- it only ever puts onto the thread-safe queue, so
-    the request thread is never blocked on buffer bookkeeping."""
-    INBOX.put((sensor_type, site_id, unit, readings))
+_window_buffers = {}
+_unit_by_type = {}
+_buffer_lock = threading.Lock()
 
 
-def _absorb(sensor_type, site_id, unit, readings):
-    key = (sensor_type, site_id)
-    with _lock:
-        _buffers.setdefault(key, []).extend(readings)
+def queue_reading_batch(sensor_type, site_id, unit, readings):
+    """Called from an HTTP worker inside POST /ingest; only ever puts onto the thread-safe inbox so the request thread never blocks on buffer bookkeeping."""
+    TELEMETRY_INBOX.put((sensor_type, site_id, unit, readings))
+
+
+def _fold_batch(sensor_type, site_id, unit, readings):
+    buffer_key = (sensor_type, site_id)
+    with _buffer_lock:
+        _window_buffers.setdefault(buffer_key, []).extend(readings)
         if unit:
-            _units[sensor_type] = unit
+            _unit_by_type[sensor_type] = unit
 
 
-def consume_forever(inbox=INBOX):
-    """Body of the single dedicated consumer thread: blocks on inbox.get()
-    and folds each arriving batch into the shared buffer dict, one at a
-    time, for as long as the process runs."""
+def consume_telemetry_forever(inbox=TELEMETRY_INBOX):
+    """Body of the single consumer thread: block on inbox.get() and fold each arriving batch into the shared buffers, one at a time, for the process lifetime."""
     while True:
         sensor_type, site_id, unit, readings = inbox.get()
         try:
-            _absorb(sensor_type, site_id, unit, readings)
+            _fold_batch(sensor_type, site_id, unit, readings)
         finally:
             inbox.task_done()
 
 
-def start_consumer_thread():
-    thread = threading.Thread(target=consume_forever, name="fog-buffer-consumer", daemon=True)
+def start_telemetry_consumer():
+    thread = threading.Thread(target=consume_telemetry_forever, name="fog-buffer-consumer", daemon=True)
     thread.start()
     return thread
 
 
-def snapshot_and_clear():
-    """Atomically take the whole buffer state and reset it for the next
-    window. Only non-empty (sensor_type, site_id) groups are returned."""
-    with _lock:
-        snapshot = {key: values for key, values in _buffers.items() if values}
-        _buffers.clear()
-        units = dict(_units)
-    return snapshot, units
+def drain_window_buffers():
+    """Atomically take the whole buffer state and reset it for the next window; only non-empty (sensor_type, site_id) groups are returned."""
+    with _buffer_lock:
+        window_snapshot = {key: values for key, values in _window_buffers.items() if values}
+        _window_buffers.clear()
+        units = dict(_unit_by_type)
+    return window_snapshot, units

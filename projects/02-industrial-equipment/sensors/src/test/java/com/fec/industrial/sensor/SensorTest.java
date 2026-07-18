@@ -16,10 +16,10 @@ class SensorTest {
 
     @Test
     void nextValueStaysWithinProfileBounds() {
-        Sensor.Profile profile = Sensor.PROFILES.get("vibration");
+        Sensor.MachineProfile profile = Sensor.MACHINE_PROFILES.get("vibration");
         double value = profile.start();
         for (int i = 0; i < 500; i++) {
-            value = Sensor.nextValue(value, profile);
+            value = Sensor.nextSample(value, profile);
             assertTrue(value >= profile.lo() && value <= profile.hi());
         }
     }
@@ -28,14 +28,14 @@ class SensorTest {
     void allFiveSensorTypesHaveProfiles() {
         assertEquals(
             Set.of("vibration", "motor_temperature", "bearing_acoustic", "rotation_speed", "power_draw"),
-            Sensor.PROFILES.keySet()
+            Sensor.MACHINE_PROFILES.keySet()
         );
     }
 
     @Test
     void nextValueMovesByAtMostStep() {
-        Sensor.Profile profile = new Sensor.Profile("u", 0, 100, 50, 2.0);
-        double newValue = Sensor.nextValue(50, profile);
+        Sensor.MachineProfile profile = new Sensor.MachineProfile("u", 0, 100, 50, 2.0);
+        double newValue = Sensor.nextSample(50, profile);
         assertTrue(Math.abs(newValue - 50) <= profile.step());
     }
 }

@@ -1,8 +1,4 @@
-"""fetch_thresholds is deliberately its own tiny module (see
-backend/dashboard/thresholds_proxy.py) so it is directly unit-testable: the
-success path here runs against a real local http.server, and the failure
-path connects to a real closed TCP port, so both are genuine network
-behaviour rather than a mocked urlopen."""
+"""fetch_thresholds is its own tiny module so it is directly unit-testable: the success path runs against a real local http.server and the failure path against a real closed TCP port, both genuine network behaviour rather than a mocked urlopen."""
 
 import json
 import socket
@@ -44,9 +40,7 @@ def fake_upstream():
 
 
 def reserve_closed_port():
-    """Binds then immediately closes a real ephemeral TCP port, so a
-    connection to it is guaranteed to be refused -- a genuine unreachable
-    upstream rather than a mocked exception."""
+    """Bind then immediately close a real ephemeral TCP port, so a connection to it is guaranteed refused -- a genuine unreachable upstream, not a mocked exception."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(("127.0.0.1", 0))
     port = sock.getsockname()[1]

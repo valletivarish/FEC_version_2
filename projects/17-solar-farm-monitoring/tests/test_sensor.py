@@ -8,17 +8,17 @@ from conftest import load_module
 sensor = load_module("sensors_sensor", "sensors/sensor.py")
 
 
-class TestRandomWalk:
+class TestPanelDriftWalk:
     def test_step_stays_within_bounds_across_many_steps(self):
-        profile = sensor.ReadingProfile(unit="W/m2", lo=0, hi=1200, start=600, step=80.0)
-        walk = sensor.RandomWalk(profile)
+        profile = sensor.PanelMetricProfile(unit="W/m2", lo=0, hi=1200, start=600, step=80.0)
+        walk = sensor.PanelDriftWalk(profile)
         for _ in range(500):
             value = walk.step()
             assert profile.lo <= value <= profile.hi
 
     def test_step_rounds_to_2_decimals(self):
-        profile = sensor.ReadingProfile(unit="C", lo=10, hi=80, start=35, step=3.0)
-        walk = sensor.RandomWalk(profile)
+        profile = sensor.PanelMetricProfile(unit="C", lo=10, hi=80, start=35, step=3.0)
+        walk = sensor.PanelDriftWalk(profile)
         value = walk.step()
         assert value == round(value, 2)
 
@@ -56,7 +56,7 @@ class TestPanelSensorAgent:
 
     def test_do_dispatch_sends_the_buffered_batch_and_clears_it(self, agent, monkeypatch):
         sent = []
-        monkeypatch.setattr(sensor, "ship_batch", lambda url, payload: sent.append(payload) or 202)
+        monkeypatch.setattr(sensor, "push_to_gateway", lambda url, payload: sent.append(payload) or 202)
         agent._do_sample()
         agent._do_sample()
         result = agent._do_dispatch()
@@ -69,7 +69,7 @@ class TestPanelSensorAgent:
 
     def test_do_dispatch_with_empty_buffer_sends_nothing(self, agent, monkeypatch):
         sent = []
-        monkeypatch.setattr(sensor, "ship_batch", lambda url, payload: sent.append(payload) or 202)
+        monkeypatch.setattr(sensor, "push_to_gateway", lambda url, payload: sent.append(payload) or 202)
         result = agent._do_dispatch()
         assert sent == []
         assert result is None
@@ -77,7 +77,7 @@ class TestPanelSensorAgent:
     def test_do_dispatch_requeues_the_batch_on_network_failure(self, agent, monkeypatch):
         def failing_ship(url, payload):
             raise urllib.error.URLError("connection refused")
-        monkeypatch.setattr(sensor, "ship_batch", failing_ship)
+        monkeypatch.setattr(sensor, "push_to_gateway", failing_ship)
 
         agent._do_sample()
         result = agent._do_dispatch()
@@ -88,7 +88,7 @@ class TestPanelSensorAgent:
     def test_readings_sampled_during_a_failed_dispatch_are_not_lost(self, agent, monkeypatch):
         def failing_ship(url, payload):
             raise urllib.error.URLError("connection refused")
-        monkeypatch.setattr(sensor, "ship_batch", failing_ship)
+        monkeypatch.setattr(sensor, "push_to_gateway", failing_ship)
 
         agent._do_sample()
         agent._do_dispatch()

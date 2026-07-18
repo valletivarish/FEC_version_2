@@ -12,10 +12,10 @@ import software.amazon.awssdk.services.sqs.model.QueueAttributeName;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** Health/queue-depth checks against the real AWS SDK v2 client interfaces. */
+/** Liveness and backlog probes for the dispatch queue, processor function, and readings table. */
 class PipelineChecks {
 
-    boolean queueReachable(SqsClient sqs, String queueName) {
+    boolean dispatchQueueReachable(SqsClient sqs, String queueName) {
         try {
             String queueUrl = sqs.getQueueUrl(b -> b.queueName(queueName)).queueUrl();
             sqs.getQueueAttributes(GetQueueAttributesRequest.builder().queueUrl(queueUrl)
@@ -26,7 +26,7 @@ class PipelineChecks {
         }
     }
 
-    boolean lambdaDeployed(LambdaClient lambda, String functionName) {
+    boolean processorActive(LambdaClient lambda, String functionName) {
         try {
             var resp = lambda.getFunction(GetFunctionRequest.builder().functionName(functionName).build());
             return "Active".equals(resp.configuration().stateAsString());
@@ -35,30 +35,27 @@ class PipelineChecks {
         }
     }
 
-    Map<String, Object> queueDepth(SqsClient sqs, String queueName) {
+    Map<String, Object> dispatchQueueBacklog(SqsClient sqs, String queueName) {
         try {
             String queueUrl = sqs.getQueueUrl(b -> b.queueName(queueName)).queueUrl();
             var attrs = sqs.getQueueAttributes(GetQueueAttributesRequest.builder().queueUrl(queueUrl)
                 .attributeNames(QueueAttributeName.APPROXIMATE_NUMBER_OF_MESSAGES,
                     QueueAttributeName.APPROXIMATE_NUMBER_OF_MESSAGES_NOT_VISIBLE).build()).attributesAsStrings();
-            Map<String, Object> depth = new LinkedHashMap<>();
-            depth.put("waiting", Integer.parseInt(attrs.get("ApproximateNumberOfMessages")));
-            depth.put("in_flight", Integer.parseInt(attrs.get("ApproximateNumberOfMessagesNotVisible")));
-            return depth;
+            Map<String, Object> backlog = new LinkedHashMap<>();
+            backlog.put("waiting", Integer.parseInt(attrs.get("ApproximateNumberOfMessages")));
+            backlog.put("in_flight", Integer.parseInt(attrs.get("ApproximateNumberOfMessagesNotVisible")));
+            return backlog;
         } catch (Exception e) {
             return null;
         }
     }
 
-    // A single Scan(Select=COUNT) call only ever reports one ~1MB page, so a
-    // table past that size would be silently undercounted. scanPaginator()
-    // walks every page via LastEvaluatedKey until DynamoDB stops returning
-    // one, summing each page's count as it goes.
-    int itemCount(DynamoDbClient dynamo, String tableName) {
-        int total = 0;
+    // Walk every scan page via LastEvaluatedKey so a table past one ~1MB page is not undercounted.
+    int storedWindowCount(DynamoDbClient dynamo, String tableName) {
+        int tally = 0;
         for (ScanResponse page : dynamo.scanPaginator(b -> b.tableName(tableName).select(Select.COUNT))) {
-            total += page.count();
+            tally += page.count();
         }
-        return total;
+        return tally;
     }
 }

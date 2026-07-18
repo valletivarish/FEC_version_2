@@ -39,42 +39,38 @@ public class TransitDashboardApp {
     static final String REGION = System.getenv().getOrDefault("AWS_REGION", "eu-west-1");
     static final String FOG_HEALTH_URL = System.getenv().getOrDefault("FOG_HEALTH_URL", "http://fog:8000/health");
     static final String FOG_THRESHOLDS_URL = System.getenv().getOrDefault("FOG_THRESHOLDS_URL", "http://fog:8000/thresholds");
-    static final String[] SENSOR_TYPES = {"engine_temp_c", "brake_pad_wear_pct", "passenger_count", "fuel_level_pct", "gps_speed_kmh"};
-    static final int PIPELINE_FRESH_SECONDS = 30;
-    static final int DEPOT_HISTORY_PER_TYPE = 20;
+    static final String[] FLEET_SENSORS = {"engine_temp_c", "brake_pad_wear_pct", "passenger_count", "fuel_level_pct", "gps_speed_kmh"};
+    static final int FRESH_WINDOW_SECONDS = 30;
+    static final int DEPOT_HISTORY_DEPTH = 20;
 
-    private final DepotRepository repository = new DepotRepository();
-    private final PipelineChecks checks = new PipelineChecks();
-    private final ThresholdsGateway thresholdsGateway = new ThresholdsGateway();
-    private final HttpClient upstream = HttpClient.newHttpClient();
+    private final DepotRepository depotRepository = new DepotRepository();
+    private final PipelineChecks pipeline = new PipelineChecks();
+    private final ThresholdsGateway thresholdsUpstream = new ThresholdsGateway();
+    private final HttpClient fogClient = HttpClient.newHttpClient();
 
     private DynamoDbClient dynamo;
     private SqsClient sqs;
     private LambdaClient lambda;
-    private String thresholdsCache;
+    private String thresholdsSnapshot;
 
     private synchronized DynamoDbClient dynamo() {
-        if (dynamo == null) dynamo = awsClient(DynamoDbClient.builder());
+        if (dynamo == null) dynamo = buildClient(DynamoDbClient.builder());
         return dynamo;
     }
 
     private synchronized SqsClient sqs() {
-        if (sqs == null) sqs = awsClient(SqsClient.builder());
+        if (sqs == null) sqs = buildClient(SqsClient.builder());
         return sqs;
     }
 
     private synchronized LambdaClient lambda() {
-        if (lambda == null) lambda = awsClient(LambdaClient.builder());
+        if (lambda == null) lambda = buildClient(LambdaClient.builder());
         return lambda;
     }
 
-    private static <B extends software.amazon.awssdk.awscore.client.builder.AwsClientBuilder<B, T>, T> T awsClient(B builder) {
+    private static <B extends software.amazon.awssdk.awscore.client.builder.AwsClientBuilder<B, T>, T> T buildClient(B builder) {
         builder.region(Region.of(REGION));
-        // The static test/test credentials only make sense against
-        // LocalStack. Gating them on ENDPOINT (rather than always applying
-        // them) leaves a real deployment to fall back to the SDK's default
-        // credential provider chain -- the execution-role credentials a real
-        // Lambda/EC2 host actually has.
+        // Static test/test credentials only make sense against LocalStack; gate on ENDPOINT so a real deployment uses its execution-role credentials.
         if (ENDPOINT != null) {
             builder.endpointOverride(URI.create(ENDPOINT))
                 .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
@@ -112,49 +108,46 @@ public class TransitDashboardApp {
         }
     }
 
-    private boolean fogHealthy() {
+    private boolean fogGatewayOnline() {
         try {
             HttpRequest request = HttpRequest.newBuilder().uri(URI.create(FOG_HEALTH_URL))
                 .timeout(Duration.ofSeconds(2)).GET().build();
-            return upstream.send(request, HttpResponse.BodyHandlers.discarding()).statusCode() == 200;
+            return fogClient.send(request, HttpResponse.BodyHandlers.discarding()).statusCode() == 200;
         } catch (Exception e) {
             return false;
         }
     }
 
-    private synchronized String thresholds() throws Exception {
-        // Cached for the process lifetime: the fog's RULES list is a static,
-        // code-defined constant that never changes at runtime, so refetching
-        // it on every /api/thresholds call would just be a repeated
-        // round-trip to fog with no fresher data to show for it.
-        if (thresholdsCache == null) {
-            thresholdsCache = thresholdsGateway.fetch(upstream, FOG_THRESHOLDS_URL);
+    private synchronized String cachedThresholds() throws Exception {
+        // The fog RULES list is a code-defined constant, so cache it for the process lifetime instead of refetching per call.
+        if (thresholdsSnapshot == null) {
+            thresholdsSnapshot = thresholdsUpstream.fetchThresholds(fogClient, FOG_THRESHOLDS_URL);
         }
-        return thresholdsCache;
+        return thresholdsSnapshot;
     }
 
-    private Double freshestWindowAgeSeconds() {
+    private Double secondsSinceNewestWindow() {
         Instant now = Instant.now();
-        Double best = null;
-        for (String sensorType : SENSOR_TYPES) {
-            var recent = repository.recentWindows(dynamo(), TABLE_NAME, sensorType, 1);
+        Double youngest = null;
+        for (String sensorType : FLEET_SENSORS) {
+            var recent = depotRepository.recentSensorWindows(dynamo(), TABLE_NAME, sensorType, 1);
             if (recent.isEmpty()) continue;
             String windowEnd = (String) recent.get(recent.size() - 1).get("window_end");
             double age = Duration.between(Instant.parse(windowEnd), now).toMillis() / 1000.0;
-            if (best == null || age < best) best = age;
+            if (youngest == null || age < youngest) youngest = age;
         }
-        return best;
+        return youngest;
     }
 
     void handleDepots(HttpExchange exchange) throws Exception {
-        sendJson(exchange, 200, repository.byDepot(dynamo(), TABLE_NAME, SENSOR_TYPES, DEPOT_HISTORY_PER_TYPE));
+        sendJson(exchange, 200, depotRepository.depotRoster(dynamo(), TABLE_NAME, FLEET_SENSORS, DEPOT_HISTORY_DEPTH));
     }
 
     void handleReadings(HttpExchange exchange) throws Exception {
         Map<String, String> q = parseQuery(exchange.getRequestURI().getQuery());
         String sensorType = q.get("sensor_type");
         int limit = q.containsKey("limit") ? Integer.parseInt(q.get("limit")) : 60;
-        var items = repository.recentWindows(dynamo(), TABLE_NAME, sensorType, limit);
+        var items = depotRepository.recentSensorWindows(dynamo(), TABLE_NAME, sensorType, limit);
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("sensor_type", sensorType);
@@ -164,27 +157,27 @@ public class TransitDashboardApp {
 
     void handleThresholds(HttpExchange exchange) throws Exception {
         try {
-            sendJson(exchange, 200, thresholds());
+            sendJson(exchange, 200, cachedThresholds());
         } catch (Exception e) {
             sendJson(exchange, 502, "{\"error\":\"thresholds unavailable\"}");
         }
     }
 
     void handleHealth(HttpExchange exchange) throws Exception {
-        Double freshestAge = freshestWindowAgeSeconds();
+        Double freshestAge = secondsSinceNewestWindow();
         Map<String, Object> health = new LinkedHashMap<>();
-        health.put("gateway", fogHealthy());
-        health.put("queue", checks.queueReachable(sqs(), QUEUE_NAME));
-        health.put("lambda", checks.lambdaDeployed(lambda(), FUNCTION_NAME));
-        health.put("pipeline", freshestAge != null && freshestAge <= PIPELINE_FRESH_SECONDS);
+        health.put("gateway", fogGatewayOnline());
+        health.put("queue", pipeline.dispatchQueueReachable(sqs(), QUEUE_NAME));
+        health.put("lambda", pipeline.processorActive(lambda(), FUNCTION_NAME));
+        health.put("pipeline", freshestAge != null && freshestAge <= FRESH_WINDOW_SECONDS);
         health.put("freshest_age_seconds", freshestAge);
         sendJson(exchange, 200, health);
     }
 
     void handleBackendStats(HttpExchange exchange) throws Exception {
         Map<String, Object> stats = new LinkedHashMap<>();
-        stats.put("queue", checks.queueDepth(sqs(), QUEUE_NAME));
-        stats.put("items_in_table", checks.itemCount(dynamo(), TABLE_NAME));
+        stats.put("queue", pipeline.dispatchQueueBacklog(sqs(), QUEUE_NAME));
+        stats.put("items_in_table", pipeline.storedWindowCount(dynamo(), TABLE_NAME));
         sendJson(exchange, 200, stats);
     }
 

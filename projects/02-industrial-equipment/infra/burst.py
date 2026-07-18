@@ -11,8 +11,7 @@ ENDPOINT = os.getenv("AWS_ENDPOINT_URL", "http://localhost:4567")
 REGION = os.getenv("AWS_REGION", "eu-west-1")
 QUEUE_NAME = os.getenv("SQS_QUEUE_NAME", "fei-sensor-agg")
 
-# Synthetic type names distinct from the 5 real sensor types, so burst traffic
-# never lands in the DynamoDB partitions the live dashboard reads from.
+# Synthetic type names kept distinct from the 5 real sensor types so burst traffic misses the dashboard's partitions.
 LOAD_TYPES = ["loadtest_a", "loadtest_b", "loadtest_c", "loadtest_d", "loadtest_e"]
 
 BASE = datetime.now(timezone.utc)

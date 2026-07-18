@@ -1,9 +1,4 @@
-"""Real HTTP-level tests against a genuine aiohttp server bound to an
-ephemeral port on 127.0.0.1, driven with aiohttp's own TestClient (which
-performs real HTTP requests over a real socket -- see aiohttp.test_utils;
-TestServer starts an actual asyncio.start_server, it is not an in-process
-ASGI/WSGI transport shim).
-"""
+"""Real HTTP-level tests against a genuine aiohttp server on an ephemeral port, driven with aiohttp's TestClient over a real socket."""
 
 import asyncio
 import json
@@ -21,9 +16,7 @@ def run(coro_fn):
 
 
 def fresh_app():
-    # enable_background=False: no real SQS client, no flusher thread, no
-    # asyncio flush_task -- these HTTP tests only exercise routing,
-    # validation and buffering, never the network.
+    # enable_background=False: no SQS client, flusher thread or flush task -- these tests only exercise routing/validation/buffering.
     return fog_app.create_app(enable_background=False)
 
 
@@ -80,7 +73,7 @@ class TestIngestValidation:
                     "readings": [{"ts": "t0", "value": 12.5}],
                 }
                 await client.post("/ingest", json=payload)
-                assert app[fog_app.BUFFER_KEY].active[("soiling_index_pct", "array-2")] == [{"ts": "t0", "value": 12.5}]
+                assert app[fog_app.COMBINER_KEY].active[("soiling_index_pct", "array-2")] == [{"ts": "t0", "value": 12.5}]
         run(scenario)
 
     @pytest.mark.parametrize(
@@ -128,23 +121,20 @@ class TestIngestValidation:
 
 
 class TestFlushOnce:
-    def test_flush_once_aggregates_buffered_readings_and_enqueues_one_message_per_group(self, monkeypatch):
+    def test_flush_window_aggregates_buffered_readings_and_enqueues_one_message_per_group(self, monkeypatch):
         async def scenario():
             app = fresh_app()
-            # create_app registers on_startup as the thing that populates
-            # the buffer app-key; a real TestServer start (which freezes and
-            # fires aiohttp's startup signals, same as a live deployment)
-            # is what actually runs it -- no HTTP request is made here.
+            # Starting a real TestServer fires aiohttp's startup signals, which is what populates the combiner app-key.
             async with TestServer(app):
-                app[fog_app.BUFFER_KEY].record("dc_voltage_v", "array-1", "V", [
+                app[fog_app.COMBINER_KEY].record("dc_voltage_v", "array-1", "V", [
                     {"ts": "t0", "value": 340.0}, {"ts": "t1", "value": 360.0},
                 ])
-                app[fog_app.BUFFER_KEY].record("irradiance_wm2", "array-1", "W/m2", [{"ts": "t0", "value": 600.0}])
+                app[fog_app.COMBINER_KEY].record("irradiance_wm2", "array-1", "W/m2", [{"ts": "t0", "value": 600.0}])
 
                 captured = []
                 monkeypatch.setattr(fog_app, "enqueue", lambda message: captured.append(message))
 
-                await fog_app.flush_once(app)
+                await fog_app.flush_window(app)
 
                 by_type = {m["sensor_type"]: m for m in captured}
                 assert set(by_type) == {"dc_voltage_v", "irradiance_wm2"}

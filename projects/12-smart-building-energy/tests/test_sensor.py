@@ -13,33 +13,33 @@ EXPECTED_SENSOR_TYPES = {
 
 class TestProfileCatalog:
     def test_registers_exactly_the_five_expected_sensor_types(self):
-        assert set(sensor.PROFILES) == EXPECTED_SENSOR_TYPES
+        assert set(sensor.METER_PROFILES) == EXPECTED_SENSOR_TYPES
 
     @pytest.mark.parametrize("sensor_type", list(EXPECTED_SENSOR_TYPES))
     def test_each_entry_is_a_reading_profile_instance(self, sensor_type):
-        assert isinstance(sensor.PROFILES[sensor_type], sensor.ReadingProfile)
+        assert isinstance(sensor.METER_PROFILES[sensor_type], sensor.MeterProfile)
 
 
 class TestRandomWalkBounds:
     @pytest.mark.parametrize("sensor_type", list(EXPECTED_SENSOR_TYPES))
     def test_step_stays_within_lo_hi_across_many_iterations(self, sensor_type):
-        profile = sensor.PROFILES[sensor_type]
-        walk = sensor.RandomWalk(profile)
-        assert all(profile.lo <= walk.step() <= profile.hi for _ in range(500))
+        profile = sensor.METER_PROFILES[sensor_type]
+        walk = sensor.DriftingMeter(profile)
+        assert all(profile.lo <= walk.advance() <= profile.hi for _ in range(500))
 
     def test_initial_value_matches_profile_start(self):
-        profile = sensor.PROFILES["hvac_temp_c"]
-        assert sensor.RandomWalk(profile).value == profile.start
+        profile = sensor.METER_PROFILES["hvac_temp_c"]
+        assert sensor.DriftingMeter(profile).value == profile.start
 
     def test_single_step_never_exceeds_configured_step_size(self):
-        profile = sensor.ReadingProfile(unit="x", lo=0, hi=100, start=50, step=2.0)
-        walk = sensor.RandomWalk(profile)
-        assert abs(walk.step() - 50) <= profile.step
+        profile = sensor.MeterProfile(unit="x", lo=0, hi=100, start=50, step=2.0)
+        walk = sensor.DriftingMeter(profile)
+        assert abs(walk.advance() - 50) <= profile.step
 
     def test_values_are_rounded_to_two_decimal_places(self):
-        profile = sensor.PROFILES["energy_consumption_kw"]
-        walk = sensor.RandomWalk(profile)
-        value = walk.step()
+        profile = sensor.METER_PROFILES["energy_consumption_kw"]
+        walk = sensor.DriftingMeter(profile)
+        value = walk.advance()
         assert round(value, 2) == value
 
 
@@ -54,21 +54,21 @@ def make_agent(monkeypatch, sensor_type="energy_consumption_kw", site_id="floor-
 class TestDoSample:
     def test_do_sample_appends_one_reading_to_the_buffer(self, monkeypatch):
         agent = make_agent(monkeypatch)
-        agent._do_sample()
-        assert len(agent.buffer) == 1
-        assert "ts" in agent.buffer[0] and "value" in agent.buffer[0]
+        agent._capture_reading()
+        assert len(agent.pending_readings) == 1
+        assert "ts" in agent.pending_readings[0] and "value" in agent.pending_readings[0]
 
     def test_do_sample_value_stays_within_profile_bounds(self, monkeypatch):
         agent = make_agent(monkeypatch, sensor_type="co2_ppm")
-        value = agent._do_sample()
-        profile = sensor.PROFILES["co2_ppm"]
+        value = agent._capture_reading()
+        profile = sensor.METER_PROFILES["co2_ppm"]
         assert profile.lo <= value <= profile.hi
 
 
 class TestDoDispatch:
     def test_do_dispatch_ships_the_buffered_batch_and_empties_it(self, monkeypatch):
         agent = make_agent(monkeypatch, sensor_type="water_usage_lpm", site_id="floor-2")
-        agent.buffer = [{"ts": "t0", "value": 5.0}, {"ts": "t1", "value": 6.0}]
+        agent.pending_readings = [{"ts": "t0", "value": 5.0}, {"ts": "t1", "value": 6.0}]
 
         shipped = {}
 
@@ -77,21 +77,21 @@ class TestDoDispatch:
             shipped["payload"] = payload
             return 202
 
-        monkeypatch.setattr(sensor, "ship_batch", fake_ship)
-        result = agent._do_dispatch()
+        monkeypatch.setattr(sensor, "post_readings", fake_ship)
+        result = agent._flush_readings()
 
         assert result is not None
         assert shipped["payload"]["sensor_type"] == "water_usage_lpm"
         assert shipped["payload"]["site_id"] == "floor-2"
         assert shipped["payload"]["unit"] == "L/min"
         assert len(shipped["payload"]["readings"]) == 2
-        assert agent.buffer == []
+        assert agent.pending_readings == []
 
     def test_do_dispatch_with_empty_buffer_does_nothing(self, monkeypatch):
         agent = make_agent(monkeypatch)
         called = threading.Event()
-        monkeypatch.setattr(sensor, "ship_batch", lambda url, payload: called.set())
-        result = agent._do_dispatch()
+        monkeypatch.setattr(sensor, "post_readings", lambda url, payload: called.set())
+        result = agent._flush_readings()
         assert result is None
         assert not called.is_set()
 
@@ -99,13 +99,13 @@ class TestDoDispatch:
         import urllib.error
 
         agent = make_agent(monkeypatch)
-        agent.buffer = [{"ts": "t0", "value": 10.0}]
+        agent.pending_readings = [{"ts": "t0", "value": 10.0}]
 
         def failing_ship(url, payload):
             raise urllib.error.URLError("connection refused")
 
-        monkeypatch.setattr(sensor, "ship_batch", failing_ship)
-        result = agent._do_dispatch()
+        monkeypatch.setattr(sensor, "post_readings", failing_ship)
+        result = agent._flush_readings()
 
         assert result is None
-        assert agent.buffer == [{"ts": "t0", "value": 10.0}]
+        assert agent.pending_readings == [{"ts": "t0", "value": 10.0}]

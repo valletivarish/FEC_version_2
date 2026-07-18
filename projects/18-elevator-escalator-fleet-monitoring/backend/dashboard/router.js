@@ -1,10 +1,6 @@
 "use strict";
 
-// Same hand-rolled middleware-chain mechanism as fog/router.js: routes are
-// { method, path, handlers: [fn, fn, ...] } entries in a plain array, and
-// dispatch() composes the matched route's handlers in sequence via a
-// next() continuation, Express-style, on top of plain http.createServer.
-// See router.test.js for isolated coverage independent of any HTTP server.
+// Middleware-chain router: dispatch() composes a matched route's handlers via a next() continuation.
 function createRouter() {
   const routes = [];
 

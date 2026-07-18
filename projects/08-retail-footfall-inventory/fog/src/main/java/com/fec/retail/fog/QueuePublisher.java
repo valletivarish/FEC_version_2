@@ -23,16 +23,13 @@ public class QueuePublisher {
 
     public QueuePublisher(String endpointUrl, String region, String queueName) throws InterruptedException {
         var builder = SqsClient.builder().region(Region.of(region));
-        // The static test/test pair only authenticates against LocalStack;
-        // real Lambda/EC2 deployments rely on their own role credentials, so
-        // both this and the endpoint override must stay gated on endpointUrl
-        // actually being set rather than applied unconditionally.
+        // Static test/test creds only apply to LocalStack; real deployments keep their own role creds.
         if (endpointUrl != null) {
             builder.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")));
             builder.endpointOverride(URI.create(endpointUrl));
         }
         this.client = builder.build();
-        this.queueUrl = awaitQueue(queueName);
+        this.queueUrl = resolveQueueUrl(queueName);
     }
 
     /** Test seam: hands in an already-built client and queue URL, bypassing the builder wiring and queue-url polling above. */
@@ -41,7 +38,7 @@ public class QueuePublisher {
         this.queueUrl = queueUrl;
     }
 
-    private String awaitQueue(String queueName) throws InterruptedException {
+    private String resolveQueueUrl(String queueName) throws InterruptedException {
         for (int attempt = 0; attempt < 30; attempt++) {
             try {
                 return client.getQueueUrl(GetQueueUrlRequest.builder().queueName(queueName).build()).queueUrl();
@@ -56,13 +53,7 @@ public class QueuePublisher {
         client.sendMessage(SendMessageRequest.builder().queueUrl(queueUrl).messageBody(jsonPayload).build());
     }
 
-    /**
-     * Sends a whole window's payloads in as few SendMessageBatch calls as
-     * the 10-entry API limit allows, instead of one sendMessage() call per
-     * payload. Peels the first BATCH_LIMIT payloads off the front of the
-     * list as one chunk and recurses on the remainder, rather than an
-     * index-stepped loop.
-     */
+    /** Ships a window's payloads in as few SendMessageBatch calls as the 10-entry limit allows, recursing on the remainder. */
     public void publishBatch(List<String> jsonPayloads) {
         if (jsonPayloads.isEmpty()) return;
         int end = Math.min(BATCH_LIMIT, jsonPayloads.size());

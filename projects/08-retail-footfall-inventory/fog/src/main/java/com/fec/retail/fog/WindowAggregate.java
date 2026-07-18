@@ -2,14 +2,7 @@ package com.fec.retail.fog;
 
 import java.util.List;
 
-/**
- * Real aggregate statistics over one flush cycle's worth of readings for a
- * single (sensor_type, site_id) pair -- count/min/max/avg/latest, never a
- * pass-through of raw values. avg is rounded to 3 dp; latest is the
- * last-in-arrival-order reading, not the max-timestamp one (the two only
- * differ if readings ever arrive out of order, which this pipeline does not
- * attempt to correct for).
- */
+/** Aggregate stats over one flush cycle per (sensor_type, site_id); avg rounded to 3 dp, latest is last in arrival order. */
 public record WindowAggregate(String sensorType, String siteId, String unit, String windowStart, String windowEnd,
                                int count, double min, double max, double avg, double latest) {
 

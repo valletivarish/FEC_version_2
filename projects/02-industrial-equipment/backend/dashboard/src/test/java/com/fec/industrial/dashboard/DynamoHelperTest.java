@@ -35,7 +35,7 @@ class DynamoHelperTest {
         );
         var client = new FakeDynamoDbClient(Map.of("vibration", items), 0);
 
-        var result = DynamoHelper.recentWindows(client, "table", "vibration", 20);
+        var result = DynamoHelper.recentRollups(client, "table", "vibration", 20);
         assertEquals("e1", result.get(0).get("window_end"));
         assertEquals("e2", result.get(1).get("window_end"));
     }
@@ -48,7 +48,7 @@ class DynamoHelperTest {
         );
         var client = new FakeDynamoDbClient(Map.of("vibration", vibrationItems), 0);
 
-        var summary = DynamoHelper.buildSummary(client, "table", new String[]{"vibration", "power_draw"});
+        var summary = DynamoHelper.assetSummary(client, "table", new String[]{"vibration", "power_draw"});
         List<?> sensors = (List<?>) summary.get("sensors");
         Map<?, ?> vibrationSensor = (Map<?, ?>) sensors.get(0);
         assertEquals("vibration", vibrationSensor.get("sensor_type"));
@@ -70,7 +70,7 @@ class DynamoHelperTest {
         );
         var client = new FakeDynamoDbClient(Map.of("vibration", items), 0);
 
-        var summary = DynamoHelper.buildSummary(client, "table", new String[]{"vibration"});
+        var summary = DynamoHelper.assetSummary(client, "table", new String[]{"vibration"});
         List<?> sites = (List<?>) ((Map<?, ?>) ((List<?>) summary.get("sensors")).get(0)).get("sites");
         assertEquals(2, sites.size());
         assertEquals("line-1", ((Map<?, ?>) sites.get(0)).get("site_id"));

@@ -14,38 +14,38 @@ class AlertsTest {
 
     @Test
     void highVibrationTriggersBearingWearRisk() {
-        assertEquals(List.of("bearing_wear_risk"), Alerts.evaluate("vibration", summary(7.5, 8.5, 8.0)));
+        assertEquals(List.of("bearing_wear_risk"), Alerts.diagnoseFaults("vibration", summary(7.5, 8.5, 8.0)));
     }
 
     @Test
     void healthyVibrationIsSilent() {
-        assertEquals(List.of(), Alerts.evaluate("vibration", summary(1.5, 2.5, 2.0)));
+        assertEquals(List.of(), Alerts.diagnoseFaults("vibration", summary(1.5, 2.5, 2.0)));
     }
 
     @Test
     void motorOverheating() {
-        assertEquals(List.of("overheating"), Alerts.evaluate("motor_temperature", summary(98, 102, 100)));
+        assertEquals(List.of("overheating"), Alerts.diagnoseFaults("motor_temperature", summary(98, 102, 100)));
     }
 
     @Test
     void rotationSpeedCanRaiseTwoAlerts() {
-        List<String> fired = Alerts.evaluate("rotation_speed", summary(900, 3500, 2000));
+        List<String> fired = Alerts.diagnoseFaults("rotation_speed", summary(900, 3500, 2000));
         assertTrue(fired.contains("underspeed_fault"));
         assertTrue(fired.contains("overspeed_fault"));
     }
 
     @Test
     void rotationSpeedWithinBandIsSilent() {
-        assertEquals(List.of(), Alerts.evaluate("rotation_speed", summary(1500, 2200, 1800)));
+        assertEquals(List.of(), Alerts.diagnoseFaults("rotation_speed", summary(1500, 2200, 1800)));
     }
 
     @Test
     void powerSpikeUsesAvg() {
-        assertEquals(List.of("power_spike"), Alerts.evaluate("power_draw", summary(60, 75, 70)));
+        assertEquals(List.of("power_spike"), Alerts.diagnoseFaults("power_draw", summary(60, 75, 70)));
     }
 
     @Test
     void unknownSensorHasNoRules() {
-        assertEquals(List.of(), Alerts.evaluate("pressure", summary(999, 999, 999)));
+        assertEquals(List.of(), Alerts.diagnoseFaults("pressure", summary(999, 999, 999)));
     }
 }

@@ -2,12 +2,12 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { SENSOR_PROFILES, clampToRange, nextReading } = require("./profiles");
+const { SENSOR_PROFILES, holdWithinTravel, nextReading } = require("./profiles");
 
-test("clampToRange bounds a value on both sides", () => {
-  assert.equal(clampToRange(9999, 0, 500), 500);
-  assert.equal(clampToRange(-10, 0, 500), 0);
-  assert.equal(clampToRange(120, 0, 500), 120);
+test("holdWithinTravel bounds a value on both sides", () => {
+  assert.equal(holdWithinTravel(9999, 0, 500), 500);
+  assert.equal(holdWithinTravel(-10, 0, 500), 0);
+  assert.equal(holdWithinTravel(120, 0, 500), 120);
 });
 
 test("all five elevator/escalator sensors have a profile", () => {

@@ -12,14 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
 
-/**
- * One process per (sensor_type, site_id) pair. Simulates a slowly-drifting
- * instrument reading and independently batches/dispatches it to the fog
- * node's /ingest endpoint. SAMPLE_INTERVAL and DISPATCH_INTERVAL are
- * deliberately separate knobs -- a store's footfall counter might sample
- * every 2s but only phone home every 7s, so the buffer genuinely
- * accumulates multiple readings per POST.
- */
+/** One process per (sensor_type, site_id): drifts a reading, then samples and dispatches it to the fog /ingest endpoint on separate intervals. */
 public class StoreSensorUnit {
 
     record Metric(String unit, RandomWalk walk, double start) {}
@@ -77,10 +70,7 @@ public class StoreSensorUnit {
         double value = profile.start();
         List<Sample> buffer = new ArrayList<>();
 
-        // Two independent "next fire" timestamps rather than two threads:
-        // a single loop polls both deadlines and sleeps for whichever is
-        // closer, so sampling and dispatching never contend for the buffer
-        // and no synchronization is needed within this process at all.
+        // One loop polls two independent deadlines, so sampling and dispatching never contend for the buffer.
         long nextSample = System.currentTimeMillis();
         long nextDispatch = nextSample + dispatchMillis;
 

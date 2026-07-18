@@ -35,13 +35,7 @@ function round(value, places) {
   return Math.round(value * factor) / factor;
 }
 
-/**
- * The primary view: four glanceable KPI tiles computed live from the
- * per-store aggregate data, not fetched as a pre-shaped payload -- this is
- * the "metrics computed into KPI tiles first" structural axis for this
- * dashboard, distinct from every sibling's sensor-card/gauge/table/roster
- * primary view.
- */
+/** Derives the four headline KPI tiles live from the per-store aggregate data. */
 function computeKpis(stores) {
   let totalFootfall = 0;
   let understocked = 0;
@@ -173,12 +167,13 @@ function renderStoreCards(stores) {
 
 function renderHealth(health) {
   const strip = document.getElementById("health-strip");
-  const pill = (label, ok) => `<span class="health-pill ${ok ? "" : "down"}"><span class="swatch"></span>${label}</span>`;
-  strip.innerHTML =
-    pill("Gateway", health.gateway) +
-    pill("Queue", health.queue) +
-    pill("Lambda", health.lambda) +
-    pill("Pipeline", health.pipeline);
+  const stat = (label, ok, okWord) => `<span class="health-stat ${ok ? "" : "down"}">${label} ${ok ? okWord : "down"}</span>`;
+  strip.innerHTML = [
+    stat("Gateway", health.gateway, "ok"),
+    stat("Queue", health.queue, "ok"),
+    stat("Lambda", health.lambda, "ok"),
+    stat("Pipeline", health.pipeline, "live"),
+  ].join('<span class="health-sep"> - </span>');
 }
 
 function renderBackendStats(backendStats) {

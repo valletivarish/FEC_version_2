@@ -1,15 +1,15 @@
 "use strict";
 
-// Self-recursing async Promise chain (tick awaits sleep+onFlush then calls itself) instead of a re-armed setInterval/setTimeout -- unlike siblings 03/06/10/11.
-function sleep(ms) {
+// Self-recursing async Promise chain: each cycle dwells, flushes, then re-arms itself.
+function dwell(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function startWindowLoop(windowSeconds, onFlush) {
+function startDispatchCycle(windowSeconds, onFlush) {
   let stopped = false;
 
   async function tick() {
-    await sleep(windowSeconds * 1000);
+    await dwell(windowSeconds * 1000);
     if (stopped) return;
     try {
       await onFlush();
@@ -28,4 +28,4 @@ function startWindowLoop(windowSeconds, onFlush) {
   };
 }
 
-module.exports = { startWindowLoop, sleep };
+module.exports = { startDispatchCycle, dwell };
