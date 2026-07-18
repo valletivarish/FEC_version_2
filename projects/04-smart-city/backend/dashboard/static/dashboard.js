@@ -1,3 +1,10 @@
+// API origin: sed-substituted into the app script tag's data-api-base at S3 upload time; unset means same-origin.
+const API_BASE = (() => {
+  const el = document.getElementById("app");
+  const v = (el && el.dataset.apiBase) || "";
+  return v.startsWith("__API_BASE__") ? "" : v.replace(/\/$/, "");
+})();
+
 const METRICS = ["vehicle_count", "air_quality_pm25", "noise_level", "parking_occupancy", "ambient_light"];
 
 const METRIC_META = {
@@ -120,7 +127,7 @@ function makeTrendChart(canvas) {
 }
 
 async function refreshTrend(metric) {
-  const res = await fetch(`/api/readings?sensor_type=${metric}&limit=30`);
+  const res = await fetch(API_BASE + `/api/readings?sensor_type=${metric}&limit=30`);
   const data = await res.json();
   const bySite = {};
   for (const item of data.items) (bySite[item.site_id] ||= []).push(item);
@@ -149,9 +156,9 @@ async function refreshTrend(metric) {
 async function refreshBoard() {
   try {
     const [zoneData, health, backend] = await Promise.all([
-      fetch("/api/zones").then((r) => r.json()),
-      fetch("/api/health").then((r) => r.json()),
-      fetch("/api/backend-stats").then((r) => r.json()),
+      fetch(API_BASE + "/api/zones").then((r) => r.json()),
+      fetch(API_BASE + "/api/health").then((r) => r.json()),
+      fetch(API_BASE + "/api/backend-stats").then((r) => r.json()),
     ]);
 
     const zones = zoneData.zones;

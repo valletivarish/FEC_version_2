@@ -1,3 +1,10 @@
+// API origin: sed-substituted into the app script tag's data-api-base at S3 upload time; unset means same-origin.
+const API_BASE = (() => {
+  const el = document.getElementById("app");
+  const v = (el && el.dataset.apiBase) || "";
+  return v.startsWith("__API_BASE__") ? "" : v.replace(/\/$/, "");
+})();
+
 const SENSOR_TYPES = ["footfall_count", "shelf_stock_pct", "fridge_temp_c", "queue_length", "energy_draw_kw"];
 
 const METRIC_LABELS = {
@@ -185,7 +192,7 @@ function renderBackendStats(backendStats) {
 }
 
 async function fetchTrend(sensorType) {
-  const res = await fetch(`/api/readings?sensor_type=${sensorType}&limit=20`);
+  const res = await fetch(API_BASE + `/api/readings?sensor_type=${sensorType}&limit=20`);
   return res.json();
 }
 
@@ -243,9 +250,9 @@ function renderTrendGrid() {
 async function tick() {
   try {
     const [storesResp, health, backendStats] = await Promise.all([
-      fetch("/api/stores").then((r) => r.json()),
-      fetch("/api/health").then((r) => r.json()),
-      fetch("/api/backend-stats").then((r) => r.json()),
+      fetch(API_BASE + "/api/stores").then((r) => r.json()),
+      fetch(API_BASE + "/api/health").then((r) => r.json()),
+      fetch(API_BASE + "/api/backend-stats").then((r) => r.json()),
     ]);
 
     const stores = storesResp.stores || [];

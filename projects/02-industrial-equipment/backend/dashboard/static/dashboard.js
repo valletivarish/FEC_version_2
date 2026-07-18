@@ -1,3 +1,10 @@
+// API origin: sed-substituted into the app script tag's data-api-base at S3 upload time; unset means same-origin.
+const API_BASE = (() => {
+  const el = document.getElementById("app");
+  const v = (el && el.dataset.apiBase) || "";
+  return v.startsWith("__API_BASE__") ? "" : v.replace(/\/$/, "");
+})();
+
 const SENSORS = ["vibration", "motor_temperature", "bearing_acoustic", "rotation_speed", "power_draw"];
 
 // Cosmetic <meter> axis bounds only; real alarm thresholds come live from /api/thresholds.
@@ -49,7 +56,7 @@ function limitNote(sensor) {
 }
 
 async function loadThresholds() {
-  const res = await fetch("/api/thresholds");
+  const res = await fetch(API_BASE + "/api/thresholds");
   THRESHOLDS = await res.json();
 }
 
@@ -135,7 +142,7 @@ function renderTile(sensorType, sites) {
 }
 
 async function refreshTrend(sensorType) {
-  const res = await fetch(`/api/readings?sensor_type=${sensorType}&limit=30`);
+  const res = await fetch(API_BASE + `/api/readings?sensor_type=${sensorType}&limit=30`);
   const data = await res.json();
   if (!data.items.length) return;
   const bySite = {};
@@ -156,9 +163,9 @@ async function refreshTrend(sensorType) {
 async function tick() {
   try {
     const [summary, health, backend] = await Promise.all([
-      fetch("/api/summary").then((r) => r.json()),
-      fetch("/api/health").then((r) => r.json()),
-      fetch("/api/backend-stats").then((r) => r.json()),
+      fetch(API_BASE + "/api/summary").then((r) => r.json()),
+      fetch(API_BASE + "/api/health").then((r) => r.json()),
+      fetch(API_BASE + "/api/backend-stats").then((r) => r.json()),
     ]);
 
     renderPlantStats(summary, backend);

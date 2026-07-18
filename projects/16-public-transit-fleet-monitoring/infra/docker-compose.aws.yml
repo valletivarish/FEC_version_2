@@ -1,0 +1,118 @@
+# Real-AWS compose: only the fog node and the depot sensors run on the EC2 host. The processor
+# and dashboard run as Terraform-provisioned Lambdas, and DynamoDB/SQS are real managed services,
+# so there is no LocalStack here. The fog node publishes to the real SQS queue through the EC2
+# instance profile via the SDK default credential chain, so no endpoint override or static keys
+# are set. Port 8000 is published so the dashboard Lambda can reach the fog node's /health and
+# /thresholds endpoints over the Elastic IP.
+name: ptf-aws
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  fog:
+    build:
+      context: ../fog
+    environment:
+      AWS_REGION: us-east-1
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: ptf-depot-agg
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  depota-enginetemp:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: engine_temp_c
+      SITE_ID: depot-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  depota-brakewear:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: brake_pad_wear_pct
+      SITE_ID: depot-a
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "9"
+
+  depota-passengers:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: passenger_count
+      SITE_ID: depot-a
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "7"
+
+  depota-fuel:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: fuel_level_pct
+      SITE_ID: depot-a
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "10"
+
+  depota-speed:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: gps_speed_kmh
+      SITE_ID: depot-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "6"
+
+  depotb-enginetemp:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: engine_temp_c
+      SITE_ID: depot-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  depotb-brakewear:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: brake_pad_wear_pct
+      SITE_ID: depot-b
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  depotb-passengers:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: passenger_count
+      SITE_ID: depot-b
+      SAMPLE_INTERVAL: "1"
+      DISPATCH_INTERVAL: "8"
+
+  depotb-fuel:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: fuel_level_pct
+      SITE_ID: depot-b
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "11"
+
+  depotb-speed:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: gps_speed_kmh
+      SITE_ID: depot-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "7"
