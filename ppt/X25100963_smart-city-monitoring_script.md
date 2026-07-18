@@ -1,5 +1,7 @@
 # Smart City Operations Monitoring - 4-Minute Presentation Script
 
+Mohammed Hassan Ahmed - Student ID X25100963 - Fog and Edge Computing (H9FECC)
+
 Total: ~535 spoken words | approximately 3 minutes 58 seconds at ~135 wpm
 
 ## Slide 1 - Cover (0:00-0:16)
