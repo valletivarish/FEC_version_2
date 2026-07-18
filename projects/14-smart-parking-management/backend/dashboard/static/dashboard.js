@@ -1,3 +1,10 @@
+// API origin: sed-substituted into the app script tag's data-api-base at S3 upload time; unset means same-origin.
+const API_BASE = (() => {
+  const el = document.getElementById("app");
+  const v = (el && el.dataset.apiBase) || "";
+  return v.startsWith("__API_BASE__") ? "" : v.replace(/\/$/, "");
+})();
+
 const POLL_INTERVAL_MS = 2500;
 
 // occupied_spaces is rendered separately as the primary <progress> gauge;
@@ -95,13 +102,13 @@ function renderLotCard(lot) {
 }
 
 async function refreshLots() {
-  const resp = await fetch("/api/lots");
+  const resp = await fetch(API_BASE + "/api/lots");
   const body = await resp.json();
   document.getElementById("lot-grid").innerHTML = body.lots.map(renderLotCard).join("");
 }
 
 async function refreshHealth() {
-  const resp = await fetch("/api/health");
+  const resp = await fetch(API_BASE + "/api/health");
   const body = await resp.json();
   setDot("dot-gateway", !!body.gateway);
   setDot("dot-queue", !!body.queue);
@@ -114,7 +121,7 @@ async function refreshHealth() {
 }
 
 async function refreshBackendStats() {
-  const resp = await fetch("/api/backend-stats");
+  const resp = await fetch(API_BASE + "/api/backend-stats");
   const body = await resp.json();
   const queue = body.queue;
   document.getElementById("stat-queue-waiting").textContent =
@@ -128,7 +135,7 @@ let rulesLoaded = false;
 async function loadRulesOnce() {
   if (rulesLoaded) return;
   try {
-    const resp = await fetch("/api/thresholds");
+    const resp = await fetch(API_BASE + "/api/thresholds");
     const rules = await resp.json();
     const groups = Object.entries(rules).map(([sensorType, ruleList]) => {
       const lines = ruleList.map((rule) => `<p class="rule-line">${rule.field} ${rule.op} ${rule.limit} &rarr; ${rule.key}</p>`).join("");
@@ -144,8 +151,8 @@ async function loadRulesOnce() {
 let trendChart = null;
 async function refreshTrendChart() {
   const [lotA, lotB] = await Promise.all([
-    fetch("/api/readings?sensor_type=occupied_spaces&site_id=lot-a&limit=20").then((r) => r.json()),
-    fetch("/api/readings?sensor_type=occupied_spaces&site_id=lot-b&limit=20").then((r) => r.json()),
+    fetch(API_BASE + "/api/readings?sensor_type=occupied_spaces&site_id=lot-a&limit=20").then((r) => r.json()),
+    fetch(API_BASE + "/api/readings?sensor_type=occupied_spaces&site_id=lot-b&limit=20").then((r) => r.json()),
   ]);
 
   const labels = lotA.items.map((item) => new Date(item.window_end).toLocaleTimeString());

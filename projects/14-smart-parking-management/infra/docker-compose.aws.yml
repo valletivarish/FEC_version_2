@@ -1,0 +1,119 @@
+# Real-AWS compose: only the fog node and the ten lot sensors run on the EC2
+# host. The processor and dashboard run as Terraform-provisioned Lambdas, and
+# DynamoDB/SQS are real managed services, so there is no LocalStack here. The fog
+# node publishes to the real SQS queue through the EC2 instance profile via the
+# SDK default credential chain, so no endpoint override or static keys are set.
+# Port 8000 is published so the dashboard Lambda can reach the fog node's /health
+# and /thresholds endpoints over the Elastic IP.
+name: spm-aws
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  fog:
+    build:
+      context: ../fog
+    environment:
+      AWS_REGION: us-east-1
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: spm-lot-agg
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  sensor-occupied-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: occupied_spaces
+      SITE_ID: lot-a
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  sensor-occupied-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: occupied_spaces
+      SITE_ID: lot-b
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-entry-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: entry_rate_per_min
+      SITE_ID: lot-a
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-entry-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: entry_rate_per_min
+      SITE_ID: lot-b
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  sensor-exit-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: exit_rate_per_min
+      SITE_ID: lot-a
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "12"
+
+  sensor-exit-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: exit_rate_per_min
+      SITE_ID: lot-b
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "13"
+
+  sensor-dwell-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: avg_dwell_time_min
+      SITE_ID: lot-a
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "14"
+
+  sensor-dwell-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: avg_dwell_time_min
+      SITE_ID: lot-b
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "15"
+
+  sensor-gate-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: gate_fault_events
+      SITE_ID: lot-a
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "16"
+
+  sensor-gate-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: gate_fault_events
+      SITE_ID: lot-b
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "17"
