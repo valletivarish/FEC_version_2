@@ -16,7 +16,7 @@ Here's how it works, left to right. At the plant, on the edge, ten simulated sen
 
 ## Slide 4 (1:50-2:35)
 
-This is the dashboard from that end-to-end run. On the left, a matrix of the five readings against both plants - each cell has a meter against its safe range - with per-plant compliance strips and cross-plant trends below. Three facts from the demo. All four pipeline health checks are green: gateway, queue, Lambda, and the end-to-end pipeline. A hundred and seven automated tests pass across sensors, fog, processor and dashboard. And a two-thousand-message burst went into the queue and came out the other side.
+This is the dashboard from that end-to-end run. On the left, a matrix of the five readings against both plants - each cell has a meter against its safe range - with per-plant compliance strips and cross-plant trends below. Three facts from the demo. All four pipeline health checks are green: gateway, queue, Lambda, and the end-to-end pipeline. A hundred and fifteen automated tests pass across sensors, fog, processor and dashboard. And a two-thousand-message burst went into the queue and came out the other side.
 
 ## Slide 5 (2:35-3:40)
 
