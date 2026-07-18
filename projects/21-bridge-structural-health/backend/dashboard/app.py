@@ -1,7 +1,5 @@
 """Bridge & structural health dashboard: REST API + static frontend, both
-served by the same Bottle app (fog and dashboard independently choose
-Bottle here; nothing about the dashboard's framework is one of the 5
-differentiation axes documented in readme.txt)."""
+served by the same Bottle app (the fog node and this dashboard independently chose Bottle)."""
 
 import json
 import os

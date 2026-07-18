@@ -2,7 +2,7 @@
   "name": "owf-ops-scripts",
   "version": "1.0.0",
   "private": true,
-  "description": "Node-based ops tooling for project 06 (screenshot capture). Kept isolated from application package.json files.",
+  "description": "Node-based ops tooling (screenshot capture) for the offshore wind farm monitor. Kept isolated from application package.json files.",
   "scripts": {
     "capture-screenshots": "node capture_dashboard_screenshots.js"
   },

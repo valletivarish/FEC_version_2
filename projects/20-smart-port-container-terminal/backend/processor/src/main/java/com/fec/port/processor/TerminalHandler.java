@@ -53,7 +53,7 @@ public class TerminalHandler implements RequestHandler<SQSEvent, Map<String, Obj
                 // Deliberately fail the whole batch on any single bad record
                 // rather than skipping it: the SQS event source mapping will
                 // then leave the batch unacked and retry it, the simplest
-                // correct behaviour at this CA's demo scale.
+                // correct behaviour at this deployment's data volume.
                 throw new RuntimeException(e);
             }
         }

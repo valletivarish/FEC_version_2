@@ -21,8 +21,7 @@ def to_item(record):
 
 
 def lambda_handler(event, context):
-    """SQS-triggered entry point, wired up by an event source mapping (see
-    the real deployment in the repo root CLAUDE.md): one invocation carries
+    """SQS-triggered entry point, wired up by an event source mapping: one invocation carries
     a batch of queue messages in event["Records"], one per window-aggregate
     the fog node published."""
     for record in event["Records"]:

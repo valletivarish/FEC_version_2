@@ -179,13 +179,13 @@ Or without local Maven/JDK:
   (repeat for sensors/, backend/processor/, backend/dashboard/)
 
 Real per-module test counts (verified by running each suite):
-  sensors:            4 tests   (SensorTest: 4)
-  fog:                18 tests  (AggregationTest: 3, AlertsTest: 7,
-                       FogAppTest: 4, QueueRelayTest: 4)
-  backend/processor:  5 tests   (HandlerTest: 2, ReshapeTest: 3)
-  backend/dashboard:  15 tests  (DashboardAppTest: 3, DynamoHelperTest: 3,
-                       HealthChecksTest: 9)
-  total:              42 tests, all passing
+  sensors:            11 tests  (SensorTest: 11)
+  fog:                36 tests  (AggregationTest: 6, AlertsTest: 15,
+                       FogAppTest: 9, QueueRelayTest: 6)
+  backend/processor:  13 tests  (HandlerTest: 5, ReshapeTest: 8)
+  backend/dashboard:  34 tests  (DashboardAppTest: 7, DynamoHelperTest: 8,
+                       EquipmentDashboardLambdaTest: 8, HealthChecksTest: 11)
+  total:              94 tests, all passing
 
 End-to-end pipeline check, with the local stack running:
   AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test python infra/verify_pipeline.py

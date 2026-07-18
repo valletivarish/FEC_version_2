@@ -4,8 +4,7 @@ import operator
 
 _OP_SYMBOLS = {operator.gt: ">", operator.lt: "<"}
 
-# One rule per exception condition, matching the CA brief's thresholds
-# exactly. passenger_count carries no rule at all -- secondary detail only,
+# One rule per exception condition. passenger_count carries no rule at all -- secondary detail only,
 # always evaluates to [].
 RULES = [
     {"sensor_type": "engine_room_temp_c", "field": "avg", "op": operator.gt, "limit": 75, "key": "engine_overheat_risk"},
