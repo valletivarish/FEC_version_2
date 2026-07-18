@@ -6,8 +6,7 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-// API Gateway entry point. DashboardApp's HttpServer binding has no meaning inside a Lambda
-// invocation, so each route is served here by calling the same static helpers the HttpServer contexts use.
+// API Gateway entry point: reuses DashboardApp's static route helpers since its HttpServer binding is meaningless in a Lambda.
 public class EquipmentDashboardLambda implements RequestHandler<Map<String, Object>, Map<String, Object>> {
 
     private static final Map<String, String> HEADERS = Map.of(

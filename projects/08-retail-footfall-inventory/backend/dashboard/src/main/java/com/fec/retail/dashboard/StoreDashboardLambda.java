@@ -19,8 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-// API Gateway entry point. Each /api route is served by the exact HttpHandler closure StoreDashboardApp
-// binds for its HttpServer, driven here through an in-memory exchange so no route logic is duplicated.
+// API Gateway entry point: drives StoreDashboardApp's own HttpHandler closures through an in-memory exchange, so no route logic is duplicated.
 public class StoreDashboardLambda implements RequestHandler<Map<String, Object>, Map<String, Object>> {
 
     private static StoreDashboardApp warmApp;
@@ -92,8 +91,7 @@ public class StoreDashboardLambda implements RequestHandler<Map<String, Object>,
         return result;
     }
 
-    // Minimal in-memory HttpExchange: enough of the surface for the dashboard handlers to read the
-    // request URI and write a captured status + body. Everything the handlers never touch is stubbed.
+    // Minimal in-memory HttpExchange: request URI in, captured status and body out; the rest is stubbed.
     private static final class CapturingExchange extends HttpExchange {
         private final String method;
         private final URI uri;
