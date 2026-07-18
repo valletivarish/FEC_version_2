@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/** Berth status line renders FOUR independently-labelled segments (crane/wind/reefer/occupancy) from already-fired alert keys, unlike 19's ShaftRepository.classify() which collapses everything into one fixed-string SAFE/CAUTION/DANGER tile -- no threshold logic recomputed here, that's BerthRules.assess()'s job. */
+/** Berth status line renders FOUR independently-labelled segments (crane/wind/reefer/occupancy) from already-fired alert keys, rather than collapsing them into one fixed-string status tile -- no threshold logic recomputed here, that's BerthRules.assess()'s job. */
 public final class StatusLine {
 
     public record Segment(String label, String value, boolean active) {}

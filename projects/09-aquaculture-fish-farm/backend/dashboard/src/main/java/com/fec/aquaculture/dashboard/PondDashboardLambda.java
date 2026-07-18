@@ -23,11 +23,7 @@ import java.util.Map;
 /**
  * Answers the dashboard API behind a real AWS API Gateway REST API. Dispatch
  * is a nested two-level Map, method then exact path, built once and resolved
- * by two chained lookups -- not a linear scan (project 15), a trie (22), a
- * framework adapter (01, 06), a flat single-level dict (23), a switch
- * expression (24), a template-segment array (25), an enum registry (19), a
- * sealed interface (07), pattern matching (21), or a chain-of-responsibility
- * (10). Reuses PondRepository, PipelineChecks, and ThresholdsGateway
+ * by two chained lookups. Reuses PondRepository, PipelineChecks, and ThresholdsGateway
  * directly rather than duplicating their logic.
  */
 public class PondDashboardLambda implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {

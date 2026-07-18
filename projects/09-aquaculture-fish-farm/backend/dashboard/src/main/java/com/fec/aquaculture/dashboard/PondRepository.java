@@ -48,10 +48,8 @@ class PondRepository {
 
     /**
      * Per-pond grouping endpoint: for each sensor type, the latest window
-     * reported by each site_id. This is the project-specific grouping view
-     * feeding the pond-shaped ring cards -- distinct from 07's fleet roster
-     * (robot/zone as the primary axis) and 08's store grouping (feeding a
-     * KPI-tiles-first layout); here the pond cards themselves ARE the
+     * reported by each site_id. This is the grouping view that feeds the
+     * pond-shaped ring cards; here the pond cards themselves ARE the
      * primary view, so this endpoint's shape drives the whole dashboard.
      */
     Map<String, Object> byPond(DynamoDbClient client, String tableName, String[] sensorTypes, int historyPerType) {

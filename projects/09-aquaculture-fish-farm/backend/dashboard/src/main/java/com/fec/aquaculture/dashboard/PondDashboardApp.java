@@ -30,8 +30,7 @@ import java.util.Map;
  * API plus the static pond-ring frontend. Routing goes through the shared
  * PathDispatcher (see PathDispatcher.java): a single createContext("/", ...)
  * registration matching an ordered list of (path predicate, handler) pairs
- * at request time, rather than fog/04's accumulate-then-wire builder, 07's
- * immediate-wire builder, or 08's enum-of-routes iterated once at startup.
+ * at request time.
  */
 public class PondDashboardApp {
 

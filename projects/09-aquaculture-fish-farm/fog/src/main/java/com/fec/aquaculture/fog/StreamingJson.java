@@ -10,9 +10,8 @@ import java.util.Map;
 
 /**
  * Writes JSON through Jackson's low-level streaming API (JsonFactory +
- * JsonGenerator) instead of building a tree (ObjectNode, as in 02 and 07's
- * JsonBuilder) or data-binding a POJO/record via writeValueAsString (as in
- * 04's private record and 08's @JsonPropertyOrder DTOs). Every field is
+ * JsonGenerator) instead of building a tree (ObjectNode) or data-binding a
+ * POJO/record via writeValueAsString. Every field is
  * written directly to the output stream one token at a time -- there is no
  * intermediate tree or object graph held in memory at all.
  */
