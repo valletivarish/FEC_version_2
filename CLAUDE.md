@@ -26,6 +26,7 @@ All dashboard URLs re-checked live on 2026-07-15 (HTTP status of the index page)
 | 26 beehive-apiary-monitoring | Yashaswini Penumarthi | `https://bam-frontend-881865707591.s3.us-east-1.amazonaws.com/index.html` | `https://0hodaq59re.execute-api.us-east-1.amazonaws.com/prod` | 200 OK |
 | 03 patient-vitals | Sri Venkat Bora | `https://fpv-frontend-457516959142.s3.us-east-1.amazonaws.com/index.html` | `https://s2unnfc535.execute-api.us-east-1.amazonaws.com/prod` | 200 OK |
 | 04 smart-city | Mohammed Hassan Ahmed | `https://fsc-frontend-109730370597.s3.us-east-1.amazonaws.com/index.html` | `https://ckvirw3e01.execute-api.us-east-1.amazonaws.com/prod` | 200 OK |
+| 05 cold-chain-logistics | Srinidhi Vutkoori | `https://fcl-frontend-911500555248.s3.us-east-1.amazonaws.com/index.html` | `https://zpeplbwe17.execute-api.us-east-1.amazonaws.com/prod` | 200 OK |
 
 ## AWS deployment guardrail
 
@@ -307,6 +308,23 @@ Live resources in this account (as of 2026-07-18, project 04 only, provisioned v
 
 Live URLs: dashboard at `https://fsc-frontend-109730370597.s3.us-east-1.amazonaws.com/index.html`, its API at `https://ckvirw3e01.execute-api.us-east-1.amazonaws.com/prod`. The dashboard and its API are fully serverless (S3 + Lambda + API Gateway) and do not depend on the EC2 instance being up; only `/api/health`'s `gateway` field and fresh sensor data depend on fog/sensors running on EC2.
 
+Project 05 (cold-chain-logistics) is deployed to a separate real AWS account:
+
+- **Account ID: 911500555248** (AWS Academy Learner Lab, Vocareum-provisioned, student `x25173243@student.ncirl.ie`)
+- Region: `us-east-1` only (same region-lock pattern as the other accounts)
+- Role: `voclabs` (session), reuse `LabRole` / `LabInstanceProfile` for anything needing an IAM role or instance profile
+- Credentials are temporary (`ASIA`-prefixed) and expire in ~4 hours, same as the other accounts
+
+**Before running any `aws`/deploy command for project 05: confirm `aws sts get-caller-identity` returns account `911500555248`.** If it returns any other account, STOP and flag it to the user — never deploy project 05 into another project's account or vice versa.
+
+**This account is not a shared or general-purpose sandbox.** It is Srinidhi Vutkoori's (X25173243) personal AWS Academy Learner Lab. Project 05 is not available for any other student in this portfolio to deploy into, redeploy, or reuse as a template against this account.
+
+Deployed via the shared Terraform module (`terraform/`) in a single `terraform apply` in an isolated `fcl` workspace created before the apply (per the guardrail above; `aws sts get-caller-identity` was confirmed to return the brand-new account 911500555248 matching Srinidhi's `x25173243` login, not colliding with any account already in use, before anything was applied; the working dir was switched back to `default` afterward). `terraform plan` reported "24 to add, 0 to change, 0 to destroy". Two deploy-only Lambda bugs were found and fixed live: the Python dashboard's FastAPI dependency `pydantic_core` had to be packaged as manylinux2014_x86_64 wheels (the local macOS build fails to import on Lambda), and its FastAPI app mounted a `static/` directory at import time that isn't shipped in the Lambda zip (S3 serves the frontend), so the mount was made tolerant of the absent directory (`check_dir=False`).
+
+Live resources in this account (as of 2026-07-18, project 05 only, provisioned via `terraform/`): DynamoDB table `fcl-readings`, SQS queue `fcl-manifest-agg`, Lambda `fcl-processor` (SQS-triggered ingestion, python3.12) and Lambda `fcl-dashboard-api` (behind API Gateway REST API `zpeplbwe17`, python3.12), EC2 instance `i-08fd56d12b91fb226` (tagged `fcl-fog-host`, runs the fog node + 10 sensor containers, security group `sg-096fa57bb8725efc4` allows only inbound TCP 8000), Elastic IP `34.200.55.91` (allocation `eipalloc-04bf4e7ce49170e85`, associated with that instance), S3 bucket `fcl-frontend-911500555248` (static dashboard frontend, public read-only, static website hosting enabled) and S3 staging bucket `fcl-deploy-911500555248`. All are prefixed `fcl-`. The dashboard Lambda's `FOG_HEALTH_URL`/`FOG_THRESHOLDS_URL` env vars point at this Elastic IP; if it's ever released and reallocated, they need updating.
+
+Live URLs: dashboard at `https://fcl-frontend-911500555248.s3.us-east-1.amazonaws.com/index.html`, its API at `https://zpeplbwe17.execute-api.us-east-1.amazonaws.com/prod`. The dashboard and its API are fully serverless (S3 + Lambda + API Gateway) and do not depend on the EC2 instance being up; only `/api/health`'s `gateway` field and fresh sensor data depend on fog/sensors running on EC2.
+
 ## Attribution
 
 Some projects in this portfolio are individual CA submissions for different students, not all belonging to the same person:
@@ -329,6 +347,7 @@ Some projects in this portfolio are individual CA submissions for different stud
 - Project 26 (beehive-apiary-monitoring): Yashaswini Penumarthi, Student ID X24262404 (Group A)
 - Project 03 (patient-vitals): Sri Venkat Bora, Student ID X25164414
 - Project 04 (smart-city): Mohammed Hassan Ahmed, Student ID X25100963 (Group A)
+- Project 05 (cold-chain-logistics): Srinidhi Vutkoori, Student ID X25173243 (Group B)
 
 Each project is an independent submission for the student named above.
 
@@ -352,3 +371,4 @@ Each project below is an independent submission for its named student. Per-proje
 - **Project 13 (ev-charging-network) - Nemi Ishwarlal Vikani (X24303046):** Python/Flask project; deployed live (isolated `ecn` workspace) and verified in a real browser; 121 tests. IEEE report finalized (16 references, unique topology diagram; report zip in `tmp/`). Only the presentation & demo remain.
 - **Project 11 (water-treatment-utility) - Rakesh Kunchala (X25176862):** Node project; deployed live (isolated `wtu` workspace, account 824792629641) and verified in a real browser; 115 tests. One deploy-only Lambda bug (dashboard handler treated its third argument, the Lambda runtime callback, as injected clients) was found live and fixed. Dashboard health readout and code identifiers made project-specific. IEEE report + deck + script remain to be built.
 - **Project 04 (smart-city) - Mohammed Hassan Ahmed (X25100963, Group A):** Java project; deployed live (isolated `fsc` workspace, account 109730370597) and verified end to end in a real browser (both zones streaming all five metrics, CORS clean, no console errors); 62 tests. IEEE report finalized (6 pages, unique heterogeneous-signals/edge-triage framing + own topology diagram; live dashboard figure captured from the running deployment; verified 3x against brief + Lab checklist). Deck (`ppt/MohammedHassanAhmed_X25100963_smart-city-monitoring.pptx`, band archetype, teal accent, Calibri, live dashboard figure embedded, badge-free cover) and 4-minute demo script (`ppt/..._script.md`, 548 spoken words, unique speaking structure) built and verified. All deliverables staged in `tmp/`. Project 04 complete except the in-class presentation itself.
+- **Project 05 (cold-chain-logistics) - Srinidhi Vutkoori (X25173243, Group B):** Python/FastAPI project; deployed live (isolated `fcl` workspace, account 911500555248) and verified end to end in a real browser (two refrigerated containers streaming all five metrics — storage temperature, humidity, door-open seconds, shock, CO2 — with breach detection firing on CONTAINER-2, live temperature trend charts, backend health all green). Two deploy-only Lambda bugs were found and fixed live (manylinux `pydantic_core` wheels; `check_dir=False` on the static mount). IEEE report + deck + script remain to be built.
