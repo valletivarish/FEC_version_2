@@ -20,7 +20,7 @@ def index():
     return FileResponse(STATIC_DIR / "index.html")
 
 
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount("/static", StaticFiles(directory=STATIC_DIR, check_dir=False), name="static")
 
 
 @app.middleware("http")

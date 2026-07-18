@@ -11,7 +11,7 @@ processor_handler       = "handler.lambda_handler"
 processor_runtime       = "python3.12"
 
 dashboard_lambda_name   = "fcl-dashboard-api"
-dashboard_build_command = "cd backend/dashboard && rm -rf build lambda.zip && pip install -r requirements.txt -t build --quiet && cp lambda_handler.py app.py health.py routes.py build/ && cd build && zip -qr ../lambda.zip . && cd .."
+dashboard_build_command = "cd backend/dashboard && rm -rf build lambda.zip && pip install -r requirements.txt -t build --platform manylinux2014_x86_64 --python-version 3.12 --only-binary=:all: --quiet && cp lambda_handler.py app.py health.py routes.py build/ && cd build && zip -qr ../lambda.zip . && cd .."
 dashboard_zip_path      = "backend/dashboard/lambda.zip"
 dashboard_handler       = "lambda_handler.lambda_handler"
 dashboard_runtime       = "python3.12"
