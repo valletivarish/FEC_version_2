@@ -57,15 +57,6 @@ body {
   gap: 14px;
 }
 
-.brand-mark {
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  background: conic-gradient(from 200deg, var(--safe), var(--watch), var(--extreme), var(--safe));
-  flex-shrink: 0;
-  box-shadow: 0 0 0 3px rgba(232, 98, 44, 0.15);
-}
-
 h1 {
   margin: 0;
   font-size: 19px;

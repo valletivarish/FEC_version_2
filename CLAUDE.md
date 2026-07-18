@@ -29,6 +29,7 @@ All dashboard URLs re-checked live on 2026-07-15 (HTTP status of the index page)
 | 05 cold-chain-logistics | Srinidhi Vutkoori | `https://fcl-frontend-911500555248.s3.us-east-1.amazonaws.com/index.html` | `https://zpeplbwe17.execute-api.us-east-1.amazonaws.com/prod` | 200 OK |
 | 17 solar-farm-monitoring | Mahek Naaz | `https://sfm-frontend-263844967627.s3.us-east-1.amazonaws.com/index.html` | `https://c9wp9ylab7.execute-api.us-east-1.amazonaws.com/prod` | 200 OK |
 | 02 industrial-equipment | Vikas Reddy Amanagantti | `https://fei-frontend-964346251483.s3.us-east-1.amazonaws.com/index.html` | `https://dfhmkyn2s5.execute-api.us-east-1.amazonaws.com/prod` | 200 OK |
+| 10 wildfire-forest-monitoring | Deekonda Rakshan | `https://wfm-frontend-923613097540.s3.us-east-1.amazonaws.com/index.html` | `https://qr6vnedh7g.execute-api.us-east-1.amazonaws.com/prod` | 200 OK |
 
 ## AWS deployment guardrail
 
@@ -361,6 +362,23 @@ Live resources in this account (as of 2026-07-18, project 02 only, provisioned v
 
 Live URLs: dashboard at `https://fei-frontend-964346251483.s3.us-east-1.amazonaws.com/index.html`, its API at `https://dfhmkyn2s5.execute-api.us-east-1.amazonaws.com/prod`. The dashboard and its API are fully serverless (S3 + Lambda + API Gateway) and do not depend on the EC2 instance being up; only `/api/health`'s `fog` field and fresh sensor data depend on fog/sensors running on EC2.
 
+Project 10 (wildfire-forest-monitoring) is deployed to a separate real AWS account:
+
+- **Account ID: 923613097540** (AWS Academy Learner Lab, Vocareum-provisioned, student `x25180754@student.ncirl.ie`)
+- Region: `us-east-1` only (same region-lock pattern as the other accounts)
+- Role: `voclabs` (session), reuse `LabRole` / `LabInstanceProfile` for anything needing an IAM role or instance profile
+- Credentials are temporary (`ASIA`-prefixed) and expire in ~4 hours, same as the other accounts
+
+**Before running any `aws`/deploy command for project 10: confirm `aws sts get-caller-identity` returns account `923613097540`.** If it returns any other account, STOP and flag it to the user — never deploy project 10 into another project's account or vice versa.
+
+**This account is not a shared or general-purpose sandbox.** It is Deekonda Rakshan's (X25180754) personal AWS Academy Learner Lab. Project 10 is not available for any other student in this portfolio to deploy into, redeploy, or reuse as a template against this account.
+
+Deployed via the shared Terraform module (`terraform/`) in an isolated `wfm` workspace created before the apply (per the guardrail above; `aws sts get-caller-identity` was confirmed to return the brand-new account 923613097540 matching Rakshan's `x25180754` login, not colliding with any account already in use, before anything was applied; the working dir was switched back to `default` afterward). `terraform plan` reported "24 to add, 0 to change, 0 to destroy". The fog host was pinned to `us-east-1a` via the `fog_availability_zone` module variable in `wfm.tfvars` (proactive, so the `us-east-1e`/`t3.small` AZ issue could not recur) — internal note only, not for any student document.
+
+Live resources in this account (as of 2026-07-18, project 10 only, provisioned via `terraform/`): DynamoDB table `wfm-readings`, SQS queue `wfm-station-agg`, Lambda `wfm-processor` (SQS-triggered ingestion, nodejs20.x) and Lambda `wfm-dashboard-api` (behind API Gateway REST API `qr6vnedh7g`, nodejs20.x), EC2 instance `i-0239d0ccaf7e631d3` (tagged `wfm-fog-host`, in `us-east-1a`, runs the fog node + 10 sensor containers, security group `sg-08ff17ae1be42e3e4` allows only inbound TCP 8000), Elastic IP `34.239.212.45` (allocation `eipalloc-02fd53f32d745aab4`, associated with that instance), S3 bucket `wfm-frontend-923613097540` (static dashboard frontend, public read-only, static website hosting enabled) and S3 staging bucket `wfm-deploy-923613097540`. All are prefixed `wfm-`. The dashboard Lambda's `FOG_HEALTH_URL`/`FOG_THRESHOLDS_URL` env vars point at this Elastic IP; if it's ever released and reallocated, they need updating.
+
+Live URLs: dashboard at `https://wfm-frontend-923613097540.s3.us-east-1.amazonaws.com/index.html`, its API at `https://qr6vnedh7g.execute-api.us-east-1.amazonaws.com/prod`. The dashboard and its API are fully serverless (S3 + Lambda + API Gateway) and do not depend on the EC2 instance being up; only `/api/health`'s `gateway` field and fresh sensor data depend on fog/sensors running on EC2.
+
 ## Attribution
 
 Some projects in this portfolio are individual CA submissions for different students, not all belonging to the same person:
@@ -373,7 +391,7 @@ Some projects in this portfolio are individual CA submissions for different stud
 - Project 24 (wildlife-conservation-monitoring): Hrishikesh Sajeev, Student ID X25132377
 - Project 25 (ski-resort-avalanche-safety): Ebin Joseph, Student ID X25142224
 - Project 07 (warehouse-robotics-fleet): Goutham Uppu, Student ID X25167936
-- Project 10 (wildfire-forest-monitoring): Deekonda Rakshan, Student ID X25180754
+- Project 10 (wildfire-forest-monitoring): Deekonda Rakshan, Student ID X25180754 (Group B)
 - Project 21 (bridge-structural-health): Kasireddy Vadicherla, Student ID X25104047
 - Project 06 (offshore-wind-farm): Vishvaksen Machana, Student ID X25173421
 - Project 20 (smart-port-container-terminal): Uday Kiran Reddy Dodda, Student ID X25166484
@@ -401,7 +419,7 @@ Each project below is an independent submission for its named student. Per-proje
 - **Project 25 (ski-resort-avalanche-safety) - Ebin Joseph (X25142224):** deployed, live and verified; 121 tests. Redeployed into a replacement lab account (475393590440) after the original session (596691181085) ended; the original resources are orphaned, not deleted. IEEE report finalized. Only the presentation & demo remain.
 - **Project 19 (smart-mining-safety) - Jaipal Kasireddy (X25156381):** Java project; deployed, live and verified; 90 tests. IEEE report finalized. Only the presentation & demo remain.
 - **Project 07 (warehouse-robotics-fleet) - Goutham Uppu (X25167936):** Java project; deployed live via the Terraform module and verified in a real browser; 127 tests. IEEE report finalized. Only the presentation & demo remain.
-- **Project 10 (wildfire-forest-monitoring) - Deekonda Rakshan (X25180754):** built and tested (95 tests); deploy scaffolding and `terraform/deployments/wfm.tfvars` ready. NOT yet deployed - awaiting his AWS Academy credentials; when they arrive confirm `aws sts get-caller-identity` shows a new account, then `cd terraform && terraform workspace new wfm && ./build.sh deployments/wfm.tfvars && terraform apply -var-file=deployments/wfm.tfvars`, switch back to `default`, and add the guardrail block + live URLs to this file.
+- **Project 10 (wildfire-forest-monitoring) - Deekonda Rakshan (X25180754, Group B):** Node project; deployed live (isolated `wfm` workspace, account 923613097540) and verified end to end in a real browser (a dark ranger-station fire-risk board: two stations each with a 0-4 fire-risk gauge and five environmental sensors — temperature, humidity, smoke density, wind speed, soil moisture — a smoke-density trend chart for both stations, fire-detection alerts firing on a smoke spike, and a text health footer `fog gateway/queue/lambda/pipeline: up`); 95 tests. Live dashboard figure captured for the report. A decorative conic-gradient app-icon badge was removed from the dashboard header (AI-tell) before capture. Fog host pre-pinned to `us-east-1a`. **DEPLOY-ONLY phase — report/deck/script NOT yet built.**
 - **Project 21 (bridge-structural-health) - Kasireddy Vadicherla (X25104047):** Python project; deployed live (isolated `bshm` workspace) and verified end to end; 115 tests. Only the presentation & demo remain.
 - **Project 09 (aquaculture-fish-farm) - Anjaneya Reddy Gurram (24288853):** Java project; deployed live (isolated `aff` workspace) and verified; 156 tests. Only the presentation & demo remain.
 - **Project 06 (offshore-wind-farm) - Vishvaksen Machana (X25173421):** Node project; deployed live (isolated `owf` workspace) and verified with a real-browser screenshot; 71 tests. Minor known nit: `/api/readings` with no `sensor_type` returns 500 rather than 400 (not exercised by the dashboard). Only the presentation & demo remain.
