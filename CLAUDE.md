@@ -25,6 +25,7 @@ All dashboard URLs re-checked live on 2026-07-15 (HTTP status of the index page)
 | 11 water-treatment-utility | Rakesh Kunchala | `https://wtu-frontend-824792629641.s3.us-east-1.amazonaws.com/index.html` | `https://p0ljcrhlj2.execute-api.us-east-1.amazonaws.com/prod` | 200 OK |
 | 26 beehive-apiary-monitoring | Yashaswini Penumarthi | `https://bam-frontend-881865707591.s3.us-east-1.amazonaws.com/index.html` | `https://0hodaq59re.execute-api.us-east-1.amazonaws.com/prod` | 200 OK |
 | 03 patient-vitals | Sri Venkat Bora | `https://fpv-frontend-457516959142.s3.us-east-1.amazonaws.com/index.html` | `https://s2unnfc535.execute-api.us-east-1.amazonaws.com/prod` | 200 OK |
+| 04 smart-city | Mohammed Hassan Ahmed | `https://fsc-frontend-109730370597.s3.us-east-1.amazonaws.com/index.html` | `https://ckvirw3e01.execute-api.us-east-1.amazonaws.com/prod` | 200 OK |
 
 ## AWS deployment guardrail
 
@@ -289,6 +290,23 @@ Live resources in this account (as of 2026-07-18, project 03 only, provisioned v
 
 Live URLs: dashboard at `https://fpv-frontend-457516959142.s3.us-east-1.amazonaws.com/index.html`, its API at `https://s2unnfc535.execute-api.us-east-1.amazonaws.com/prod`. The dashboard and its API are fully serverless (S3 + Lambda + API Gateway) and do not depend on the EC2 instance being up; only `/api/health`'s `gateway` field and fresh sensor data depend on fog/sensors running on EC2.
 
+Project 04 (smart-city) is deployed to a separate real AWS account:
+
+- **Account ID: 109730370597** (AWS Academy Learner Lab, Vocareum-provisioned, student `x25100963@student.ncirl.ie`)
+- Region: `us-east-1` only (same region-lock pattern as the other accounts)
+- Role: `voclabs` (session), reuse `LabRole` / `LabInstanceProfile` for anything needing an IAM role or instance profile
+- Credentials are temporary (`ASIA`-prefixed) and expire in ~4 hours, same as the other accounts
+
+**Before running any `aws`/deploy command for project 04: confirm `aws sts get-caller-identity` returns account `109730370597`.** If it returns any other account, STOP and flag it to the user — never deploy project 04 into another project's account or vice versa.
+
+**This account is not a shared or general-purpose sandbox.** It is Mohammed Hassan Ahmed's (X25100963) personal AWS Academy Learner Lab. Project 04 is not available for any other student in this portfolio to deploy into, redeploy, or reuse as a template against this account.
+
+Deployed via the shared Terraform module (`terraform/`) in a single `terraform apply` in an isolated `fsc` workspace created before the apply (per the guardrail above; `aws sts get-caller-identity` was confirmed to return the brand-new account 109730370597 matching Mohammed's `x25100963` login, not colliding with any account already in use, before anything was applied; the working dir was switched back to `default` afterward). `terraform plan` reported "24 to add, 0 to change, 0 to destroy".
+
+Live resources in this account (as of 2026-07-18, project 04 only, provisioned via `terraform/`): DynamoDB table `fsc-readings`, SQS queue `fsc-metrics-agg`, Lambda `fsc-processor` (SQS-triggered ingestion, java17) and Lambda `fsc-dashboard-api` (behind API Gateway REST API `ckvirw3e01`), EC2 instance `i-09a7cd01de942ebdd` (tagged `fsc-fog-host`, runs the fog node + 10 sensor containers, security group `sg-06a6124a330cb6605` allows only inbound TCP 8000), Elastic IP `100.61.9.72` (allocation `eipalloc-0dff213a59b413cf2`, associated with that instance), S3 bucket `fsc-frontend-109730370597` (static dashboard frontend, public read-only, static website hosting enabled) and S3 staging bucket `fsc-deploy-109730370597`. All are prefixed `fsc-`. The dashboard Lambda's `FOG_HEALTH_URL`/`FOG_THRESHOLDS_URL` env vars point at this Elastic IP; if it's ever released and reallocated, they need updating.
+
+Live URLs: dashboard at `https://fsc-frontend-109730370597.s3.us-east-1.amazonaws.com/index.html`, its API at `https://ckvirw3e01.execute-api.us-east-1.amazonaws.com/prod`. The dashboard and its API are fully serverless (S3 + Lambda + API Gateway) and do not depend on the EC2 instance being up; only `/api/health`'s `gateway` field and fresh sensor data depend on fog/sensors running on EC2.
+
 ## Attribution
 
 Some projects in this portfolio are individual CA submissions for different students, not all belonging to the same person:
@@ -310,6 +328,7 @@ Some projects in this portfolio are individual CA submissions for different stud
 - Project 09 (aquaculture-fish-farm): Anjaneya Reddy Gurram, Student ID 24288853
 - Project 26 (beehive-apiary-monitoring): Yashaswini Penumarthi, Student ID X24262404 (Group A)
 - Project 03 (patient-vitals): Sri Venkat Bora, Student ID X25164414
+- Project 04 (smart-city): Mohammed Hassan Ahmed, Student ID X25100963 (Group A)
 
 Each project is an independent submission for the student named above.
 
@@ -332,3 +351,4 @@ Each project below is an independent submission for its named student. Per-proje
 - **Project 20 (smart-port-container-terminal) - Uday Kiran Reddy Dodda (X25166484):** Java project; deployed live (isolated `spc` workspace) and verified in a real browser; 95 tests. Only the presentation & demo remain.
 - **Project 13 (ev-charging-network) - Nemi Ishwarlal Vikani (X24303046):** Python/Flask project; deployed live (isolated `ecn` workspace) and verified in a real browser; 121 tests. IEEE report finalized (16 references, unique topology diagram; report zip in `tmp/`). Only the presentation & demo remain.
 - **Project 11 (water-treatment-utility) - Rakesh Kunchala (X25176862):** Node project; deployed live (isolated `wtu` workspace, account 824792629641) and verified in a real browser; 115 tests. One deploy-only Lambda bug (dashboard handler treated its third argument, the Lambda runtime callback, as injected clients) was found live and fixed. Dashboard health readout and code identifiers made project-specific. IEEE report + deck + script remain to be built.
+- **Project 04 (smart-city) - Mohammed Hassan Ahmed (X25100963, Group A):** Java project; deployed live (isolated `fsc` workspace, account 109730370597) and verified end to end in a real browser (both zones streaming all five metrics, CORS clean, no console errors); 33 dashboard tests. IEEE report + deck + script remain to be built.
