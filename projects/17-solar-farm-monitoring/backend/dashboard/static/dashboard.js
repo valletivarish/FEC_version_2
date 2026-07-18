@@ -20,6 +20,8 @@ function setDot(id, ok) {
   const el = document.getElementById(id);
   el.classList.remove("ok", "down");
   el.classList.add(ok ? "ok" : "down");
+  const lamp = el.closest(".health-lamp");
+  if (lamp) lamp.classList.toggle("is-down", !ok);
 }
 
 function formatNumber(value, digits) {

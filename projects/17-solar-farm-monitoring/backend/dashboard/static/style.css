@@ -10,6 +10,8 @@
   --sky-soft: #e3f1f9;
   --alert: #b3261e;
   --alert-soft: #fbe9e7;
+  --ok: #2e7d32;
+  --ok-soft: #e8f3e9;
 
   --band-excellent-bg: #1f7aad; --band-excellent-fg: #ffffff;
   --band-good-bg: #6bb7dd;      --band-good-fg: #0b2e40;
@@ -47,27 +49,35 @@ h1, h2, h3 { font-family: var(--font); }
 
 .health-column {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
   gap: 8px;
-  align-items: flex-start;
-  padding: 10px 12px;
-  background: var(--accent-soft);
-  border: 1px solid var(--border);
-  border-radius: 999px;
+  align-items: center;
 }
-.health-lamp { display: flex; align-items: center; gap: 9px; font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.health-lamp {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  padding: 5px 11px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+}
 .health-lamp-label { line-height: 1; }
 .dot {
-  width: 13px;
-  height: 13px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: #cfc4a0;
   display: inline-block;
   flex-shrink: 0;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
 }
-.dot.ok { background: var(--sky); }
+.dot.ok { background: var(--ok); }
 .dot.down { background: var(--alert); }
+.health-lamp.is-down { border-color: var(--alert); background: var(--alert-soft); color: var(--alert); }
 
 main { padding: 4px 28px 32px; max-width: 1180px; margin: 0 auto; }
 
