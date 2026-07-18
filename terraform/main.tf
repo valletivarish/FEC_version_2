@@ -37,6 +37,7 @@ module "stack" {
   api_base_placeholder     = var.api_base_placeholder
   api_base_search_files    = var.api_base_search_files
   fog_availability_zone    = var.fog_availability_zone
+  frontend_bucket_name     = var.frontend_bucket_name
 }
 
 output "dashboard_url" {

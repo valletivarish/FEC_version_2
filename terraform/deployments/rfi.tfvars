@@ -19,6 +19,9 @@ dashboard_zip_path      = "backend/dashboard/target/dashboard.jar"
 dashboard_handler       = "com.fec.retail.dashboard.StoreDashboardLambda::handleRequest"
 dashboard_runtime       = "java17"
 
+# Domain-branded public dashboard bucket instead of the default rfi-frontend-<account> name.
+frontend_bucket_name  = "retail-footfall-inventory-monitor"
+
 frontend_local_dir    = "backend/dashboard/static"
 api_base_placeholder  = "__API_BASE__"
 api_base_search_files = ["index.html"]

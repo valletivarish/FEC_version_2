@@ -112,6 +112,11 @@ variable "fog_availability_zone" {
   default = ""
 }
 
+variable "frontend_bucket_name" {
+  type    = string
+  default = ""
+}
+
 variable "ec2_port" {
   type    = number
   default = 8000

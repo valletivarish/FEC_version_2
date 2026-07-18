@@ -90,3 +90,8 @@ variable "fog_availability_zone" {
   type    = string
   default = ""
 }
+
+variable "frontend_bucket_name" {
+  type    = string
+  default = ""
+}

@@ -1,7 +1,9 @@
 data "aws_caller_identity" "current" {}
 
 resource "aws_s3_bucket" "frontend" {
-  bucket = "${var.prefix}-frontend-${data.aws_caller_identity.current.account_id}"
+  # Domain-branded name when frontend_bucket_name is set; otherwise the default account-scoped name.
+  bucket        = var.frontend_bucket_name != "" ? var.frontend_bucket_name : "${var.prefix}-frontend-${data.aws_caller_identity.current.account_id}"
+  force_destroy = true
 }
 
 resource "aws_s3_bucket" "deploy" {
