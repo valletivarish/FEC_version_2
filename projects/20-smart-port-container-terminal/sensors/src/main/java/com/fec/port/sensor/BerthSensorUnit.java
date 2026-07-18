@@ -15,7 +15,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-/** Two self-rescheduling one-shot Runnable chains (sample, dispatch) share a single-thread ScheduledExecutorService, so serialized execution needs no lock on the buffer -- unlike siblings' shared while-loop, two-thread executor, dual Timers, or Thread+queue idioms. */
+/** Two self-rescheduling one-shot Runnable chains (sample, dispatch) share a single-thread ScheduledExecutorService, so serialized execution needs no lock on the buffer. */
 public class BerthSensorUnit {
 
     record Profile(String unit, double lo, double hi, double start, double step) {}

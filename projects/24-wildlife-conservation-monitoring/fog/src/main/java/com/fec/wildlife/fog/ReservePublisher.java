@@ -15,7 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-/** Lazily resolves the SQS queue URL on first publish() with a jittered (+/-20% via ThreadLocalRandom) exponential backoff (300ms base, doubling, capped 5000ms, 12 attempts) -- the only one of nine sibling fog publishers whose retry delay is randomized rather than fixed/linear/plain-exponential, to desynchronize concurrent LocalStack queue-bootstrap races. */
+/** Lazily resolves the SQS queue URL on first publish() with a jittered (+/-20% via ThreadLocalRandom) exponential backoff (300ms base, doubling, capped 5000ms, 12 attempts); the randomized delay desynchronizes concurrent LocalStack queue-bootstrap races. */
 public class ReservePublisher {
 
     private static final long BASE_DELAY_MS = 300;

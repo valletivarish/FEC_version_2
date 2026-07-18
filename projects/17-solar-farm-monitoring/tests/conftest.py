@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def load_module(name, relpath):
-    """Import relpath as a fresh top-level module under `name`, with its directory on sys.path so sibling imports resolve, restoring sys.path/sys.modules afterwards."""
+    """Import relpath as a fresh top-level module under `name`, with its directory on sys.path so same-directory imports resolve, restoring sys.path/sys.modules afterwards."""
     target = ROOT / relpath
     directory = str(target.parent)
     stem = target.stem

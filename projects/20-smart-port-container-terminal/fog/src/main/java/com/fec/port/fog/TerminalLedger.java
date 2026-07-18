@@ -8,7 +8,7 @@ import java.util.NavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicLong;
 
-/** Lock-free buffer keyed by a monotonically increasing AtomicLong sequence in a single ConcurrentSkipListMap (not pre-grouped by sensor/site like sibling fogs); drainWindow() snapshots the boundary and calls headMap(boundary, false).clear() to atomically remove only entries before it. */
+/** Lock-free buffer keyed by a monotonically increasing AtomicLong sequence in a single ConcurrentSkipListMap; drainWindow() snapshots the boundary and calls headMap(boundary, false).clear() to atomically remove only entries before it. */
 public class TerminalLedger {
 
     private record Entry(GroupKey key, String unit, Reading reading) {}

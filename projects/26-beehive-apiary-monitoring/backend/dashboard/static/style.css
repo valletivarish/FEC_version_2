@@ -2,16 +2,11 @@
    Primary view is a narrative "colony health summary" readout: one card per
    apiary carrying a single plain-English sentence combining hive-weight
    trend direction with brood-temperature stability, followed by the 5 raw
-   readings as secondary rows with a native <meter> each. This is a
-   genuinely different structural axis from every sibling dashboard in this
-   portfolio -- not a tile grid, badge set, heatmap, dial, status-line,
-   priority-list, matrix table, scorecard, or labeled-scale gauge (see
-   readme.txt for the full comparison). The accent is a deep amber-brown
-   (#a35a12). Its hue sits close to 17-solar-farm-monitoring's goldenrod
-   heatmap, so the real separation from it is lightness, not hue: this
-   palette stays materially darker and richer (L ~35% vs 17's ~53%) and
-   pairs it with a dark coffee-brown header band, rather than relying on
-   hue alone to read as a different color. */
+   readings as secondary rows with a native <meter> each -- not a tile grid,
+   badge set, heatmap, dial, status-line, priority-list, matrix table,
+   scorecard, or labeled-scale gauge. The accent is a deep amber-brown
+   (#a35a12), kept materially dark and rich (L ~35%) and paired with a dark
+   coffee-brown header band. */
 
 :root {
   --bg: #f4e8ce;

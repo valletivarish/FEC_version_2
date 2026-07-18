@@ -1,6 +1,6 @@
 "use strict";
 
-// Fog buffering keyed by a bare `{}` object literal grouped at ingest time via Object.keys() -- the 8th distinct top-level fog-buffer container in this portfolio's Node projects, versus siblings' Map, streaming accumulator, or ring-buffer approaches.
+// Fog buffering keyed by a bare `{}` object literal grouped at ingest time via Object.keys().
 function createStation() {
   return { groups: {}, units: {} };
 }

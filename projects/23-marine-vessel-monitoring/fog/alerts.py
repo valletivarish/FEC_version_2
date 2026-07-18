@@ -1,4 +1,4 @@
-"""Threshold rules store operator.gt/operator.lt themselves as the "op" value, invoked directly in evaluate() with no string/lambda/class dispatch -- the 8th distinct alert-rule idiom in this portfolio's Python projects."""
+"""Threshold rules store operator.gt/operator.lt themselves as the "op" value, invoked directly in evaluate() with no string/lambda/class dispatch."""
 
 import operator
 

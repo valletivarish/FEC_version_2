@@ -3,7 +3,7 @@ package com.fec.aquaculture.fog;
 import java.util.ArrayList;
 import java.util.List;
 
-// Immutable accumulator combined solely via ConcurrentHashMap.merge()'s per-key atomicity guarantee -- no locks, atomics, or dedicated thread, unlike this portfolio's other Java fog buffering siblings.
+// Immutable accumulator combined solely via ConcurrentHashMap.merge()'s per-key atomicity guarantee -- no locks, atomics, or dedicated thread.
 final class ReadingAccumulator {
 
     private final List<Double> values;

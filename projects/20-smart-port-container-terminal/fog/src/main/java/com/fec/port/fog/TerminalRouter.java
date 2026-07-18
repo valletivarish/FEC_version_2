@@ -8,7 +8,7 @@ import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.concurrent.Executors;
 
-/** Routes via HttpContext.getFilters().add(...), the JDK's own chain-of-responsibility mechanism -- the only sibling here dispatching through com.sun.net.httpserver.Filter instead of per-path createContext(), enum dispatch, linear scan, or a Map lookup table. */
+/** Routes via HttpContext.getFilters().add(...), the JDK's own chain-of-responsibility mechanism, dispatching through com.sun.net.httpserver.Filter instead of per-path createContext(). */
 public class TerminalRouter {
 
     public static HttpServer bind(int port, int workerThreads, List<RouteFilter> routes) throws IOException {

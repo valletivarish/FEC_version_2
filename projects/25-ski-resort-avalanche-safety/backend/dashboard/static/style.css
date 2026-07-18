@@ -1,12 +1,10 @@
 /* Ski Resort & Avalanche Safety Monitor -- crisp icy-blue/white alpine
    theme. Primary view is a horizontal risk-level gauge per slope: a plain
    LOW/MODERATE/HIGH/EXTREME text scale drawn against a native <meter>, not
-   a colored tile, dial, heatmap, or status-line -- a structural axis not
-   used by any of this portfolio's other 22 dashboards. Secondary detail
+   a colored tile, dial, heatmap, or status-line. Secondary detail
    (the 5 per-slope readings) is a plain label/value list with a small
-   <meter> per reading, deliberately not a rows-x-columns matrix table (that
-   layout is 11-water-treatment-utility's primary view). Standard system
-   font stack only, zero custom SVG, zero emoji throughout. */
+   <meter> per reading, deliberately not a rows-x-columns matrix table.
+   Standard system font stack only, zero custom SVG, zero emoji throughout. */
 
 :root {
   --bg: #eef5fb;

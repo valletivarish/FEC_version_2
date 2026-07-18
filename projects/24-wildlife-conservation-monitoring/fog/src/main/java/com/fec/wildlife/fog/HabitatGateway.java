@@ -18,7 +18,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-/** Routes are discovered by AnnotatedRouter via reflection over this class's own @Route-annotated methods, not a manual dispatch table -- the ninth distinct Java fog gateway routing mechanism in this portfolio. */
+/** Routes are discovered by AnnotatedRouter via reflection over this class's own @Route-annotated methods, not a manual dispatch table. */
 public class HabitatGateway {
 
     static final ObjectMapper JSON = new ObjectMapper();

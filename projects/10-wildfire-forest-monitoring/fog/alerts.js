@@ -1,6 +1,6 @@
 "use strict";
 
-// Flat array of rule-descriptor objects each owning its own predicate closure, evaluated via filter+map with no sensor-type dispatch lookup -- the third distinct alert-rule representation in this portfolio.
+// Flat array of rule-descriptor objects each owning its own predicate closure, evaluated via filter+map with no sensor-type dispatch lookup.
 const RULES = [
   { sensorType: "temperature_c", key: "extreme_heat", test: (summary) => summary.avg > 42 },
   { sensorType: "smoke_density_ppm", key: "fire_detected", test: (summary) => summary.avg > 150 },

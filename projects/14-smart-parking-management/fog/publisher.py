@@ -1,4 +1,4 @@
-"""make_publisher closes a boto3 client and queue_url into a publish() function that also carries a .batch sibling for SendMessageBatch."""
+"""make_publisher closes a boto3 client and queue_url into a publish() function that also carries a .batch variant for SendMessageBatch."""
 
 import json
 import time

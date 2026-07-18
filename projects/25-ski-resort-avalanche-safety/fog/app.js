@@ -103,7 +103,7 @@ async function flushOnce(station) {
   return messages;
 }
 
-// switch(true) dispatch keeps this fog service's routing distinct from its portfolio siblings.
+// Routing dispatches on a method-plus-path key inside a switch(true).
 function buildHandler(station) {
   return async function handler(req, res) {
     try {

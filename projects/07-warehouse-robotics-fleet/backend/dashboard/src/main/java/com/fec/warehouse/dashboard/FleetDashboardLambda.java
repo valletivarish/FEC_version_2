@@ -65,8 +65,7 @@ public class FleetDashboardLambda implements RequestHandler<Map<String, Object>,
         return builder.build();
     }
 
-    // Sealed route markers matched by path/method, then dispatched via an instanceof chain --
-    // distinct from this portfolio's enum-registry and raw switch-on-string dashboard-Lambda shapes.
+    // Sealed route markers matched by path/method, then dispatched via an instanceof chain.
     sealed interface Route {
         record Fleet() implements Route {}
         record Readings() implements Route {}

@@ -7,7 +7,7 @@ import java.util.function.ToDoubleFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** The 8th distinct alert-rule idiom in this portfolio's Java fog projects: rules are parsed once at class-init from human-readable DSL strings ("sensor_type avg&gt;75 -&gt; alert_key") via SPEC_PATTERN into CompiledRule instances holding already-bound extractor/test closures, so every evaluate() call is pure closure invocation with no field-name or operator branching left at runtime. */
+/** Rules are parsed once at class-init from human-readable DSL strings ("sensor_type avg&gt;75 -&gt; alert_key") via SPEC_PATTERN into CompiledRule instances holding already-bound extractor/test closures, so every evaluate() call is pure closure invocation with no field-name or operator branching left at runtime. */
 public class HabitatAlerts {
 
     private static final Pattern SPEC_PATTERN =

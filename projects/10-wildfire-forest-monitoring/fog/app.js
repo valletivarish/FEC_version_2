@@ -67,12 +67,7 @@ function sendJson(res, status, body) {
   res.end(text);
 }
 
-// Plain http.createServer with manual URL parsing and hand-written path
-// dispatch -- no Express anywhere in this service. This mirrors the Java
-// siblings' deliberate avoidance of a web framework (JDK HttpServer there,
-// Node's built-in http module here) and is a genuine departure from both
-// 03 and 06, which both use Express (inline routes vs. split Router files
-// respectively).
+// Plain http.createServer with manual URL parsing and hand-written path dispatch -- no Express anywhere in this service.
 function buildHandler(station, publishFn) {
   return async function handler(req, res) {
     try {

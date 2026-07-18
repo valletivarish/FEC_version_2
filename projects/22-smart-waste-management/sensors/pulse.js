@@ -1,6 +1,6 @@
 "use strict";
 
-// A single shared "pulse" timer drives two independent leaky-bucket ms accumulators (decremented by interval, not reset to 0, so overshoot carries forward) for sample and dispatch rates -- the 5th distinct timer/scheduling idiom in this portfolio's Node.js projects.
+// A single shared "pulse" timer drives two independent leaky-bucket ms accumulators (decremented by interval, not reset to 0, so overshoot carries forward) for sample and dispatch rates.
 function buildPulseState(sampleIntervalMs, dispatchIntervalMs) {
   return { sampleAcc: 0, dispatchAcc: 0, sampleIntervalMs, dispatchIntervalMs };
 }

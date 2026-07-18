@@ -1,6 +1,6 @@
 "use strict";
 
-// Rules are `Rule` class instances owning their own field/op/limit/check(), filtered directly via RULES.filter(r => r.check(summary)) with no separate lookup table -- distinct from sibling fog services' tuple-arrays, dispatch objects, descriptor arrays, Maps, object literals, AlertEngine wrappers, or switch statements.
+// Rules are `Rule` class instances owning their own field/op/limit/check(), filtered directly via RULES.filter(r => r.check(summary)) with no separate lookup table.
 class Rule {
   constructor(field, op, limit, key, sensorType) {
     this.field = field;
@@ -32,8 +32,7 @@ function evaluateAlerts(summary) {
 
 // Purely descriptive projection for the /thresholds endpoint -- this table
 // is metadata only and is never consulted by evaluateAlerts above, which
-// always goes through the Rule.check() instances, matching the same
-// disclosure-vs-evaluation split every sibling fog service uses.
+// always goes through the Rule.check() instances.
 const THRESHOLD_TABLE = {
   snowpack_depth_cm: [{ field: "avg", op: "<", limit: 30, key: "insufficient_snow_coverage" }],
   snow_temp_c: [{ field: "avg", op: ">", limit: 2, key: "snowpack_instability_risk" }],

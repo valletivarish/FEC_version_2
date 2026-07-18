@@ -2,7 +2,7 @@
 
 const { APIGatewayClient, GetRestApisCommand } = require("@aws-sdk/client-api-gateway");
 
-// Resolved exactly once at startup, per Nithin's rubric: this dashboard
+// Resolved exactly once at startup: this dashboard
 // process never talks to DynamoDB/SQS/Lambda directly and holds no
 // persistent knowledge of the API Gateway REST API beyond this single
 // lookup-by-name. Every subsequent /api/* request is a plain reverse-proxy

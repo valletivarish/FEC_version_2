@@ -2,7 +2,7 @@
 
 const { SQSClient, GetQueueUrlCommand, SendMessageCommand, SendMessageBatchCommand } = require("@aws-sdk/client-sqs");
 
-// An ES6 Proxy whose get trap lazily constructs and caches the SQSClient on first non-control property access -- the 7th distinct publisher shape among this portfolio's Node fog services.
+// An ES6 Proxy whose get trap lazily constructs and caches the SQSClient on first non-control property access.
 const target = { client: null };
 
 const config = { endpoint: undefined, region: "eu-west-1" };

@@ -1,9 +1,8 @@
 /* Wildfire & Forest Monitoring -- charcoal/ember forest-watch theme.
    Structural signature: each station's PRIMARY element is a radial fire-risk
    dial (conic-gradient arc, 0-4 score band-colored green->red) rather than a
-   sensor card, gauge cluster, table row, or the radial-metric-chip ring used
-   by 09-aquaculture-fish-farm. The dial is a genuinely derived metric
-   visualization, not a raw-value display. Raw sensor readings sit below the
+   sensor card, gauge cluster, or table row. The dial is a genuinely derived
+   metric visualization, not a raw-value display. Raw sensor readings sit below the
    dial as a plain secondary tile grid -- deliberately NOT arranged radially,
    so the radial treatment stays reserved for the one thing in this project
    that is actually a computed score. */

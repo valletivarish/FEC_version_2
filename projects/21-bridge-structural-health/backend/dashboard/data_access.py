@@ -182,8 +182,7 @@ class _ScanCountPages:
     """Manual Python iterator over a table's Scan(Select=COUNT) pages,
     following LastEvaluatedKey until DynamoDB stops returning one. Implemented
     with the classic __iter__/__next__ protocol rather than a generator
-    function, a recursive helper, or the SDK's own paginator -- the 10th
-    distinct pagination shape in this portfolio."""
+    function, a recursive helper, or the SDK's own paginator."""
 
     def __init__(self, tbl):
         self._table = tbl

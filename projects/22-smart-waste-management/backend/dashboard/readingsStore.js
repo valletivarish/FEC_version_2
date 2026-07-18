@@ -67,7 +67,7 @@ async function getDistrictSummary(doc, tableName, siteId) {
 // The primary structural view: a flat, sorted worklist across BOTH
 // districts ordered by fill_level_pct descending (the bin needing
 // collection soonest is row 0), not grouped into per-site cards or a
-// reading-by-site matrix the way every sibling dashboard's primary view is.
+// reading-by-site matrix.
 // Sort key is fill_level_pct.latest (the freshest single reading), not
 // avg -- a dispatcher deciding "which bin do I send a truck to right now"
 // cares about the current fill level, not a 10-second window average.

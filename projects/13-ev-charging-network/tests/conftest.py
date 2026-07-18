@@ -8,10 +8,11 @@ ROOT = Path(__file__).resolve().parents[1]
 def load_module(name, relpath):
     """Import relpath (e.g. "fog/app.py") as a fresh top-level module
     registered under `name`, with its own directory temporarily on
-    sys.path so its bare `from aggregation import aggregate`-style sibling
-    imports resolve. Restores sys.path/sys.modules afterwards so unrelated
-    test files don't leak each other's same-named modules (fog/app.py and
-    backend/dashboard/app.py are both literally named "app").
+    sys.path so its bare `from aggregation import aggregate`-style
+    same-directory imports resolve. Restores sys.path/sys.modules
+    afterwards so unrelated test files don't leak each other's same-named
+    modules (fog/app.py and backend/dashboard/app.py are both literally
+    named "app").
     """
     target = ROOT / relpath
     directory = str(target.parent)

@@ -2,7 +2,7 @@
 
 const { SENSOR_PROFILES, nextReading } = require("./profiles");
 
-// Two independent recursive setTimeout loops coordinated for shutdown via a single Node AbortController checked before each unit of work and before each reschedule, rather than via clearTimeout bookkeeping -- this portfolio's distinct sensor-loop shutdown idiom.
+// Two independent recursive setTimeout loops coordinated for shutdown via a single Node AbortController checked before each unit of work and before each reschedule, rather than via clearTimeout bookkeeping.
 function buildState(sensorType, siteId, profile) {
   return { sensorType, siteId, profile, value: profile.start, outbox: [] };
 }

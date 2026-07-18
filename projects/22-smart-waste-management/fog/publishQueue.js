@@ -2,7 +2,7 @@
 
 const { SQSClient, GetQueueUrlCommand, SendMessageCommand } = require("@aws-sdk/client-sqs");
 
-// Self-draining async FIFO queue: publish() only enqueues a job while a single _pumping-guarded _pump() drains one job at a time so SQS sends are never concurrent -- the 7th distinct publisher idiom in this portfolio.
+// Self-draining async FIFO queue: publish() only enqueues a job while a single _pumping-guarded _pump() drains one job at a time so SQS sends are never concurrent.
 let _client = null;
 let _queueUrlPromise = null;
 let _resolvedQueueUrl = null;

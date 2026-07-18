@@ -1,4 +1,4 @@
-"""SQS publishing via a private _client global cached by hand in get_client() -- the 4th distinct publisher shape in this portfolio's Python projects."""
+"""SQS publishing via a private _client global cached by hand in get_client()."""
 
 import json
 import os

@@ -2,14 +2,10 @@
 
 const { SENSOR_PROFILES, nextReading } = require("./profiles");
 
-// Two independent setInterval calls -- one for sampling, one for dispatch --
-// rather than a single shared timer (03-patient-vitals), a stateful "rig"
-// object polled by one setInterval (06-offshore-wind-farm), two
-// self-rescheduling setTimeout loops (10-wildfire-forest-monitoring), or a
-// setInterval sampler paired with a setImmediate opportunistic drain loop
-// (11-water-treatment-utility). Deliberately simple: this project's
-// architectural novelty budget is spent on the API Gateway + Lambda backend
-// (see backend/api/), not on sensor scheduling.
+// Two independent setInterval calls -- one for sampling, one for dispatch.
+// Deliberately simple: this project's architectural novelty budget is spent
+// on the API Gateway + Lambda backend (see backend/api/), not on sensor
+// scheduling.
 function buildState(sensorType, siteId, profile) {
   return { sensorType, siteId, profile, value: profile.start, outbox: [] };
 }

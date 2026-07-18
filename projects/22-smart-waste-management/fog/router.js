@@ -1,6 +1,6 @@
 "use strict";
 
-// Prefix-tree (trie) path router: routes are registered one tree node per path segment (":name" becomes a paramChild slot) so dispatch() walks the tree by depth instead of scanning a regex/array/if-else route list like this portfolio's other Node services.
+// Prefix-tree (trie) path router: routes are registered one tree node per path segment (":name" becomes a paramChild slot) so dispatch() walks the tree by depth instead of scanning a regex/array/if-else route list.
 function createNode() {
   return { children: new Map(), paramChild: null, paramName: null, handlers: new Map() };
 }

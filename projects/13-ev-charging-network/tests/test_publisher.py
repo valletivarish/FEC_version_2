@@ -1,8 +1,7 @@
-"""publisher.py's manual _client global + get_client() function is the
-portfolio's 4th distinct SQS-publisher shape (see the module docstring in
-fog/publisher.py). These tests exercise the caching by hand -- there is no
-lru_cache/class/contextmanager to defer to -- against a fake boto3 module,
-never real AWS or LocalStack.
+"""publisher.py caches its SQS client by hand in a private _client global
+behind get_client(). These tests exercise that caching directly -- there is
+no lru_cache/class/contextmanager to defer to -- against a fake boto3
+module, never real AWS or LocalStack.
 """
 
 import json

@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.util.List;
 
-/** Builds the SQS payload by converting an annotated record to a JsonNode tree via ObjectMapper.valueToTree() -- POJO-to-tree, unlike sibling fog projects' put()-building, writeValueAsString(), streaming JsonGenerator, or fluent JsonBuilder approaches -- then appends the alerts array with putArray()/add(). */
+/** Builds the SQS payload by converting an annotated record to a JsonNode tree via ObjectMapper.valueToTree(), then appends the alerts array with putArray()/add(). */
 public class PayloadJson {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();

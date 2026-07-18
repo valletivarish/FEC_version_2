@@ -22,7 +22,7 @@ function jsonResponse(statusCode, body) {
   };
 }
 
-// Single Lambda behind a real API Gateway {proxy+} REST API on LocalStack, doing its own internal path/method routing via router.js instead of per-endpoint API Gateway resources -- the one Node sibling in this portfolio not exposing a directly-running dashboard REST API.
+// Single Lambda behind a real API Gateway {proxy+} REST API on LocalStack, doing its own internal path/method routing via router.js instead of per-endpoint API Gateway resources.
 exports.handler = async (event) => {
   try {
     const method = event.httpMethod || "GET";

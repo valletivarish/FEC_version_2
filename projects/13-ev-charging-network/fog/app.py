@@ -1,4 +1,4 @@
-"""EV charging-hub fog node: Flask with manual request.get_json() parsing and no Pydantic -- the 4th distinct HTTP framework/idiom in this portfolio's Python projects, buffering _buffer under a plain threading.Lock rather than a queue/accumulator object."""
+"""EV charging-hub fog node: Flask with manual request.get_json() parsing and no Pydantic, buffering _buffer under a plain threading.Lock."""
 
 import os
 import threading

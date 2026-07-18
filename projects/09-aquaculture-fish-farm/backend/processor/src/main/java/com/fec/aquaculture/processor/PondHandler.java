@@ -18,7 +18,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
-/** Writes each record's DynamoDB put as its own CompletableFuture on a bounded fixed-size executor, then joins and folds all outcomes into one immutable Tally -- the portfolio's only genuinely parallel (vs. sequential for-loop or stream) attempt-all-then-report-once record processor. */
+/** Writes each record's DynamoDB put as its own CompletableFuture on a bounded fixed-size executor, then joins and folds all outcomes into one immutable Tally. */
 public class PondHandler implements RequestHandler<SQSEvent, Map<String, Object>> {
 
     static final String TABLE_NAME = System.getenv().getOrDefault("TABLE_NAME", "aff-readings");

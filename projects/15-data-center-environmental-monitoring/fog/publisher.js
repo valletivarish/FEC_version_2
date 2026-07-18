@@ -41,8 +41,8 @@ function toEntry(message, index) {
   return { Id: `m${index}`, MessageBody: JSON.stringify(message) };
 }
 
-// The single SQS send path in this service. Nithin's rubric requires
-// explicit batching for the publish step: whenever more than one
+// The single SQS send path in this service, with explicit batching for
+// the publish step: whenever more than one
 // aggregated group closes in the same flush cycle, this always issues a
 // real SendMessageBatchCommand carrying every group's Entries -- never a
 // SendMessageCommand per group, even for the common one-group case (a

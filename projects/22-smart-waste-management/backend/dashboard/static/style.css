@@ -1,17 +1,14 @@
 /* Smart Waste Management Monitor -- municipal-services teal-green +
    charcoal theme. Dark charcoal background with a deep, saturated teal-green
-   accent -- the inverse light/dark balance of 12-smart-building-energy's
-   green/white scorecard theme, and a different hue depth entirely from every
-   other sibling dashboard in this portfolio.
+   accent.
 
    The primary view (below) is a plain sorted worklist table -- all bins
    across both districts in one list, ordered by fill level descending, the
    way a dispatcher's task queue is ordered by urgency rather than grouped by
-   site. This is a different structural axis from every sibling: not a
-   per-site card grid, not a reading-by-site matrix table, not a tile/dial
-   grid, not a heatmap. Per-district raw readings are demoted to a secondary
-   section beneath it. Zero custom SVG anywhere -- the brand mark below is
-   drawn with plain CSS shapes, same technique as other sibling dashboards. */
+   site: not a per-site card grid, not a reading-by-site matrix table, not a
+   tile/dial grid, not a heatmap. Per-district raw readings are demoted to a
+   secondary section beneath it. Zero custom SVG anywhere -- the brand mark
+   below is drawn with plain CSS shapes. */
 
 :root {
   --charcoal: #1c2022;

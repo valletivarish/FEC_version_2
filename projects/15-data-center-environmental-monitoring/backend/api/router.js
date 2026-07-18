@@ -80,8 +80,8 @@ async function handleThresholds() {
   return { status: result.status, body: result.body };
 }
 
-// The Lambda's own internal path/method routing. Nithin's rubric requires
-// this Lambda (dce-api) to do its own routing rather than relying on
+// The Lambda's own internal path/method routing. By design this Lambda
+// (dce-api) does its own routing rather than relying on
 // per-route API Gateway resources -- deploy_api.sh wires exactly one
 // {proxy+} resource (plus the root "/") to this single function, so every
 // real /api/* decision happens here, in plain application code, matched

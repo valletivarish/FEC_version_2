@@ -2,7 +2,7 @@ package com.fec.aquaculture.fog;
 
 import java.util.function.BiPredicate;
 
-/** A fluent builder DSL (on().when().lessThan().flagAs()) whose narrowing stage types make an incomplete Rule unrepresentable -- the 9th distinct rule-representation idiom in this portfolio. */
+/** A fluent builder DSL (on().when().lessThan().flagAs()) whose narrowing stage types make an incomplete Rule unrepresentable. */
 record Rule(String sensorType, String field, String op, double limit, String key,
             BiPredicate<String, WindowAggregate> test) {
 

@@ -2,9 +2,9 @@
 
 // Pure window-aggregate math, run once per group at flush time over
 // whatever readings the double buffer handed back -- never incrementally
-// maintained during ingest. Same aggregate fields (count/min/max/avg/latest)
-// as every sibling fog service in this portfolio; latest is last-in-order
-// (the final element of the readings array), not the max-timestamp value.
+// maintained during ingest. Aggregate fields are count/min/max/avg/latest;
+// latest is last-in-order (the final element of the readings array), not
+// the max-timestamp value.
 function summarizeWindow(sensorType, siteId, unit, readings, windowStart, windowEnd) {
   const values = readings.map((r) => r.value);
   const sum = values.reduce((acc, v) => acc + v, 0);

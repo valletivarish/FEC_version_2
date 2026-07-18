@@ -18,7 +18,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-/** CompletableFuture.delayedExecutor self-rescheduling chains (no Thread/Timer/ExecutorService) feeding a lock-free ConcurrentLinkedDeque -- the 6th distinct Java sensor scheduling idiom in this portfolio. */
+/** CompletableFuture.delayedExecutor self-rescheduling chains (no Thread/Timer/ExecutorService) feeding a lock-free ConcurrentLinkedDeque. */
 public class ReserveSensorUnit {
 
     record Profile(String unit, double lo, double hi, double start, double step) {}

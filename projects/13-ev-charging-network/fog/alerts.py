@@ -1,4 +1,4 @@
-"""Rules as a flat list of plain dicts with no class/dataclass/dispatch table -- the 4th distinct alert-rule idiom in this portfolio's Python projects."""
+"""Rules as a flat list of plain dicts with no class/dataclass/dispatch table."""
 
 RULES = [
     {"sensor_type": "station_temp_c", "field": "avg", "op": ">", "limit": 45, "key": "overheat_risk"},

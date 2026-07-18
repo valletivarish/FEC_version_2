@@ -1,11 +1,10 @@
 // API base resolution: fetched once at startup from a small JSON resource
 // deployed alongside this file, not baked in via a build-time token
-// substitution, a <meta> tag, or a separate config-global script (the three
-// mechanisms this portfolio's other Java/Python siblings already use). The
+// substitution, a <meta> tag, or a separate config-global script. The
 // deploy step overwrites static/api-config.json in S3 with the real API
-// Gateway URL; locally (served by Tornado -- er, by WildlifeDashboardApp
-// on :8000) the committed placeholder resolves to "", so fetch() calls fall
-// back to same-origin relative paths exactly as before.
+// Gateway URL; locally (served by WildlifeDashboardApp on :8000) the
+// committed placeholder resolves to "", so fetch() calls fall back to
+// same-origin relative paths exactly as before.
 let API_BASE = "";
 
 async function loadApiBase() {

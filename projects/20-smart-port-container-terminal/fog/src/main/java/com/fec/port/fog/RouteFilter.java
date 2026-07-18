@@ -13,8 +13,7 @@ import java.nio.charset.StandardCharsets;
  * chain (never call chain.doFilter); otherwise pass the exchange on
  * untouched via chain.doFilter(exchange) so the next filter (or, if none
  * match, the terminal 404 handler) gets a turn. See TerminalRouter for how
- * these are registered and why this is a genuinely different routing
- * mechanism from every other Java fog sibling in this portfolio.
+ * these are registered.
  */
 public class RouteFilter extends Filter {
 

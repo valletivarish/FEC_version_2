@@ -11,7 +11,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
 
-// Flat Map<String, HttpHandler> keyed by "METHOD path" for O(1) route lookup that also distinguishes real 404s (unknown path) from 405s (wrong method) -- distinct from this portfolio's six other Java fog routing/dispatch idioms (per-path lambda registration, fluent wrappers, route-enum, linear predicate scan, if/else string chain).
+// Flat Map<String, HttpHandler> keyed by "METHOD path" for O(1) route lookup that also distinguishes real 404s (unknown path) from 405s (wrong method).
 public class GatewayRouter implements HttpHandler {
 
     private final Map<String, HttpHandler> routes = new HashMap<>();

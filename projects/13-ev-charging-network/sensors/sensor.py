@@ -1,4 +1,4 @@
-"""EV charging-hub sensor simulator -- 4th distinct sensor-loop structure in this portfolio's Python projects: recurring sample/dispatch jobs re-arm themselves via Future.add_done_callback on a ThreadPoolExecutor, so the executor itself owns the recurrence instead of a Timer chain or scheduler queue."""
+"""EV charging-hub sensor simulator: recurring sample/dispatch jobs re-arm themselves via Future.add_done_callback on a ThreadPoolExecutor, so the executor itself owns the recurrence instead of a Timer chain or scheduler queue."""
 
 import json
 import os

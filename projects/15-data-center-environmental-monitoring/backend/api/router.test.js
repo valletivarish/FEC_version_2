@@ -8,7 +8,7 @@ const { route } = require("./router");
 // A single fake DynamoDB doc client covering both the Query calls
 // (readingsStore) and the Scan call (pipelineStatus's countTableItems),
 // plus fake sqs/lambda clients -- this test file never touches real AWS or
-// LocalStack, matching the rest of the portfolio's unit-test discipline.
+// LocalStack.
 function fakeClients({ items = {}, tableCount = 3, queueOk = true, lambdaOk = true } = {}) {
   const doc = {
     send: async (command) => {

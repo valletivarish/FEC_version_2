@@ -1,4 +1,4 @@
-"""Bridge sensor simulator: sampling and dispatch run as two separate OS processes linked only by a multiprocessing.Queue (a real OS pipe) -- the 7th distinct sensor-loop concurrency structure in this portfolio's Python projects."""
+"""Bridge sensor simulator: sampling and dispatch run as two separate OS processes linked only by a multiprocessing.Queue (a real OS pipe)."""
 
 import json
 import multiprocessing as mp

@@ -12,7 +12,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Batches every group from a flush cycle into ONE SendMessageBatchRequest (chunked at 10 entries) instead of one sendMessage call per group, with lazily-resolved queue URL backed by linear (not fixed or exponential) backoff -- the 10th distinct Java fog publishing idiom in this portfolio. */
+/** Batches every group from a flush cycle into ONE SendMessageBatchRequest (chunked at 10 entries) instead of one sendMessage call per group, with lazily-resolved queue URL backed by linear (not fixed or exponential) backoff. */
 public class TerminalPublisher {
 
     private static final int MAX_ATTEMPTS = 20;

@@ -2,7 +2,7 @@ package com.fec.port.fog;
 
 import java.util.List;
 
-// Builds the SQS payload via raw StringBuilder concatenation with manual escaping instead of any Jackson API -- the 6th distinct JSON-building idiom among this portfolio's Java fog siblings.
+// Builds the SQS payload via raw StringBuilder concatenation with manual escaping instead of any Jackson API.
 public class BatchPayloadJson {
 
     private static String escape(String raw) {

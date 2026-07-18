@@ -1,4 +1,4 @@
-"""Rules as immutable typing.NamedTuple records dispatched via match/case on rule.op (PEP 634 structural pattern matching) -- the 7th distinct alert-rule idiom in this portfolio's Python projects."""
+"""Rules as immutable typing.NamedTuple records dispatched via match/case on rule.op (PEP 634 structural pattern matching)."""
 
 import typing
 

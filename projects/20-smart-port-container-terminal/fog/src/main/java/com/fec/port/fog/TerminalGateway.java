@@ -19,7 +19,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-/** Windowed (sensor_type, site_id) aggregation via TerminalLedger.drainWindow(), evaluated against real BerthRules thresholds and SQS-published once per flush cycle -- the 8th distinct Java fog idiom in this portfolio. */
+/** Windowed (sensor_type, site_id) aggregation via TerminalLedger.drainWindow(), evaluated against real BerthRules thresholds and SQS-published once per flush cycle. */
 public class TerminalGateway {
 
     static final ObjectMapper JSON = new ObjectMapper();

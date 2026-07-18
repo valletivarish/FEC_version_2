@@ -65,10 +65,9 @@ test("POST /ingest accepts a well-formed payload with 202 (real HTTP-level test)
   });
 });
 
-// Matches the discipline established across this portfolio: /ingest
-// validation must be proven with a real HTTP request against a real local
-// server on an ephemeral port, not only a unit test of the validation
-// function in isolation. Both are covered here.
+// /ingest validation must be proven with a real HTTP request against a
+// real local server on an ephemeral port, not only a unit test of the
+// validation function in isolation. Both are covered here.
 test("POST /ingest rejects a payload missing a required field with 400 (real HTTP request)", async () => {
   await withServer(createApp(), async (base) => {
     const res = await fetch(`${base}/ingest`, {

@@ -1,4 +1,4 @@
-"""Fire-and-forget publish() submits send_message onto a dedicated single-worker ThreadPoolExecutor and returns the Future unwaited -- the 8th distinct publisher shape in this portfolio's Python projects."""
+"""Fire-and-forget publish() submits send_message onto a dedicated single-worker ThreadPoolExecutor and returns the Future unwaited."""
 
 import json
 import time

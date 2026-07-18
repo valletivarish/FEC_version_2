@@ -1,10 +1,9 @@
 """Lambda entry point for the dashboard API behind a real API Gateway REST
 API ({proxy+}, AWS_PROXY integration). Routes are a flat dict keyed by
-(method, path) -- a straight hash-map lookup, not Nithin's ordered
-regex-list scan or Sachin's trie-walk router: the 4th distinct dispatch
-shape in this portfolio. Every route function reuses data_access.py
-directly, the same module app.py's Tornado handlers call locally, so the
-business logic itself is identical between local dev and this deployment.
+(method, path) -- a straight hash-map lookup. Every route function reuses
+data_access.py directly, the same module app.py's Tornado handlers call
+locally, so the business logic itself is identical between local dev and
+this deployment.
 """
 
 import datetime

@@ -1,4 +1,4 @@
-"""SQS publishing as plain functions taking an already-built client and resolved queue URL as explicit parameters and caching nothing -- the 7th and leanest publisher shape in this portfolio's Python projects."""
+"""SQS publishing as plain functions taking an already-built client and resolved queue URL as explicit parameters and caching nothing."""
 
 import json
 

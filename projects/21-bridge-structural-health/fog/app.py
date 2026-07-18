@@ -1,4 +1,4 @@
-"""Bottle (@app.route decorators, bottle.HTTPResponse for 400s) is the portfolio's 7th distinct Python HTTP framework, after FastAPI, stdlib http.server, Flask, wsgiref, and aiohttp."""
+"""Bridge fog node built on Bottle (@app.route decorators, bottle.HTTPResponse for 400s)."""
 
 import json
 import os

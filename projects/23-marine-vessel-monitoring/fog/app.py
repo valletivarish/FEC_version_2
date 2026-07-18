@@ -1,4 +1,4 @@
-"""Tornado (class-based RequestHandler subclasses overriding get()/post(), routed via a (pattern, HandlerClass) list to tornado.web.Application, with PeriodicCallback driving the background flush) -- the 8th distinct Python HTTP framework/idiom in this portfolio."""
+"""Marine fog node on Tornado: class-based RequestHandler subclasses overriding get()/post(), routed via a (pattern, HandlerClass) list to tornado.web.Application, with PeriodicCallback driving the background flush."""
 
 import json
 import os

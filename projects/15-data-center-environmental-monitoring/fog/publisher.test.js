@@ -53,9 +53,9 @@ test("sendBatch issues exactly one SendMessageBatchCommand for a single group", 
   assert.equal(sent[0].input.Entries.length, 1);
 });
 
-// This is the direct proof for Nithin's batching rubric requirement:
-// send_message_batch invoked with multiple Entries when more than one
-// aggregated group is ready in a single flush cycle.
+// Direct proof of the batching behavior: send_message_batch invoked with
+// multiple Entries when more than one aggregated group is ready in a
+// single flush cycle.
 test("sendBatch issues one SendMessageBatchCommand carrying multiple Entries for multiple groups", async () => {
   const sent = [];
   const client = fakeClient((cmd) => {

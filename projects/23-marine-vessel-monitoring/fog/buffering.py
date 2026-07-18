@@ -1,4 +1,4 @@
-"""Plain dict with no lock at all, safe only because Tornado's single-threaded IOLoop never awaits mid-mutation in post()/flush() -- the 8th distinct buffering shape in this portfolio's Python projects."""
+"""Plain dict with no lock at all, safe only because Tornado's single-threaded IOLoop never awaits mid-mutation in post()/flush()."""
 
 _buffers = {}
 _units = {}

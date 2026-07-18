@@ -122,7 +122,7 @@ async function handleThresholds(deps, res) {
   sendJson(res, result.status, result.body);
 }
 
-// Routing dispatches on a `${method} ${pathname}` key matched inside a switch(true), distinct from every sibling Node dashboard's Express/if-else/routing-table approach.
+// Routing dispatches on a `${method} ${pathname}` key matched inside a switch(true).
 function buildRequestHandler(deps) {
   return async function handler(req, res) {
     try {

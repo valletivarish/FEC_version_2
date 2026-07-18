@@ -1,6 +1,6 @@
 "use strict";
 
-// Alert rules as a bare switch statement branching directly on sensor_type with no lookup structure at all -- the 7th distinct alert-rule idiom in this portfolio's fog services -- evaluated against window aggregates (avg, or max for lid_open_count), never a single raw reading.
+// Alert rules as a bare switch statement branching directly on sensor_type with no lookup structure at all, evaluated against window aggregates (avg, or max for lid_open_count), never a single raw reading.
 function evaluateAlerts(sensorType, summary) {
   switch (sensorType) {
     case "fill_level_pct":
@@ -21,8 +21,7 @@ function evaluateAlerts(sensorType, summary) {
 // Purely descriptive projection for the /thresholds endpoint. Deliberately
 // re-states field/op/limit/key as plain metadata rather than being read by
 // evaluateAlerts() above -- real evaluation always goes through the switch,
-// this table exists only so the endpoint can disclose the rules, matching
-// the disclosure-vs-evaluation split every sibling fog service uses.
+// this table exists only so the endpoint can disclose the rules.
 const THRESHOLD_TABLE = {
   fill_level_pct: [{ field: "avg", op: ">", limit: 85, key: "collection_needed" }],
   internal_temp_c: [{ field: "avg", op: ">", limit: 55, key: "fire_risk_warning" }],

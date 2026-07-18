@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.function.BiPredicate;
 import java.util.function.ToDoubleFunction;
 
-/** assess() dispatches via two static lookup maps (FIELD_EXTRACTORS, COMPARATORS) rather than a switch/enum/lambda-per-rule idiom, unlike this portfolio's other Java fog siblings (02, 04, 07, 08, 09, 16, 19). */
+/** assess() dispatches via two static lookup maps (FIELD_EXTRACTORS, COMPARATORS) rather than a switch/enum/lambda-per-rule idiom. */
 public class BerthRules {
 
     static final Map<String, ToDoubleFunction<WindowAggregate>> FIELD_EXTRACTORS = Map.of(

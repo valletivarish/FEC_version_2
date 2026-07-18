@@ -154,8 +154,7 @@ main {
 /* Bridge Console: two-column vessel-a/vessel-b comparison, one row per
    reading. This is the dashboard's structural primary view -- not a card
    grid, tile set, badge, heatmap, radial dial, status line, priority list,
-   or manifest-style table (one row per site) used by any sibling dashboard
-   in this portfolio. */
+   or manifest-style table. */
 .console-table-wrap {
   overflow-x: auto;
 }
@@ -246,8 +245,7 @@ main {
 
 /* Voyage Log: a chronological, journal-style readout of recent aggregation
    windows across both vessels -- the dashboard's secondary structural
-   element, distinct from any sibling's trend chart / manifest row / detail
-   table. */
+   element. */
 .voyage-log {
   list-style: none;
   margin: 0;

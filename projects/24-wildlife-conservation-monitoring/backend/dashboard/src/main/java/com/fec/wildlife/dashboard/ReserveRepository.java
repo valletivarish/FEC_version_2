@@ -47,7 +47,7 @@ class ReserveRepository {
         return items;
     }
 
-    /** Per-reserve view whose primary structure is a "log" -- all fetched windows across every sensor type flattened into one window_end-descending ledger, not a per-metric card grid like siblings 07/08/09/16/19/20. */
+    /** Per-reserve view whose primary structure is a "log" -- all fetched windows across every sensor type flattened into one window_end-descending ledger, not a per-metric card grid. */
     Map<String, Object> byReserve(DynamoDbClient client, String tableName, String[] sensorTypes,
                                   int historyPerType, int logEntriesPerReserve) {
         Map<String, Map<String, Object>> metricsBySite = new TreeMap<>();

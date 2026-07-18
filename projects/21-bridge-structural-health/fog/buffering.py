@@ -1,4 +1,4 @@
-"""Ingest buffering as a single flat, unstructured list of raw (sensor_type, site_id, value, ts) tuples with no grouping until flush time -- the 7th distinct buffering shape in this portfolio's Python projects."""
+"""Ingest buffering as a single flat, unstructured list of raw (sensor_type, site_id, value, ts) tuples with no grouping until flush time."""
 
 import threading
 

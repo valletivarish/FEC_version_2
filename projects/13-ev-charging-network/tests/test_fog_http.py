@@ -3,9 +3,7 @@ ephemeral port (port 0), driven with http.client -- fog/app.py is a Flask
 app, but Flask's in-process test_client() never opens a real socket, so it
 would not satisfy the "real HTTP-level test" requirement this project's
 /ingest validation needs. werkzeug.serving.make_server gives Flask a real
-listening TCP socket to test against, matching the discipline already used
-for this portfolio's plain-http.server Python sibling and its Java/Node
-plain-HTTP-server siblings.
+listening TCP socket to test against.
 """
 
 import http.client

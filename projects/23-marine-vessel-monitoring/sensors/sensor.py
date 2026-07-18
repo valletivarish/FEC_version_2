@@ -1,4 +1,4 @@
-"""Marine vessel sensor simulator: self-re-arming loop.call_later ticks on a single asyncio event loop (no thread/process/coroutine per tick) -- the 8th distinct sensor-loop structure in this portfolio's Python projects, and the only one whose shared buffer needs no lock."""
+"""Marine vessel sensor simulator: self-re-arming loop.call_later ticks on a single asyncio event loop (no thread/process/coroutine per tick), so the shared buffer needs no lock."""
 
 import asyncio
 import json

@@ -1,8 +1,7 @@
 """API Gateway (REST API, proxy integration) entry point for the dashboard.
 Dispatches on (method, path) via a single PEP 634 structural-pattern match
 statement -- Python's own match/case, not a dict lookup, a decorator
-registry, a regex scan, or a class hierarchy -- the 9th distinct API
-Gateway dispatch shape in this portfolio. Reuses data_access.py and
+registry, a regex scan, or a class hierarchy. Reuses data_access.py and
 thresholds_proxy.py directly rather than duplicating their logic."""
 
 import json

@@ -231,11 +231,10 @@ function createHandler(clients) {
 
     const path = normalizePath(event.path);
     // Only /api/* is this Lambda's job -- the frontend (index.html, css,
-    // js) is uploaded straight to S3, the same as every other project in
-    // this portfolio, so a request for it landing on this Lambda at all
-    // means it was misrouted at the API Gateway stage; the correct answer
-    // here is a plain 404, not spending a Lambda invocation reading
-    // static/index.html off local disk via res.sendFile().
+    // js) is uploaded straight to S3, so a request for it landing on this
+    // Lambda at all means it was misrouted at the API Gateway stage; the
+    // correct answer here is a plain 404, not spending a Lambda invocation
+    // reading static/index.html off local disk via res.sendFile().
     if (!path.startsWith("/api/") && path !== "/api") {
       return withCors({ statusCode: 404, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ error: "not found" }) });
     }

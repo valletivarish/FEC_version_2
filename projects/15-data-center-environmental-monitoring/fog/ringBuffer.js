@@ -1,6 +1,6 @@
 "use strict";
 
-// Fixed-capacity ring buffer (array + modulo-wrapped write-index) that silently overwrites the oldest unflushed reading on overflow -- distinct from siblings' growing arrays, streaming accumulators, and Map-based buffering.
+// Fixed-capacity ring buffer (array + modulo-wrapped write-index) that silently overwrites the oldest unflushed reading on overflow.
 const RING_CAPACITY = 256;
 const KEY_DELIM = "::";
 
