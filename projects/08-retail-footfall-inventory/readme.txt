@@ -178,9 +178,9 @@ in the tests themselves):
   cd sensors && mvn test                  (56 tests)
   cd fog && mvn test                      (28 tests)
   cd backend/processor && mvn test        (14 tests)
-  cd backend/dashboard && mvn test        (20 tests)
+  cd backend/dashboard && mvn test        (24 tests)
 
-All 118 tests pass (verified by running each suite directly).
+All 122 tests pass (verified by running each suite directly).
 
 Or without local Maven/JDK:
   docker run --rm -v "$PWD/fog":/app -w /app maven:3.9-eclipse-temurin-17 mvn test
