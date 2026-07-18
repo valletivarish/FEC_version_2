@@ -19,3 +19,4 @@ dashboard_runtime       = "python3.12"
 frontend_local_dir    = "backend/dashboard/static"
 api_base_placeholder  = "__API_BASE__"
 api_base_search_files = ["index.html"]
+fog_availability_zone = "us-east-1a"

@@ -107,6 +107,11 @@ variable "ec2_instance_type" {
   default = "t3.small"
 }
 
+variable "fog_availability_zone" {
+  type    = string
+  default = ""
+}
+
 variable "ec2_port" {
   type    = number
   default = 8000

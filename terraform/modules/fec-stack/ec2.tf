@@ -13,6 +13,22 @@ data "aws_subnets" "default" {
   }
 }
 
+data "aws_subnets" "in_az" {
+  count = var.fog_availability_zone != "" ? 1 : 0
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+  filter {
+    name   = "availability-zone"
+    values = [var.fog_availability_zone]
+  }
+}
+
+locals {
+  fog_subnet_id = var.fog_availability_zone != "" ? data.aws_subnets.in_az[0].ids[0] : data.aws_subnets.default.ids[0]
+}
+
 data "aws_iam_instance_profile" "lab" {
   name = var.lab_instance_profile_name
 }
@@ -40,7 +56,7 @@ resource "aws_security_group" "fog" {
 resource "aws_instance" "fog" {
   ami                    = var.ec2_ami
   instance_type          = var.ec2_instance_type
-  subnet_id              = data.aws_subnets.default.ids[0]
+  subnet_id              = local.fog_subnet_id
   vpc_security_group_ids = [aws_security_group.fog.id]
   iam_instance_profile   = data.aws_iam_instance_profile.lab.name
 

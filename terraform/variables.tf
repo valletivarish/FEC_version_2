@@ -85,3 +85,8 @@ variable "api_base_placeholder" {
 variable "api_base_search_files" {
   type = list(string)
 }
+
+variable "fog_availability_zone" {
+  type    = string
+  default = ""
+}
