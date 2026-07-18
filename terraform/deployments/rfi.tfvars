@@ -1,6 +1,9 @@
 prefix       = "rfi"
 project_root = "../projects/08-retail-footfall-inventory"
 
+# Pin the fog host to a t3.small-capable AZ (this account's first default subnet may land in us-east-1e, which lacks t3.small).
+fog_availability_zone = "us-east-1a"
+
 table_name = "rfi-readings"
 queue_name = "rfi-store-agg"
 
