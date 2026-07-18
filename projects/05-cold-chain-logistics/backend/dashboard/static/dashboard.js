@@ -1,3 +1,10 @@
+// API origin: sed-substituted into the app script tag's data-api-base at S3 upload time; unset means same-origin.
+const API_BASE = (() => {
+  const el = document.getElementById("app");
+  const v = (el && el.dataset.apiBase) || "";
+  return v.startsWith("__API_BASE__") ? "" : v.replace(/\/$/, "");
+})();
+
 const READING_TYPES = ["storage_temperature", "humidity", "door_open_seconds", "shock_vibration", "co2_level"];
 
 const READING_META = {
@@ -122,7 +129,7 @@ function tempTrendTileSkeleton(containerId) {
 }
 
 async function refreshTempTrend(containerId) {
-  const res = await fetch(`/api/readings?sensor_type=storage_temperature&site_id=${containerId}&limit=30`);
+  const res = await fetch(`${API_BASE}/api/readings?sensor_type=storage_temperature&site_id=${containerId}&limit=30`);
   const data = await res.json();
   if (!data.items.length) return;
 
@@ -140,9 +147,9 @@ async function refreshTempTrend(containerId) {
 async function syncManifest() {
   try {
     const [manifestData, health, backend] = await Promise.all([
-      fetch("/api/manifest").then((r) => r.json()),
-      fetch("/api/health").then((r) => r.json()),
-      fetch("/api/backend-stats").then((r) => r.json()),
+      fetch(API_BASE + "/api/manifest").then((r) => r.json()),
+      fetch(API_BASE + "/api/health").then((r) => r.json()),
+      fetch(API_BASE + "/api/backend-stats").then((r) => r.json()),
     ]);
 
     const containers = manifestData.containers;

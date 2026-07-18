@@ -1,3 +1,10 @@
+// API origin: sed-substituted into the app script tag's data-api-base at S3 upload time; unset means same-origin.
+const API_BASE = (() => {
+  const el = document.getElementById("app");
+  const v = (el && el.dataset.apiBase) || "";
+  return v.startsWith("__API_BASE__") ? "" : v.replace(/\/$/, "");
+})();
+
 const POLL_INTERVAL_MS = 2500;
 
 const SENSOR_META = {
@@ -103,7 +110,7 @@ function renderHeatmapRow(array) {
 }
 
 async function refreshArrays() {
-  const resp = await fetch("/api/arrays");
+  const resp = await fetch(API_BASE + "/api/arrays");
   const body = await resp.json();
   document.getElementById("heatmap-grid").innerHTML = body.arrays.map(renderHeatmapRow).join("");
   document.getElementById("arrays-section").innerHTML =
@@ -111,7 +118,7 @@ async function refreshArrays() {
 }
 
 async function refreshHealth() {
-  const resp = await fetch("/api/health");
+  const resp = await fetch(API_BASE + "/api/health");
   const body = await resp.json();
   setDot("dot-gateway", !!body.gateway);
   setDot("dot-queue", !!body.queue);
@@ -124,7 +131,7 @@ async function refreshHealth() {
 }
 
 async function refreshBackendStats() {
-  const resp = await fetch("/api/backend-stats");
+  const resp = await fetch(API_BASE + "/api/backend-stats");
   const body = await resp.json();
   const queue = body.queue;
   document.getElementById("stat-queue-waiting").textContent =
@@ -138,7 +145,7 @@ let rulesLoaded = false;
 async function loadRulesOnce() {
   if (rulesLoaded) return;
   try {
-    const resp = await fetch("/api/thresholds");
+    const resp = await fetch(API_BASE + "/api/thresholds");
     const rules = await resp.json();
     const groups = Object.entries(rules).map(([sensorType, ruleList]) => {
       const lines = ruleList.map((rule) => `<p class="rule-line">${rule.field} ${rule.op} ${rule.limit} &rarr; ${rule.key}</p>`).join("");
@@ -154,8 +161,8 @@ async function loadRulesOnce() {
 let trendChart = null;
 async function refreshTrendChart() {
   const [array1, array2] = await Promise.all([
-    fetch("/api/readings?sensor_type=inverter_output_kw&site_id=array-1&limit=20").then((r) => r.json()),
-    fetch("/api/readings?sensor_type=inverter_output_kw&site_id=array-2&limit=20").then((r) => r.json()),
+    fetch(API_BASE + "/api/readings?sensor_type=inverter_output_kw&site_id=array-1&limit=20").then((r) => r.json()),
+    fetch(API_BASE + "/api/readings?sensor_type=inverter_output_kw&site_id=array-2&limit=20").then((r) => r.json()),
   ]);
 
   const labels = array1.items.map((item) => new Date(item.window_end).toLocaleTimeString());

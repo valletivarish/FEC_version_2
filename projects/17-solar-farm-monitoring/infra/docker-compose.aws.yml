@@ -1,0 +1,119 @@
+# Real-AWS compose: only the fog node and the ten array sensors run on the EC2
+# host. The processor and dashboard run as Terraform-provisioned Lambdas, and
+# DynamoDB/SQS are real managed services, so there is no LocalStack here. The fog
+# node publishes to the real SQS queue through the EC2 instance profile via the
+# SDK default credential chain, so no endpoint override or static keys are set.
+# Port 8000 is published so the dashboard Lambda can reach the fog node's /health
+# and /thresholds endpoints over the Elastic IP.
+name: sfm-aws
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  fog:
+    build:
+      context: ../fog
+    environment:
+      AWS_REGION: us-east-1
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: sfm-array-agg
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  sensor-irradiance-1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: irradiance_wm2
+      SITE_ID: array-1
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "8"
+
+  sensor-irradiance-2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: irradiance_wm2
+      SITE_ID: array-2
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-panel-temp-1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: panel_temp_c
+      SITE_ID: array-1
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-panel-temp-2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: panel_temp_c
+      SITE_ID: array-2
+      SAMPLE_INTERVAL: "3"
+      DISPATCH_INTERVAL: "11"
+
+  sensor-inverter-1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: inverter_output_kw
+      SITE_ID: array-1
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "12"
+
+  sensor-inverter-2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: inverter_output_kw
+      SITE_ID: array-2
+      SAMPLE_INTERVAL: "4"
+      DISPATCH_INTERVAL: "13"
+
+  sensor-dc-voltage-1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: dc_voltage_v
+      SITE_ID: array-1
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "9"
+
+  sensor-dc-voltage-2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: dc_voltage_v
+      SITE_ID: array-2
+      SAMPLE_INTERVAL: "2"
+      DISPATCH_INTERVAL: "10"
+
+  sensor-soiling-1:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: soiling_index_pct
+      SITE_ID: array-1
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "15"
+
+  sensor-soiling-2:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: soiling_index_pct
+      SITE_ID: array-2
+      SAMPLE_INTERVAL: "5"
+      DISPATCH_INTERVAL: "16"
