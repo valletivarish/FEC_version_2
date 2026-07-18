@@ -66,4 +66,37 @@ class EquipmentDashboardLambdaTest {
         Map<String, String> headers = (Map<String, String>) response.get("headers");
         assertEquals("*", headers.get("Access-Control-Allow-Origin"));
     }
+
+    @Test
+    void summaryRouteReturnsTheSensorsEnvelope() {
+        DashboardApp.dynamo = new FakeDynamoDbClient(Map.of(), 0);
+        var response = lambda.handleRequest(Map.of("httpMethod", "GET", "path", "/api/summary"), null);
+        assertEquals(200, response.get("statusCode"));
+        assertTrue(((String) response.get("body")).contains("\"sensors\""));
+    }
+
+    @Test
+    void trailingSlashIsNormalizedToTheBareRoute() {
+        DashboardApp.dynamo = new FakeDynamoDbClient(Map.of(), 0);
+        var response = lambda.handleRequest(Map.of("httpMethod", "GET", "path", "/api/summary/"), null);
+        assertEquals(200, response.get("statusCode"), "trailing slash must route the same as /api/summary");
+    }
+
+    @Test
+    void readingsRouteDefaultsLimitWhenAbsent() {
+        DashboardApp.dynamo = new FakeDynamoDbClient(Map.of("vibration", List.of(window("e1", 2.0))), 0);
+        var response = lambda.handleRequest(Map.of(
+            "httpMethod", "GET",
+            "path", "/api/readings",
+            "queryStringParameters", Map.of("sensor_type", "vibration")), null);
+        assertEquals(200, response.get("statusCode"));
+        assertTrue(((String) response.get("body")).contains("\"window_end\":\"e1\""));
+    }
+
+    @Test
+    void missingHttpMethodDefaultsToGet() {
+        // No httpMethod key: getOrDefault must treat it as GET, so an unknown path is 404 rather than 405.
+        var response = lambda.handleRequest(Map.of("path", "/api/nope"), null);
+        assertEquals(404, response.get("statusCode"));
+    }
 }

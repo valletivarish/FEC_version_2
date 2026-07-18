@@ -76,4 +76,21 @@ class HealthChecksTest {
         assertEquals(1105, HealthChecks.storedRecordCount(dynamo, "fei-readings"),
             "every page must be summed, not just the first page's 700");
     }
+
+    @Test
+    void scanCountIsZeroForAnEmptyTable() {
+        var dynamo = new FakeDynamoDbClient(Map.of(), 0);
+        assertEquals(0, HealthChecks.storedRecordCount(dynamo, "fei-readings"));
+    }
+
+    @Test
+    void queueDepthParsesMultiDigitBacklogs() {
+        var sqs = new FakeSqsClient(true, Map.of(
+            "ApproximateNumberOfMessages", "1280",
+            "ApproximateNumberOfMessagesNotVisible", "47"
+        ));
+        var depth = HealthChecks.queueBacklog(sqs, "fei-sensor-agg");
+        assertEquals(1280, depth.get("waiting"));
+        assertEquals(47, depth.get("in_flight"));
+    }
 }

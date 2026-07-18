@@ -11,6 +11,7 @@ class FakeSqsClient implements SqsClient {
 
     final List<String> singleSends = new ArrayList<>();
     final List<Integer> batchSizes = new ArrayList<>();
+    final List<String> batchBodies = new ArrayList<>();
 
     @Override
     public GetQueueUrlResponse getQueueUrl(GetQueueUrlRequest request) {
@@ -26,6 +27,7 @@ class FakeSqsClient implements SqsClient {
     @Override
     public SendMessageBatchResponse sendMessageBatch(SendMessageBatchRequest request) {
         batchSizes.add(request.entries().size());
+        request.entries().forEach(e -> batchBodies.add(e.messageBody()));
         return SendMessageBatchResponse.builder().build();
     }
 

@@ -76,4 +76,36 @@ class DynamoHelperTest {
         assertEquals("line-1", ((Map<?, ?>) sites.get(0)).get("site_id"));
         assertEquals("line-2", ((Map<?, ?>) sites.get(1)).get("site_id"));
     }
+
+    @Test
+    void decodeAttrReadsStringsAsStrings() {
+        assertEquals("line-1", DynamoHelper.decodeAttr(AttributeValue.fromS("line-1")));
+    }
+
+    @Test
+    void decodeAttrParsesNumbersToDoubles() {
+        Object decoded = DynamoHelper.decodeAttr(AttributeValue.fromN("64.5"));
+        assertEquals(Double.class, decoded.getClass());
+        assertEquals(64.5, decoded);
+    }
+
+    @Test
+    void decodeAttrUnwrapsListsRecursively() {
+        Object decoded = DynamoHelper.decodeAttr(AttributeValue.fromL(
+            List.of(AttributeValue.fromS("overheating"), AttributeValue.fromS("power_spike"))));
+        assertEquals(List.of("overheating", "power_spike"), decoded);
+    }
+
+    @Test
+    void decodeAttrReturnsNullForAnUnsetAttribute() {
+        assertNull(DynamoHelper.decodeAttr(AttributeValue.builder().build()));
+    }
+
+    @Test
+    void decodeItemConvertsEveryAttributeInTheMap() {
+        var decoded = DynamoHelper.decodeItem(item("vibration", "line-1", "e1", 8.0, 7.0, 9.0, 4, List.of("bearing_wear_risk")));
+        assertEquals("vibration", decoded.get("sensor_type"));
+        assertEquals(8.0, decoded.get("latest"));
+        assertEquals(List.of("bearing_wear_risk"), decoded.get("alerts"));
+    }
 }

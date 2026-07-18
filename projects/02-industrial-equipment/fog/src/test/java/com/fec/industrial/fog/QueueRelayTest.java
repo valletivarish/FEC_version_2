@@ -54,4 +54,27 @@ class QueueRelayTest {
 
         assertEquals(List.of(10), client.batchSizes);
     }
+
+    @Test
+    void emitBatchOfElevenSpillsTheEleventhIntoASecondCall() {
+        FakeSqsClient client = new FakeSqsClient();
+        QueueRelay relay = new QueueRelay(client, "http://queue-url");
+        List<String> payloads = new ArrayList<>();
+        for (int i = 0; i < 11; i++) payloads.add("{\"i\":" + i + "}");
+
+        relay.relayWindow(payloads);
+
+        assertEquals(List.of(10, 1), client.batchSizes);
+    }
+
+    @Test
+    void relayWindowForwardsEveryPayloadBodyUnaltered() {
+        FakeSqsClient client = new FakeSqsClient();
+        QueueRelay relay = new QueueRelay(client, "http://queue-url");
+        List<String> payloads = List.of("{\"sensor_type\":\"vibration\"}", "{\"sensor_type\":\"power_draw\"}");
+
+        relay.relayWindow(payloads);
+
+        assertEquals(payloads, client.batchBodies);
+    }
 }

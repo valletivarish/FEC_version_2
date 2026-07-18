@@ -38,4 +38,28 @@ class HandlerTest {
         assertEquals(2, processed);
         assertEquals(2, fake.puts.size());
     }
+
+    @Test
+    void emptyBatchWritesNothing() {
+        FakeDynamoDbClient fake = new FakeDynamoDbClient();
+        assertEquals(0, Handler.persistWindows(List.of(), fake, "test-table"));
+        assertTrue(fake.puts.isEmpty());
+    }
+
+    @Test
+    void malformedRecordThrowsSoSqsWillRetryTheBatch() {
+        FakeDynamoDbClient fake = new FakeDynamoDbClient();
+        // window_end is required by Reshape; a record without it must fail the whole batch, not be silently dropped.
+        String broken = "{\"sensor_type\":\"vibration\",\"count\":1}";
+        assertThrows(RuntimeException.class, () -> Handler.persistWindows(List.of(message(broken)), fake, "test-table"));
+    }
+
+    @Test
+    void marshalledItemReachesDynamoWithSortKeyAndAlerts() {
+        FakeDynamoDbClient fake = new FakeDynamoDbClient();
+        Handler.persistWindows(List.of(message(MESSAGE)), fake, "test-table");
+        var item = fake.puts.get(0).item();
+        assertEquals("e#line-1", item.get("sort_key").s());
+        assertEquals("bearing_wear_risk", item.get("alerts").l().get(0).s());
+    }
 }
