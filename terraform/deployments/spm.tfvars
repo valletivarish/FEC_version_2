@@ -19,6 +19,7 @@ dashboard_zip_path      = "backend/dashboard/lambda.zip"
 dashboard_handler       = "lambda_handler.lambda_handler"
 dashboard_runtime       = "python3.12"
 
+frontend_bucket_name  = "smart-parking-management-console"
 frontend_local_dir    = "backend/dashboard/static"
 api_base_placeholder  = "__API_BASE__"
 api_base_search_files = ["index.html"]
