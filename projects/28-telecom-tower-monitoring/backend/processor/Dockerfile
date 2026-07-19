@@ -4,7 +4,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends zip && rm -rf /
 COPY package.json .
 RUN npm install --omit=dev --no-audit --no-fund
 COPY handler.js mapper.js .
-RUN zip -qr function.zip handler.js mapper.js node_modules
+RUN zip -qr function.zip handler.js mapper.js package.json node_modules
 
 FROM python:3.12-slim
 WORKDIR /app

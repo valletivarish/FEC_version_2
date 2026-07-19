@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { handler, persist, chunk } from "../backend/processor/handler.js";
+import { handler, persist, chunk, resolveClient } from "../backend/processor/handler.js";
 
 class FakeDoc {
   constructor(script = []) { this.script = script; this.writes = []; this.round = 0; }
@@ -61,4 +61,13 @@ test("handler tolerates an empty event", async () => {
   const doc = new FakeDoc();
   const res = await handler({}, {}, doc);
   assert.equal(res.written, 0);
+});
+
+test("resolveClient uses a real injected client but ignores the Lambda callback", () => {
+  const fake = new FakeDoc();
+  assert.equal(resolveClient(fake), fake); // a genuine client (has .send) is used
+  const callback = () => {};
+  const resolved = resolveClient(callback); // Lambda's 3rd arg at runtime is the callback
+  assert.notEqual(resolved, callback);
+  assert.equal(typeof resolved.send, "function"); // falls back to the real DynamoDB client
 });

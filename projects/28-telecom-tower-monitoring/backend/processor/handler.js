@@ -23,8 +23,15 @@ function chunk(items, size) {
 
 let doc = null;
 
+// Only accept an injected client if it actually is one. At runtime Lambda calls
+// handler(event, context, callback), so the third arg is the callback, not a client.
+function resolveClient(maybe) {
+  if (maybe && typeof maybe.send === "function") return maybe;
+  return (doc ??= makeDoc());
+}
+
 async function persist(items, client) {
-  const target = client || (doc ??= makeDoc());
+  const target = resolveClient(client);
   let written = 0;
   for (const group of chunk(items, 25)) {
     let requests = group.map((Item) => ({ PutRequest: { Item } }));
@@ -47,4 +54,4 @@ const handler = async (event, _context, client) => {
   return { batchItemFailures: [], written };
 };
 
-export { handler, persist, chunk };
+export { handler, persist, chunk, resolveClient };
