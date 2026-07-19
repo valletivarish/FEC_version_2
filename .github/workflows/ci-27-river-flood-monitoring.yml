@@ -1,0 +1,19 @@
+name: ci-27-river-flood-monitoring
+on:
+  push:
+    paths: ["projects/27-river-flood-monitoring/**"]
+  pull_request:
+    paths: ["projects/27-river-flood-monitoring/**"]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: projects/27-river-flood-monitoring
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - run: pytest

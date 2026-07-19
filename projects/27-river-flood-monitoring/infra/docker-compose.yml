@@ -1,0 +1,148 @@
+services:
+  localstack:
+    image: localstack/localstack:3
+    environment:
+      - SERVICES=sqs,dynamodb,lambda
+    ports:
+      - "4579:4566"
+
+  processor:
+    build: ../backend/processor
+    restart: "no"
+    depends_on: [localstack]
+    environment:
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_REGION=eu-west-1
+      - SQS_QUEUE_NAME=rfw-catchment-agg
+      - TABLE_NAME=rfw-readings
+      - LAMBDA_FUNCTION_NAME=rfw-processor
+
+  fog:
+    build: ../fog
+    depends_on: [processor]
+    environment:
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_REGION=eu-west-1
+      - SQS_QUEUE_NAME=rfw-catchment-agg
+      - WINDOW_SECONDS=10
+
+  dashboard:
+    build: ../backend/dashboard
+    depends_on: [fog]
+    ports:
+      - "8099:8000"
+    environment:
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_REGION=eu-west-1
+      - TABLE_NAME=rfw-readings
+      - SQS_QUEUE_NAME=rfw-catchment-agg
+      - LAMBDA_FUNCTION_NAME=rfw-processor
+      - FOG_HEALTH_URL=http://fog:8000/health
+      - FOG_THRESHOLDS_URL=http://fog:8000/thresholds
+
+  sensor-level-a:
+    build: ../sensors
+    depends_on: [fog]
+    environment:
+      - SENSOR_TYPE=river_level_m
+      - SITE_ID=reach-a
+      - SAMPLE_INTERVAL=2
+      - DISPATCH_INTERVAL=10
+      - FOG_URL=http://fog:8000/ingest
+
+  sensor-level-b:
+    build: ../sensors
+    depends_on: [fog]
+    environment:
+      - SENSOR_TYPE=river_level_m
+      - SITE_ID=reach-b
+      - SAMPLE_INTERVAL=2
+      - DISPATCH_INTERVAL=10
+      - FOG_URL=http://fog:8000/ingest
+
+  sensor-rain-a:
+    build: ../sensors
+    depends_on: [fog]
+    environment:
+      - SENSOR_TYPE=rainfall_mmph
+      - SITE_ID=reach-a
+      - SAMPLE_INTERVAL=2
+      - DISPATCH_INTERVAL=10
+      - FOG_URL=http://fog:8000/ingest
+
+  sensor-rain-b:
+    build: ../sensors
+    depends_on: [fog]
+    environment:
+      - SENSOR_TYPE=rainfall_mmph
+      - SITE_ID=reach-b
+      - SAMPLE_INTERVAL=2
+      - DISPATCH_INTERVAL=10
+      - FOG_URL=http://fog:8000/ingest
+
+  sensor-flow-a:
+    build: ../sensors
+    depends_on: [fog]
+    environment:
+      - SENSOR_TYPE=flow_velocity_ms
+      - SITE_ID=reach-a
+      - SAMPLE_INTERVAL=2
+      - DISPATCH_INTERVAL=10
+      - FOG_URL=http://fog:8000/ingest
+
+  sensor-flow-b:
+    build: ../sensors
+    depends_on: [fog]
+    environment:
+      - SENSOR_TYPE=flow_velocity_ms
+      - SITE_ID=reach-b
+      - SAMPLE_INTERVAL=2
+      - DISPATCH_INTERVAL=10
+      - FOG_URL=http://fog:8000/ingest
+
+  sensor-soil-a:
+    build: ../sensors
+    depends_on: [fog]
+    environment:
+      - SENSOR_TYPE=soil_moisture_pct
+      - SITE_ID=reach-a
+      - SAMPLE_INTERVAL=2
+      - DISPATCH_INTERVAL=10
+      - FOG_URL=http://fog:8000/ingest
+
+  sensor-soil-b:
+    build: ../sensors
+    depends_on: [fog]
+    environment:
+      - SENSOR_TYPE=soil_moisture_pct
+      - SITE_ID=reach-b
+      - SAMPLE_INTERVAL=2
+      - DISPATCH_INTERVAL=10
+      - FOG_URL=http://fog:8000/ingest
+
+  sensor-turb-a:
+    build: ../sensors
+    depends_on: [fog]
+    environment:
+      - SENSOR_TYPE=turbidity_ntu
+      - SITE_ID=reach-a
+      - SAMPLE_INTERVAL=2
+      - DISPATCH_INTERVAL=10
+      - FOG_URL=http://fog:8000/ingest
+
+  sensor-turb-b:
+    build: ../sensors
+    depends_on: [fog]
+    environment:
+      - SENSOR_TYPE=turbidity_ntu
+      - SITE_ID=reach-b
+      - SAMPLE_INTERVAL=2
+      - DISPATCH_INTERVAL=10
+      - FOG_URL=http://fog:8000/ingest
+

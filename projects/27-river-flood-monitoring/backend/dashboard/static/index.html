@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>River Flood Early-Warning</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/vendor/chart.umd.min.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <div class="masthead">
+    <h1>River Flood Early-Warning</h1>
+    <p class="sub">Two river reaches &middot; live stage and rate-of-rise</p>
+  </div>
+  <div id="health" class="health"></div>
+</header>
+
+<div id="catchment" class="catchment catchment-normal">Catchment status loading&hellip;</div>
+
+<div id="stats" class="stats"></div>
+
+<main>
+  <section id="reach-grid" class="reach-grid"></section>
+
+  <section class="panel">
+    <h2>River level trend</h2>
+    <div class="chart-wrap"><canvas id="level-chart" height="90"></canvas></div>
+  </section>
+
+  <section class="panel">
+    <h2>Alert thresholds</h2>
+    <p class="panel-note">The stage bands and triggers the fog node applies. Reference only; it does not drive evaluation.</p>
+    <div id="rules" class="rules"></div>
+  </section>
+</main>
+
+<footer><span id="foot"></span></footer>
+
+<script id="app" src="/static/dashboard.js" data-api-base="__API_BASE__"></script>
+</body>
+</html>

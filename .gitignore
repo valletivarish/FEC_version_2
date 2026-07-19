@@ -31,3 +31,6 @@ documents/**/*.blg
 documents/**/*.log
 documents/**/*.out
 documents/**/*.pdf
+projects/27-river-flood-monitoring/backend/processor/build/
+projects/27-river-flood-monitoring/backend/dashboard/build/
+projects/27-river-flood-monitoring/**/lambda.zip
