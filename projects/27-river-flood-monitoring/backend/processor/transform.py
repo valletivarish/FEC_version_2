@@ -17,6 +17,5 @@ def to_item(body):
         "max": data["max"],
         "avg": data["avg"],
         "latest": data["latest"],
-        "rise_mph": data.get("rise_mph", 0),
         "alerts": data.get("alerts", []),
     }

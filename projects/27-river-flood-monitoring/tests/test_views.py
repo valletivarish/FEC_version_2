@@ -4,13 +4,22 @@ import views
 
 def test_reaches_builds_catchment_and_reaches(monkeypatch):
     monkeypatch.setattr(data_access, "reach_windows", lambda: {
-        "reach-a": {"river_level_m": {"latest": 5.6, "alerts": ["flood_warning"], "rise_mph": 0.3}},
-        "reach-b": {"river_level_m": {"latest": 2.0, "alerts": [], "rise_mph": 0.0}},
+        "reach-a": {"river_level_m": {"latest": 5.6, "alerts": ["flood_warning"]}},
+        "reach-b": {"river_level_m": {"latest": 2.0, "alerts": []}},
+    })
+    monkeypatch.setattr(data_access, "level_series_per_reach", lambda: {
+        "reach-a": [{"avg": 4.0, "window_end": "2026-01-01T00:00:00+00:00"},
+                    {"avg": 5.6, "window_end": "2026-01-01T00:02:00+00:00"}],
+        "reach-b": [],
     })
     status, body = views.reaches({})
     assert status == 200
     assert body["catchment_stage"] == "warning"
-    assert {r["site_id"] for r in body["reaches"]} == {"reach-a", "reach-b"}
+    reaches = {r["site_id"]: r for r in body["reaches"]}
+    assert set(reaches) == {"reach-a", "reach-b"}
+    # reach-a rose 1.6 m over 120 s -> 48 m/h, well past the 8 m/h rapid-rise flag
+    assert "rapid_rise" in reaches["reach-a"]["active_alerts"]
+    assert reaches["reach-b"]["rise_mph"] is None
 
 
 def test_readings_rejects_unknown_sensor_type():

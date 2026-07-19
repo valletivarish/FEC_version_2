@@ -1,14 +1,12 @@
-"""Multi-band flood stage on the window peak plus a rate-of-rise trigger; other signals carry one rule each, turbidity none."""
+"""Multi-band flood stage on the window peak; other signals carry one rule each, turbidity none. The rate-of-rise leading indicator is derived at the dashboard from the level trend, not from a single 10 s window."""
 
 STAGES = [(5.5, "flood_warning"), (4.5, "flood_watch"), (3.5, "flood_advisory")]
-RAPID_RISE_MPH = 0.5
 
 RULES_DOC = {
     "river_level_m": [
         {"field": "max", "op": ">=", "limit": 3.5, "key": "flood_advisory"},
         {"field": "max", "op": ">=", "limit": 4.5, "key": "flood_watch"},
         {"field": "max", "op": ">=", "limit": 5.5, "key": "flood_warning"},
-        {"field": "rise_mph", "op": ">=", "limit": RAPID_RISE_MPH, "key": "rapid_rise"},
     ],
     "rainfall_mmph": [{"field": "avg", "op": ">", "limit": 40, "key": "torrential_rain"}],
     "flow_velocity_ms": [{"field": "max", "op": ">", "limit": 4.0, "key": "dangerous_current"}],
@@ -30,8 +28,6 @@ def evaluate(sensor_type, agg):
         s = stage_key(agg["max"])
         if s:
             keys.append(s)
-        if agg.get("rise_mph", 0) >= RAPID_RISE_MPH:
-            keys.append("rapid_rise")
     elif sensor_type == "rainfall_mmph" and agg["avg"] > 40:
         keys.append("torrential_rain")
     elif sensor_type == "flow_velocity_ms" and agg["max"] > 4.0:

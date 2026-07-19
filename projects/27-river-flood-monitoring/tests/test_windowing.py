@@ -13,20 +13,15 @@ def test_basic_stats():
     assert agg["latest"] == 3.0
 
 
-def test_rise_mph_positive_over_window():
-    # +1.0 m over a 10 s window is 360 m/h
+def test_no_per_window_rate_field():
+    # rate-of-rise is derived at the dashboard from the level trend, not per window
     agg = summarise("river_level_m", "reach-a", "m", _readings([2.0, 3.0]), "s", "e", 10)
-    assert agg["rise_mph"] == 360.0
+    assert "rise_mph" not in agg
 
 
-def test_rise_mph_negative_when_falling():
-    agg = summarise("river_level_m", "reach-a", "m", _readings([3.0, 2.5]), "s", "e", 3600)
-    assert agg["rise_mph"] == -0.5
-
-
-def test_rise_mph_zero_window_is_safe():
-    agg = summarise("river_level_m", "reach-a", "m", _readings([3.0, 3.0]), "s", "e", 0)
-    assert agg["rise_mph"] == 0.0
+def test_window_seconds_is_optional():
+    agg = summarise("river_level_m", "reach-a", "m", _readings([3.0, 3.0]), "s", "e")
+    assert agg["latest"] == 3.0
 
 
 def test_latest_is_last_in_order():

@@ -16,9 +16,11 @@ _thresholds_cache = {}
 
 def reaches(params=None):
     windows = data_access.reach_windows()
+    series = data_access.level_series_per_reach()
     built = []
     for site, readings in windows.items():
-        status = stage_view.reach_status(readings)
+        rise = stage_view.rise_over(series.get(site))
+        status = stage_view.reach_status(readings, rise)
         built.append({"site_id": site, **status, "readings": readings})
     return 200, {"catchment_stage": stage_view.catchment_stage(built), "reaches": built}
 

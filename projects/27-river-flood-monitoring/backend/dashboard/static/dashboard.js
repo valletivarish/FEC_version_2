@@ -150,7 +150,7 @@ async function tick() {
     await Promise.all([refreshReaches(), refreshHealth(), refreshChart()]);
     await refreshStats();
     await loadRules();
-    document.getElementById("foot").textContent = "Refreshes every 2.5 s · stage bands: advisory 3.5 m, watch 4.5 m, warning 5.5 m; rapid-rise trigger at 0.5 m/h.";
+    document.getElementById("foot").textContent = "Refreshes every 2.5 s · stage bands: advisory 3.5 m, watch 4.5 m, warning 5.5 m; rapid-rise flagged when the level trend exceeds 8 m/h.";
   } catch (err) {
     console.error("poll failed", err);
   }

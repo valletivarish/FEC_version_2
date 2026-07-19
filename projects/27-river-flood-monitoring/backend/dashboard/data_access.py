@@ -60,6 +60,14 @@ def reach_windows():
     }
 
 
+def level_series_per_reach(limit=40):
+    series = {site: [] for site in SITE_IDS}
+    for row in recent_windows("river_level_m", limit):
+        if row["site_id"] in series:
+            series[row["site_id"]].append(row)
+    return series
+
+
 def freshest_age_seconds(now):
     youngest = None
     for sensor_type in SENSOR_TYPES:
