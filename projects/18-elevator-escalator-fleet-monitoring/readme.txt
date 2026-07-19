@@ -117,8 +117,10 @@ Stop the stack and remove its volumes:
 
 AWS DEPLOYMENT STEPS
 -----------------------
-No terraform/deployments/*.tfvars file exists yet. To deploy with the
-Terraform module in terraform/:
+Deploy with the Terraform module in terraform/, driven by the deployment
+variables file terraform/deployments/eef.tfvars (which defines the DynamoDB
+table, the SQS queue, both Node.js 20 Lambdas and their build commands, and
+the frontend upload settings).
 
   1. Configure AWS credentials for the target account:
        aws configure
@@ -128,51 +130,25 @@ Terraform module in terraform/:
   2. Confirm the credentials point at the intended account:
        aws sts get-caller-identity
 
-  3. Create terraform/deployments/eef.tfvars, defining: prefix,
-     project_root, table_name, queue_name, processor_lambda_name,
-     processor_build_command, processor_zip_path, processor_handler,
-     processor_runtime, dashboard_lambda_name, dashboard_build_command,
-     dashboard_zip_path, dashboard_handler, dashboard_runtime,
-     frontend_local_dir, api_base_placeholder, and api_base_search_files.
-     Populate the values below, for example:
-       prefix                  = "eef"
-       project_root            = "../projects/18-elevator-escalator-fleet-monitoring"
-       table_name              = "eef-readings"
-       queue_name              = "eef-tower-agg"
-       processor_lambda_name   = "eef-processor"
-       processor_handler       = "handler.handler"
-       processor_runtime       = "nodejs20.x"
-       processor_zip_path      = "backend/processor/lambda.zip"
-       processor_build_command = "cd backend/processor && npm ci --omit=dev --silent && rm -f lambda.zip && zip -qr lambda.zip handler.js transform.js package.json node_modules"
-       frontend_local_dir      = "backend/dashboard/static"
-       api_base_placeholder    = "__API_BASE__"
-       api_base_search_files   = ["index.html"]
-     backend/dashboard/ does not yet contain a Lambda entry point (a file
-     exporting a `handler` function for API Gateway, comparable to
-     handler.js in backend/processor/); one must be added there before
-     dashboard_lambda_name/dashboard_build_command/dashboard_zip_path/
-     dashboard_handler/dashboard_runtime can be filled in and the build
-     below will produce a working dashboard Lambda.
+  3. cd terraform
 
-  4. cd terraform
-
-  5. Create and switch to a dedicated Terraform workspace (do not apply
+  4. Create and switch to a dedicated Terraform workspace (do not apply
      against the default workspace):
        terraform workspace new eef
        terraform workspace list
 
-  6. Build the Lambda deployment packages and the EC2 source tarball:
+  5. Build the Lambda deployment packages and the EC2 source tarball:
        ./build.sh deployments/eef.tfvars
 
-  7. Review the plan before applying:
+  6. Review the plan before applying:
        terraform plan -var-file=deployments/eef.tfvars
      Confirm the "Plan: N to add, 0 to change, 0 to destroy" line shows no
      destroys.
 
-  8. Apply:
+  7. Apply:
        terraform apply -var-file=deployments/eef.tfvars
 
-  9. Switch back to the default workspace when finished:
+  8. Switch back to the default workspace when finished:
        terraform workspace select default
 
 TESTING INSTRUCTIONS
@@ -182,9 +158,9 @@ Each module has its own test script, run with Node's built-in test runner
   cd sensors && npm install && npm test               (14 tests)
   cd fog && npm install && npm test                    (57 tests)
   cd backend/processor && npm install && npm test      (10 tests)
-  cd backend/dashboard && npm install && npm test      (36 tests)
+  cd backend/dashboard && npm install && npm test      (41 tests)
 
-Total: 117 tests. All four suites were run directly (node --test) and
+Total: 122 tests. All four suites were run directly (node --test) and
 confirmed passing with 0 failures.
 
 Without a local Node.js install, run any module's suite in a container,

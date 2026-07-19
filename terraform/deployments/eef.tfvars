@@ -1,6 +1,9 @@
 prefix       = "eef"
 project_root = "../projects/18-elevator-escalator-fleet-monitoring"
 
+# Pin the fog host to a t3.small-capable AZ; the first default subnet can land in us-east-1e, which lacks t3.small.
+fog_availability_zone = "us-east-1a"
+
 table_name = "eef-readings"
 queue_name = "eef-tower-agg"
 
