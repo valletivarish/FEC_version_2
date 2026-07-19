@@ -1,6 +1,9 @@
 prefix       = "sbe"
 project_root = "../projects/12-smart-building-energy"
 
+# Pin the fog host to a t3.small-capable AZ; the first default subnet can land in us-east-1e, which lacks t3.small.
+fog_availability_zone = "us-east-1a"
+
 table_name = "sbe-readings"
 queue_name = "sbe-floor-agg"
 
@@ -16,6 +19,7 @@ dashboard_zip_path      = "backend/dashboard/lambda.zip"
 dashboard_handler       = "lambda_handler.lambda_handler"
 dashboard_runtime       = "python3.12"
 
+frontend_bucket_name  = "smart-building-energy-monitor"
 frontend_local_dir    = "backend/dashboard/static"
 api_base_placeholder  = "__API_BASE__"
 api_base_search_files = ["index.html"]

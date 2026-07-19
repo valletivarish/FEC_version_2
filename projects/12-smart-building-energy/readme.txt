@@ -129,67 +129,44 @@ Stop and remove volumes:
 
 7. AWS DEPLOYMENT STEPS
 -------------------------
-No terraform/deployments/*.tfvars file exists yet. Create one before
-deploying.
+Deploy through the Terraform module in terraform/ at the repository root,
+driven by the deployment variables file terraform/deployments/sbe.tfvars
+(which defines the DynamoDB table, the SQS queue, both python3.12 Lambdas
+and their build commands, and the frontend upload settings). The
+dashboard's API Gateway entry point is backend/dashboard/lambda_handler.py,
+which drives the existing DashboardHandler unchanged through an in-memory
+socket, so every route answers identically behind API Gateway; the
+frontend reads its API base from the __API_BASE__ placeholder substituted
+at upload time.
 
-  1. Confirm your AWS credentials are active and pointed at the target
-     account:
+  1. Configure AWS credentials for the target account:
+       aws configure
+     (or export AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and
+     AWS_SESSION_TOKEN directly). Region must be us-east-1.
+
+  2. Confirm the credentials point at the intended account:
        aws sts get-caller-identity
 
-  2. backend/dashboard/app.py implements a raw http.server request
-     handler and is not directly callable as a Lambda function. Add a
-     Lambda entry point (e.g. backend/dashboard/lambda_handler.py) that
-     accepts an API Gateway proxy integration event and calls into
-     data_access.py, scoring.py, and thresholds_proxy.py directly.
-     backend/processor/handler.py already exposes a usable
-     lambda_handler(event, context) entry point and needs no changes.
+  3. cd terraform
 
-  3. backend/dashboard/static/dashboard.js currently calls the API with
-     relative paths (fetch("/api/floors"), fetch("/api/health"), etc.),
-     assuming the frontend and API are served from the same origin. For a
-     split-origin deployment (static frontend on S3, API behind API
-     Gateway), add an API base configuration mechanism to
-     backend/dashboard/static/index.html and dashboard.js.
-
-  4. Create terraform/deployments/sbe.tfvars (field names shown below;
-     fill in values once step 2's handler exists):
-       prefix                   = "sbe"
-       project_root             = "../projects/12-smart-building-energy"
-       table_name                = "sbe-readings"
-       queue_name                = "sbe-floor-agg"
-       processor_lambda_name    = "sbe-processor"
-       processor_build_command  = <pip-install-and-zip command for
-                                    backend/processor/handler.py +
-                                    transform.py>
-       processor_zip_path       = "backend/processor/lambda.zip"
-       processor_handler         = "handler.lambda_handler"
-       processor_runtime         = "python3.12"
-       dashboard_lambda_name    = "sbe-dashboard-api"
-       dashboard_build_command  = <pip-install-and-zip command for
-                                    backend/dashboard/lambda_handler.py +
-                                    data_access.py + scoring.py +
-                                    thresholds_proxy.py>
-       dashboard_zip_path       = "backend/dashboard/lambda.zip"
-       dashboard_handler         = "lambda_handler.lambda_handler"
-       dashboard_runtime         = "python3.12"
-       frontend_local_dir        = "backend/dashboard/static"
-       api_base_placeholder     = <placeholder token used by step 3>
-       api_base_search_files    = ["index.html"]
-
-  5. Create and switch to a dedicated Terraform workspace before applying:
-       cd terraform
+  4. Create and switch to a dedicated Terraform workspace (do not apply
+     against the default workspace):
        terraform workspace new sbe
        terraform workspace list
+     (confirm sbe is marked as the current workspace)
 
-  6. Build the Lambda packages and deploy tarball, then review the plan
-     before applying:
+  5. Build the Lambda deployment packages and the EC2 source tarball:
        ./build.sh deployments/sbe.tfvars
-       terraform plan -var-file=deployments/sbe.tfvars
 
-  7. Apply once the plan's destroy count is 0:
+  6. Review the plan before applying:
+       terraform plan -var-file=deployments/sbe.tfvars
+     Confirm the "Plan: N to add, 0 to change, 0 to destroy" line shows no
+     destroys.
+
+  7. Apply:
        terraform apply -var-file=deployments/sbe.tfvars
 
-  8. Switch back to the default workspace afterward:
+  8. Switch back to the default workspace when finished:
        terraform workspace select default
 
 8. TESTING INSTRUCTIONS

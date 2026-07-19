@@ -10,7 +10,7 @@
 <header class="topbar">
   <div class="topbar-title">
     <h1>Smart Building Energy Monitoring</h1>
-    <p class="subtitle">Fog and Edge Computing CA &mdash; two-floor sustainability scorecard</p>
+    <p class="subtitle">Live two-floor building energy scorecard</p>
   </div>
   <div class="status-grid">
     <div class="status-cell" id="dot-gateway"><span class="status-label">Gateway</span></div>
@@ -42,13 +42,13 @@
 
   <section class="rules-section">
     <h2>Alert Rules</h2>
-    <p class="section-note">Descriptive mirror of the fog node's real threshold rules (fog/alerts.py). Does not drive evaluation &mdash; shown here for reference only.</p>
+    <p class="section-note">A read-only view of the alert thresholds the fog node enforces. Shown for reference; it does not drive evaluation.</p>
     <div id="rules-list" class="rules-list"><p class="loading-note">Loading rules&hellip;</p></div>
   </section>
 </main>
 
 <footer>
-  <p>Data refreshes every 2.5 seconds. Efficiency grade formula documented in backend/dashboard/scoring.py and readme.txt.</p>
+  <p>Data refreshes every 2.5 seconds. Each floor's grade is derived from its live energy and air-quality readings.</p>
 </footer>
 
 <script src="/static/vendor/chart.umd.min.js"></script>
