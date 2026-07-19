@@ -3,8 +3,11 @@ services:
     image: localstack/localstack:3
     environment:
       - SERVICES=sqs,dynamodb,lambda
+      - LAMBDA_KEEPALIVE_MS=0
     ports:
       - "4579:4566"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
   processor:
     build: ../backend/processor
