@@ -1,0 +1,8 @@
+{
+  "name": "ctm-sensor",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Telecom tower site sensor emitter",
+  "main": "sensor.js"
+}

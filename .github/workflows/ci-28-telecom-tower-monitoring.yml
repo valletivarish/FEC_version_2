@@ -1,0 +1,19 @@
+name: ci-28-telecom-tower-monitoring
+on:
+  push:
+    paths: ["projects/28-telecom-tower-monitoring/**"]
+  pull_request:
+    paths: ["projects/28-telecom-tower-monitoring/**"]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: projects/28-telecom-tower-monitoring
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm install --no-audit --no-fund
+      - run: npm test

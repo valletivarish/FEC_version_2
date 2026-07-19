@@ -1,0 +1,39 @@
+# Real-AWS compose: the fog gateway plus ten sensor containers only. LocalStack,
+# the processor and the dashboard run as Lambda/serverless resources provisioned
+# by Terraform, so they are absent here. The fog publishes to the real SQS queue
+# through the EC2 instance profile (default credential chain), so no endpoint
+# override and no static credentials are set. Port 8000 is published so the
+# dashboard Lambda can reach the fog health/thresholds endpoints via the EIP.
+name: ctm-aws
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  fog:
+    build:
+      context: ../fog
+    environment:
+      AWS_REGION: us-east-1
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: ctm-tower-agg
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  dc-load-north:  { <<: *sensor, environment: { <<: *sensor-env, SENSOR_TYPE: dc_load_amps,       SITE_ID: site-north, SAMPLE_INTERVAL: "2", DISPATCH_INTERVAL: "8"  } }
+  battery-north:  { <<: *sensor, environment: { <<: *sensor-env, SENSOR_TYPE: battery_charge_pct, SITE_ID: site-north, SAMPLE_INTERVAL: "2", DISPATCH_INTERVAL: "9"  } }
+  genset-north:   { <<: *sensor, environment: { <<: *sensor-env, SENSOR_TYPE: genset_fuel_pct,    SITE_ID: site-north, SAMPLE_INTERVAL: "3", DISPATCH_INTERVAL: "11" } }
+  cabinet-north:  { <<: *sensor, environment: { <<: *sensor-env, SENSOR_TYPE: cabinet_temp_c,     SITE_ID: site-north, SAMPLE_INTERVAL: "2", DISPATCH_INTERVAL: "10" } }
+  rf-north:       { <<: *sensor, environment: { <<: *sensor-env, SENSOR_TYPE: rf_utilization_pct, SITE_ID: site-north, SAMPLE_INTERVAL: "2", DISPATCH_INTERVAL: "12" } }
+  dc-load-south:  { <<: *sensor, environment: { <<: *sensor-env, SENSOR_TYPE: dc_load_amps,       SITE_ID: site-south, SAMPLE_INTERVAL: "2", DISPATCH_INTERVAL: "9"  } }
+  battery-south:  { <<: *sensor, environment: { <<: *sensor-env, SENSOR_TYPE: battery_charge_pct, SITE_ID: site-south, SAMPLE_INTERVAL: "2", DISPATCH_INTERVAL: "10" } }
+  genset-south:   { <<: *sensor, environment: { <<: *sensor-env, SENSOR_TYPE: genset_fuel_pct,    SITE_ID: site-south, SAMPLE_INTERVAL: "3", DISPATCH_INTERVAL: "12" } }
+  cabinet-south:  { <<: *sensor, environment: { <<: *sensor-env, SENSOR_TYPE: cabinet_temp_c,     SITE_ID: site-south, SAMPLE_INTERVAL: "2", DISPATCH_INTERVAL: "11" } }
+  rf-south:       { <<: *sensor, environment: { <<: *sensor-env, SENSOR_TYPE: rf_utilization_pct, SITE_ID: site-south, SAMPLE_INTERVAL: "2", DISPATCH_INTERVAL: "13" } }

@@ -1,0 +1,19 @@
+{
+  "name": "telecom-tower-monitoring",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Remote cell-site power and availability monitoring (fog -> SQS -> Lambda -> DynamoDB -> Express)",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-dynamodb": "^3.658.0",
+    "@aws-sdk/client-lambda": "^3.658.0",
+    "@aws-sdk/client-sqs": "^3.658.0",
+    "@aws-sdk/lib-dynamodb": "^3.658.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "serverless-http": "^3.2.0"
+  }
+}

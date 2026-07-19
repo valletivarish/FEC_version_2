@@ -1,0 +1,80 @@
+name: telecom-tower-monitoring
+
+x-aws-env: &aws-env
+  AWS_ENDPOINT_URL: http://localstack:4566
+  AWS_REGION: eu-west-1
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  localstack:
+    image: localstack/localstack:3.8
+    ports:
+      - "4580:4566"
+    environment:
+      SERVICES: sqs,dynamodb,lambda
+      DEBUG: "0"
+      LAMBDA_KEEPALIVE_MS: "0"
+    volumes:
+      - ./localstack/init.sh:/etc/localstack/init/ready.d/init.sh
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  fog:
+    build:
+      context: ../fog
+    environment:
+      <<: *aws-env
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: ctm-tower-agg
+    depends_on:
+      - localstack
+    restart: unless-stopped
+
+  processor:
+    build:
+      context: ../backend/processor
+    environment:
+      <<: *aws-env
+      SQS_QUEUE_NAME: ctm-tower-agg
+      TABLE_NAME: ctm-readings
+      LAMBDA_FUNCTION_NAME: ctm-processor
+    depends_on:
+      - localstack
+    restart: "no"
+
+  dashboard:
+    build:
+      context: ../backend/dashboard
+    ports:
+      - "8100:8000"
+    environment:
+      <<: *aws-env
+      TABLE_NAME: ctm-readings
+      SQS_QUEUE_NAME: ctm-tower-agg
+      LAMBDA_FUNCTION_NAME: ctm-processor
+      FOG_HEALTH_URL: http://fog:8000/health
+      FOG_THRESHOLDS_URL: http://fog:8000/thresholds
+    depends_on:
+      - localstack
+      - fog
+    restart: unless-stopped
+
+  dc-load-north:      { <<: *sensor, environment: { <<: *sensor-env, SENSOR_TYPE: dc_load_amps,       SITE_ID: site-north } }
+  battery-north:      { <<: *sensor, environment: { <<: *sensor-env, SENSOR_TYPE: battery_charge_pct, SITE_ID: site-north } }
+  genset-north:       { <<: *sensor, environment: { <<: *sensor-env, SENSOR_TYPE: genset_fuel_pct,    SITE_ID: site-north } }
+  cabinet-north:      { <<: *sensor, environment: { <<: *sensor-env, SENSOR_TYPE: cabinet_temp_c,     SITE_ID: site-north } }
+  rf-north:           { <<: *sensor, environment: { <<: *sensor-env, SENSOR_TYPE: rf_utilization_pct, SITE_ID: site-north } }
+  dc-load-south:      { <<: *sensor, environment: { <<: *sensor-env, SENSOR_TYPE: dc_load_amps,       SITE_ID: site-south } }
+  battery-south:      { <<: *sensor, environment: { <<: *sensor-env, SENSOR_TYPE: battery_charge_pct, SITE_ID: site-south } }
+  genset-south:       { <<: *sensor, environment: { <<: *sensor-env, SENSOR_TYPE: genset_fuel_pct,    SITE_ID: site-south } }
+  cabinet-south:      { <<: *sensor, environment: { <<: *sensor-env, SENSOR_TYPE: cabinet_temp_c,     SITE_ID: site-south } }
+  rf-south:           { <<: *sensor, environment: { <<: *sensor-env, SENSOR_TYPE: rf_utilization_pct, SITE_ID: site-south } }

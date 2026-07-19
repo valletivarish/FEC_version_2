@@ -34,3 +34,6 @@ documents/**/*.pdf
 projects/27-river-flood-monitoring/backend/processor/build/
 projects/27-river-flood-monitoring/backend/dashboard/build/
 projects/27-river-flood-monitoring/**/lambda.zip
+projects/28-telecom-tower-monitoring/**/node_modules/
+projects/28-telecom-tower-monitoring/**/lambda.zip
+projects/28-telecom-tower-monitoring/**/function.zip
