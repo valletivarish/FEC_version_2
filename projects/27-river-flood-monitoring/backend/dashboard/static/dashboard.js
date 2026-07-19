@@ -83,23 +83,53 @@ async function refreshStats() {
     `<span>freshest window: ${freshest}</span>`;
 }
 
-let levelChart = null;
+// Hand-drawn two-reach level plot on a plain canvas: 0..GAUGE_MAX metres on the
+// y axis with the three stage bands drawn as faint reference lines.
+const BAND_LINES = [
+  { level: 3.5, tint: "rgba(46,165,201,0.35)" },
+  { level: 4.5, tint: "rgba(214,158,50,0.40)" },
+  { level: 5.5, tint: "rgba(197,74,74,0.45)" },
+];
+
+function plotLine(ctx, points, w, h, color) {
+  if (points.length < 2) return;
+  const x = (i) => (i / (points.length - 1)) * (w - 8) + 4;
+  const y = (v) => h - 6 - (Math.max(0, Math.min(GAUGE_MAX, v)) / GAUGE_MAX) * (h - 12);
+  ctx.beginPath();
+  ctx.moveTo(x(0), y(points[0]));
+  for (let i = 1; i < points.length; i++) ctx.lineTo(x(i), y(points[i]));
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
 async function refreshChart() {
   const [a, b] = await Promise.all([
     fetch(API_BASE + "/api/readings?sensor_type=river_level_m&site_id=reach-a&limit=20").then((r) => r.json()),
     fetch(API_BASE + "/api/readings?sensor_type=river_level_m&site_id=reach-b&limit=20").then((r) => r.json()),
   ]);
-  const labels = a.items.map((i) => new Date(i.window_end).toLocaleTimeString());
-  const series = (items, color, label) => ({ label, data: items.map((i) => i.latest), borderColor: color, backgroundColor: "transparent", tension: 0.3, pointRadius: 0, borderWidth: 2 });
-  const datasets = [series(a.items, "#0e6ba8", "reach-a"), series(b.items, "#2aa5c9", "reach-b")];
-  const ctx = document.getElementById("level-chart");
-  if (!levelChart) {
-    levelChart = new Chart(ctx, { type: "line", data: { labels, datasets }, options: { responsive: true, animation: false, scales: { y: { beginAtZero: true, suggestedMax: 8 } }, plugins: { legend: { position: "bottom" } } } });
-  } else {
-    levelChart.data.labels = labels;
-    levelChart.data.datasets = datasets;
-    levelChart.update("none");
+  const canvas = document.getElementById("level-chart");
+  const ratio = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth || canvas.parentElement.clientWidth;
+  const h = 90;
+  canvas.width = w * ratio;
+  canvas.height = h * ratio;
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  for (const band of BAND_LINES) {
+    const y = h - 6 - (band.level / GAUGE_MAX) * (h - 12);
+    ctx.beginPath();
+    ctx.moveTo(4, y);
+    ctx.lineTo(w - 4, y);
+    ctx.strokeStyle = band.tint;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
   }
+  plotLine(ctx, a.items.map((i) => i.latest), w, h, "#0e6ba8");
+  plotLine(ctx, b.items.map((i) => i.latest), w, h, "#2aa5c9");
 }
 
 let rulesLoaded = false;
