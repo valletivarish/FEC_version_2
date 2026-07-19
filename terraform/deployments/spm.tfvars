@@ -1,6 +1,9 @@
 prefix       = "spm"
 project_root = "../projects/14-smart-parking-management"
 
+# Pin the fog host to a t3.small-capable AZ; the first default subnet can land in us-east-1e, which lacks t3.small.
+fog_availability_zone = "us-east-1a"
+
 table_name = "spm-readings"
 queue_name = "spm-lot-agg"
 

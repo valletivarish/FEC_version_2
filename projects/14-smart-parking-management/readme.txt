@@ -132,65 +132,41 @@ docker compose down
 
 6. AWS DEPLOYMENT STEPS
 
-No terraform/deployments/*.tfvars file exists yet. Follow
-these steps to deploy using the Terraform module in terraform/:
+Deploy with the Terraform module in terraform/, driven by the deployment
+variables file terraform/deployments/spm.tfvars (which defines the DynamoDB
+table, the SQS queue, both python3.12 Lambdas and their build commands, and
+the frontend upload settings). The dashboard's API Gateway entry point is
+backend/dashboard/lambda_handler.py, a WSGI bridge that reuses app.py
+unchanged.
 
-1) Obtain AWS credentials for the target account and configure them:
+1) Configure AWS credentials for the target account:
    aws configure
-   (enter the access key, secret key, and session token if using
-   temporary/session credentials)
+   (or export AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and
+   AWS_SESSION_TOKEN directly).
 
 2) Confirm the credentials point at the intended account:
    aws sts get-caller-identity
 
-3) From the repository root, create and switch to a dedicated Terraform
-   workspace:
-   cd terraform
+3) cd terraform
+
+4) Create and switch to a dedicated Terraform workspace (do not apply
+   against the default workspace):
    terraform workspace new spm
    terraform workspace list
    (confirm spm is marked as the current workspace)
 
-4) Create terraform/deployments/spm.tfvars, setting:
-   - prefix: spm
-   - project_root: ../projects/14-smart-parking-management
-   - table_name: spm-readings
-   - queue_name: spm-lot-agg
-   - processor_lambda_name: spm-processor
-   - processor_build_command: a command that installs
-     backend/processor/requirements.txt into a build directory, copies
-     handler.py and transform.py into it, and zips the result to
-     lambda.zip
-   - processor_zip_path: backend/processor/lambda.zip
-   - processor_handler: handler.lambda_handler
-   - processor_runtime: python3.12
-   - dashboard_lambda_name: spm-dashboard-api
-   - dashboard_build_command: a command that installs
-     backend/dashboard/requirements.txt into a build directory, copies the
-     dashboard's Lambda entry-point module and its supporting files into
-     it, and zips the result to lambda.zip. backend/dashboard/app.py
-     currently runs as a WSGI server, not an API-Gateway-shaped Lambda
-     handler -- write a Lambda entry point that maps API Gateway
-     proxy-integration events onto the existing data_access.py/status.py/
-     thresholds_proxy.py logic before this step.
-   - dashboard_zip_path: backend/dashboard/lambda.zip
-   - dashboard_handler: the module.function path of that new Lambda entry
-     point
-   - dashboard_runtime: python3.12
-   - frontend_local_dir: backend/dashboard/static
-   - api_base_placeholder: a placeholder token to substitute the deployed
-     API Gateway URL into at upload time (add it to
-     static/index.html or static/dashboard.js wherever the frontend reads
-     its API base -- neither file currently defines one)
-   - api_base_search_files: the file(s) containing that placeholder
-
-5) Build and apply:
-   cd terraform
+5) Build the Lambda deployment packages and the EC2 source tarball:
    ./build.sh deployments/spm.tfvars
-   terraform apply -var-file=deployments/spm.tfvars
-   Read the "Plan: N to add, 0 to change, 0 to destroy" line before
-   confirming; do not proceed if the destroy count is nonzero.
 
-6) After the apply completes, switch back to the default workspace:
+6) Review the plan before applying:
+   terraform plan -var-file=deployments/spm.tfvars
+   Confirm the "Plan: N to add, 0 to change, 0 to destroy" line shows no
+   destroys.
+
+7) Apply:
+   terraform apply -var-file=deployments/spm.tfvars
+
+8) Switch back to the default workspace when finished:
    terraform workspace select default
 
 7. TESTING INSTRUCTIONS

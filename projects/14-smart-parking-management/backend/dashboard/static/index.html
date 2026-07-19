@@ -10,7 +10,7 @@
 <header class="topbar">
   <div class="topbar-title">
     <h1>Smart Parking Management</h1>
-    <p class="subtitle">Fog and Edge Computing CA &mdash; two-lot capacity console</p>
+    <p class="subtitle">Live two-lot capacity and traffic console</p>
   </div>
   <div class="health-meters" id="status-strip">
     <div class="health-meter">
@@ -54,13 +54,13 @@
 
   <section class="rules-section">
     <h2>Alert Rules</h2>
-    <p class="section-note">Descriptive mirror of the fog node's real threshold rules (fog/alerts.py). Does not drive evaluation &mdash; shown here for reference only.</p>
+    <p class="section-note">A read-only view of the alert thresholds the fog node enforces. Shown for reference; it does not drive evaluation.</p>
     <div id="rules-list" class="rules-list"><p class="loading-note">Loading rules&hellip;</p></div>
   </section>
 </main>
 
 <footer>
-  <p>Data refreshes every 2.5 seconds. Occupancy status formula documented in backend/dashboard/status.py and readme.txt.</p>
+  <p>Data refreshes every 2.5 seconds. Each lot's status tier is derived from its live occupancy percentage.</p>
 </footer>
 
 <script src="/static/vendor/chart.umd.min.js"></script>
