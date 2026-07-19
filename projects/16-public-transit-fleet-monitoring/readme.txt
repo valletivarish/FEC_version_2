@@ -104,55 +104,43 @@ Stop and remove the stack:
 
 AWS DEPLOYMENT STEPS
 -----------------------
-This project deploys through the Terraform module in terraform/ at
-the repository root. No terraform/deployments/ptf.tfvars file exists yet,
-so create one before the first deploy.
+Deploy through the Terraform module in terraform/ at the repository root,
+driven by the deployment variables file terraform/deployments/ptf.tfvars
+(which defines the DynamoDB table, the SQS queue, both java17 Lambdas and
+their Maven build commands, and the frontend upload settings). The
+dashboard's API Gateway entry point is
+com.fec.transit.dashboard.TransitDashboardLambda, which drives the same
+route methods as the standalone TransitDashboardApp through an in-memory
+exchange, so no route logic is duplicated.
 
-1. Configure AWS credentials and confirm the target account:
+1. Configure AWS credentials for the target account:
      aws configure
+   (or export AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and
+   AWS_SESSION_TOKEN directly). Region must be us-east-1.
+
+2. Confirm the credentials point at the intended account:
      aws sts get-caller-identity
-   Region must be us-east-1.
 
-2. Create terraform/deployments/ptf.tfvars, defining these fields:
-   prefix, project_root, table_name, queue_name, processor_lambda_name,
-   processor_build_command, processor_zip_path, processor_handler,
-   processor_runtime, dashboard_lambda_name, dashboard_build_command,
-   dashboard_zip_path, dashboard_handler, dashboard_runtime,
-   frontend_local_dir, api_base_placeholder, and api_base_search_files.
-   Use these values:
-     prefix       = "ptf"
-     project_root = "../projects/16-public-transit-fleet-monitoring"
-     table_name   = "ptf-readings"
-     queue_name   = "ptf-depot-agg"
-     processor_lambda_name   = "ptf-processor"
-     processor_build_command = "cd backend/processor && mvn package -DskipTests -q"
-     processor_zip_path      = "backend/processor/target/processor.jar"
-     processor_handler       = "com.fec.transit.processor.TransitHandler::handleRequest"
-     processor_runtime       = "java17"
-     frontend_local_dir    = "backend/dashboard/static"
-     api_base_placeholder  = "__API_BASE__"
-     api_base_search_files = ["index.html"]
-   The backend/dashboard module currently runs as a standalone HTTP server
-   (TransitDashboardApp, listening on :8000) rather than a Lambda entry
-   point. Before setting dashboard_lambda_name/dashboard_build_command/
-   dashboard_zip_path/dashboard_handler/dashboard_runtime, add a
-   Lambda-compatible handler class to backend/dashboard (implementing
-   com.amazonaws.services.lambda.runtime.RequestHandler, packaged by the
-   same `mvn package -DskipTests -q` build), then point those fields at it
-   the same way processor_handler points at TransitHandler above.
+3. cd terraform
 
-3. Create an isolated Terraform workspace before applying:
-     cd terraform
+4. Create and switch to a dedicated Terraform workspace (do not apply
+   against the default workspace):
      terraform workspace new ptf
      terraform workspace list
+   (confirm ptf is marked as the current workspace)
 
-4. Review the plan, then apply:
-     terraform plan -var-file=deployments/ptf.tfvars
-   Confirm the plan shows 0 to destroy before proceeding.
+5. Build the Lambda deployment packages and the EC2 source tarball:
      ./build.sh deployments/ptf.tfvars
+
+6. Review the plan before applying:
+     terraform plan -var-file=deployments/ptf.tfvars
+   Confirm the "Plan: N to add, 0 to change, 0 to destroy" line shows no
+   destroys.
+
+7. Apply:
      terraform apply -var-file=deployments/ptf.tfvars
 
-5. Switch back to the default workspace when finished:
+8. Switch back to the default workspace when finished:
      terraform workspace select default
 
 TESTING INSTRUCTIONS
@@ -176,9 +164,10 @@ Current test counts:
                        TransitGatewayHttpTest 9, TransitGatewayTest 6,
                        TransitPublisherTest 4, WindowAggregateTest 4)
   backend/processor:  10 tests (RecordMapperTest 5, TransitHandlerTest 5)
-  backend/dashboard:  18 tests (DepotRepositoryTest 4, PipelineChecksTest 8,
-                       ThresholdsGatewayTest 2, TransitDashboardAppTest 4)
-  Total: 135 tests, all passing.
+  backend/dashboard:  22 tests (DepotRepositoryTest 4, PipelineChecksTest 8,
+                       ThresholdsGatewayTest 2, TransitDashboardAppTest 4,
+                       TransitDashboardLambdaTest 4)
+  Total: 139 tests, all passing.
 
 End-to-end verification against a running stack (after `docker compose ...
 up --build`):

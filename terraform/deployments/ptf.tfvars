@@ -1,6 +1,9 @@
 prefix       = "ptf"
 project_root = "../projects/16-public-transit-fleet-monitoring"
 
+# Pin the fog host to a t3.small-capable AZ; the first default subnet can land in us-east-1e, which lacks t3.small.
+fog_availability_zone = "us-east-1a"
+
 table_name = "ptf-readings"
 queue_name = "ptf-depot-agg"
 
@@ -16,6 +19,7 @@ dashboard_zip_path      = "backend/dashboard/target/dashboard.jar"
 dashboard_handler       = "com.fec.transit.dashboard.TransitDashboardLambda::handleRequest"
 dashboard_runtime       = "java17"
 
+frontend_bucket_name  = "public-transit-fleet-monitor"
 frontend_local_dir    = "backend/dashboard/static"
 api_base_placeholder  = "__API_BASE__"
 api_base_search_files = ["index.html"]
