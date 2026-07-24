@@ -1,27 +1,19 @@
-# Offshore Wind Farm Turbine Monitoring - 4-Minute Presentation Script
+# Offshore Wind Farm Turbine Monitoring — demo script
 
-Total: 519 spoken words - just under 4 minutes at ~130 words per minute.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
 
-## Slide 1 (0:00-0:20)
+## 1 · Motivation — Slide 1 (0:00–0:30)
 
-Good morning. I'm Vishvaksen Machana, student ID X25173421, MSc in Cloud Computing at National College of Ireland. For Fog and Edge Computing, I built a fog-to-cloud pipeline that continuously monitors an offshore wind farm - and it is running live on AWS right now.
+Offshore turbines are reached by boat, the weather sets the schedule, and a technician visit can be weeks apart. In between, faults escalate — a bearing overheating, a gearbox losing lubrication pressure, a blade vibration growing worse — all invisible until the next inspection. Streaming raw data ashore is not the fix either: the link has limited, variable bandwidth, and a view that dies when connectivity dips fails during exactly the storms that stress turbines most. So the watching has to happen at sea.
 
-## Slide 2 (0:20-1:00)
+## 2 · High-level description — Slide 2 (0:30–1:00)
 
-Why this problem? Offshore turbines are reached by boat, weather sets the schedule, and technician visits can be weeks apart. Faults don't wait: bearings overheat, blade vibration grows, gearboxes lose lubrication pressure. The number on the right is why continuous matters - one momentary dip below two-point-five bar is a lubrication fault, and an inspection weeks later would never see it. And streaming every raw reading ashore is no fix: the link is limited, and it dies in exactly the storms that stress turbines most.
+The shape of it: ten sensor streams across two turbines feed a fog gateway. It windows and aggregates each stream and runs four condition rules at the edge, so a fault is flagged in the same window cycle it appears. One window cycle of up to ten summaries goes to Amazon SQS as a single batched call; a Lambda ingests and stores it in DynamoDB; and a read-only dashboard API behind API Gateway feeds the S3 page. Only compact summaries cross the sea link.
 
-## Slide 3 (1:00-1:50)
+## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Here's the pipeline, left to right. Ten sensor streams - five per turbine - feed a fog gateway at the site. It folds readings into fixed time windows, computes summaries, and evaluates four condition rules, so a fault is flagged in the same cycle it appears. Only compact summaries cross to the cloud - one batched call per window instead of ten. From there everything is serverless: Amazon SQS buffers each batch, an AWS Lambda function stores the records in DynamoDB, and a second Lambda behind API Gateway serves the read-only dashboard, delivered as a static page from S3. The write path and the read path scale and fail separately.
+Live now. First, health — four of four checks green within about a minute of start-up, the freshest stored data around three seconds old. Second, both turbines — five metrics each and a cross-turbine power trend, with the stored count climbing seventeen, one thirty-two, two hundred and four across successive polls, so it is genuinely live. Third, confidence — seventy-one automated tests pass across sensors, fog gateway, ingestion and dashboard.
 
-## Slide 4 (1:50-2:25)
+## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 
-This is the real deployment - the dashboard in a browser, pointed at the live AWS account. Each turbine tile shows its five live metrics, and the footer down here shows all four health checks up and the freshest data about three seconds old. During live verification the stored record count climbed from seventeen, to one-thirty-two, to two-hundred-and-four. And underneath it all, seventy-one automated tests pass.
-
-## Slide 5 (2:25-3:35)
-
-Now, the hardest part. Two cloud-facing modules decided they were in local testing whenever the standard access-key variable existed in the environment, and swapped in fake, emulator-only credentials. Locally that assumption is always true, so every test passed. The trap: AWS Lambda always injects that exact variable - it's how a function receives its real credentials. Deployed as written, both functions would have discarded their real identity and failed their first call to the queue or the database. The same signal carries opposite meanings in the two environments, so no local test could expose it. The fix was to key on the emulator endpoint variable instead - the one signal that genuinely means local - so deployed functions fall through to the platform's default credential chain. An audit caught this before deployment, plus a record-count undercount and a missing batching path. Zero defects reached the live account, and the first live health poll came back green.
-
-## Slide 6 (3:35-4:00)
-
-Three takeaways. Fog computing earns its place offshore - the analysis runs at the turbines, and only compact summaries cross the sea link. A serverless core keeps the cloud side elastic and nearly free when idle. And an emulator cannot prove production readiness - live verification turned works-locally into works-deployed. Thank you - I'm happy to take questions.
+The hardest part was a credential trap. Two cloud-facing modules decided they were in local testing whenever the standard access-key variable was present, and swapped in fake, emulator-only credentials. But the serverless platform always injects that same variable to hand a function its real credentials — so in production both functions would throw away their real identity and fail their first call, while every local test kept passing, because locally the assumption is true. The fix gates on the emulator endpoint instead — the one signal that genuinely means local. A pre-deployment audit caught this and two more, all fixed before the first deploy, and every check was green on the first live poll.

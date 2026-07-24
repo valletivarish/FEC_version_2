@@ -1,29 +1,19 @@
-# Smart Parking Management - 4-Minute Presentation Script
+# Smart Parking Management — demo script
 
-Pooja - Student ID X25120921 - Fog and Edge Computing (H9FECC)
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
 
-Total: ~540 spoken words | approximately 3 minutes 58 seconds at ~135 wpm
+## 1 · Motivation — Slide 1 (0:00–0:30)
 
-## Slide 1 - Cover (0:00-0:15)
+An operator asks two different things about a car park at once: how full is each lot, and is anything wrong. They are not the same question. Fullness is a smooth quantity that climbs and falls with the day; a fault is a discrete event — a gate stuck faulting, an inflow surge, a car dwelling far too long. A lot can be busy but perfectly healthy, or nearly empty yet faulted, so the two belong on separate axes.
 
-Good morning. An operator watching a car park is really asking two questions at once, and they are not the same question. How full is each lot? And is anything wrong? My project answers both from the same stream, and it is careful never to confuse them.
+## 2 · High-level description — Slide 2 (0:30–1:00)
 
-## Slide 2 - Two questions, one car park (0:15-1:05)
+The shape of it: ten streams across two lots — occupied spaces, entry rate, exit rate, average dwell time and gate-fault events — feed a fog node that windows, aggregates and raises four hard fault alarms at the edge. Amazon SQS carries the aggregates; a Lambda ingests each into DynamoDB; and S3 with API Gateway serve the console. Fault alarms are decided at the edge, in the window they appear.
 
-A walk-round answers neither well: it samples a lot a few times a day, and both the fullness and the faults move faster than that. But the deeper point is that the two are different in kind. Fullness is a smooth quantity, a lot sliding from quiet to busy to nearly full across the day. A fault is a discrete event: a gate stuck faulting, a sudden inflow surge, a car that has dwelled far beyond a normal stay. And they are independent, a lot can be busy but perfectly healthy, or nearly empty yet faulted. So the monitor watches five signals across two lots, ten live streams, and every window it runs four hard fault rules: near-full above two hundred and seventy of three hundred bays, an inflow surge, a long stay, and a gate-fault on the peak count. The exit rate is kept only as context.
+## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-## Slide 3 - From sensor to console (1:05-1:50)
+Live now. First, health — gateway, queue, processor and pipeline all green. Second, the fusion itself — both lots stream all five signals, and right now one lot reads Normal while the other reads Alert on a gate-fault alarm despite a low occupancy, which is exactly the case the design is built for. Third, scale — one hundred and twenty-seven automated tests pass across every module, and a two-thousand-message burst from thirty-two senders was absorbed and drained.
 
-The reading happens at the edge. Ten sensor processes post over HTTP to a fog node running in the car park. Every ten seconds it closes a window, reduces each lot-and-signal stream to five numbers, and raises those fault alarms right there, so a fault is named in the window it appears. Only the summary leaves the building, batched onto Amazon SQS. One Lambda drains the queue into DynamoDB; a second serves the console from S3 through API Gateway. The whole cloud side went onto a real AWS account in one infrastructure-as-code step, twenty-four resources, no manual clicking.
+## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 
-## Slide 4 - Live demonstration (1:50-2:35)
-
-This is the live console reading from the running stack. Two lots, five signals each, and four pipeline checks green along the top. Now watch the right-hand lot. It is nearly empty, yet flashing Alert, because a gate is faulting. A dashboard that scored only fullness would have called that lot Quiet and missed the fault entirely. Behind the screen, one hundred and twenty-seven automated tests pass, and a two-thousand-message burst from thirty-two parallel senders was absorbed and drained.
-
-## Slide 5 - How full, and what is wrong (2:35-3:35)
-
-That moment is the whole design. The fog node answers the fault question at the edge and stores the alarms on each window. The dashboard answers the fullness question on read: it turns each lot's latest occupancy into a percentage of capacity and buckets it, quiet below three-quarters, busy above, near-full above nine-tenths. Then the two are fused into one badge, and a fault always outranks the fullness tier, so a faulted lot reads Alert whether it is empty or full. The tier is never stored; it is derived fresh on every read, which keeps the stored windows the single source of truth and lets the thresholds be retuned without touching them.
-
-## Slide 6 - What to take away (3:35-3:58)
-
-So the lesson I would carry beyond car parks is this: when a system is really answering two questions, keep them on two axes, and fuse them only at the last step. Decide the faults at the edge, derive the tier on read, and let the more urgent of the two win the badge. Thank you. I am happy to take questions.
+The hardest part was answering how full and what is wrong at the same time without letting one hide the other. The fog answers the fault question at the edge, raising four hard alarms per window. The dashboard answers fullness on read, turning each lot's latest occupancy into a percentage and bucketing it into Quiet, Busy or Near-full. Then the two fuse into one badge, and a fault outranks the fullness tier — any active fault forces the badge to Alert, whether the lot is empty or full, so the operator always sees the more urgent of the two at a glance. The tier is derived fresh on every read and never stored, so the thresholds can be retuned without touching the stored windows.

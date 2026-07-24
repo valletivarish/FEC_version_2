@@ -1,27 +1,19 @@
-# Wildlife Conservation Habitat Monitoring - 4-Minute Presentation Script
+# Wildlife Conservation Habitat Monitoring — demo script
 
-Total spoken words: 513 · estimated duration at ~130 wpm: about 3 minutes 56 seconds.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
 
-## Slide 1 (0:00-0:20)
+## 1 · Motivation — Slide 1 (0:00–0:30)
 
-Good morning. I'm Hrishikesh Sajeev, student ID X25132377, MSc in Cloud Computing at National College of Ireland. For Fog and Edge Computing I built a wildlife conservation habitat monitoring pipeline, and it is running live on AWS: two reserves, ten sensor feeds, a fog node, and a serverless backend.
+Fixed patrols learn about events late: a poaching incident, a drying waterhole, or a sudden movement surge is discovered only when a patrol reaches that spot, not when it starts. And the critical signals are short-lived — a gunshot-like acoustic spike lasts moments, so continuous sensing has to raise the alert as the window closes, while a ranger can still respond. Two reserves each stream five sensor types around the clock, far too many feeds for manual checking.
 
-## Slide 2 (0:20-1:00)
+## 2 · High-level description — Slide 2 (0:30–1:00)
 
-Here's the problem. A ranger on a fixed patrol learns about a poaching incident, a drying waterhole, or a movement surge only when the patrol reaches that spot, not when it starts. And these signals are short-lived. On the right are two of my alert thresholds: an average acoustic level above seventy-five decibels flags possible gunshot or chainsaw activity, and a waterhole below twenty centimetres flags drought stress. Five sensor types per reserve means ten continuous feeds no manual schedule can watch.
+The shape of it: ten feeds across two reserves reach a fog node running at the reserve edge on EC2, which windows, aggregates and evaluates all four alert rules on site. It feeds an Amazon SQS queue, an AWS Lambda ingest and a DynamoDB store; a second Lambda dashboard API behind API Gateway reads the store; and the page is served from S3, showing both reserves side by side with a field-station log and live alert flags.
 
-## Slide 3 (1:00-1:50)
+## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-How does it work? Follow the top row. Ten sensor feeds post readings to a fog node at the reserve edge. It does the edge computing: windows the readings, reduces each window to a compact summary, and evaluates the alert rules locally, so the raw stream never leaves the reserve. The compact summaries go onto an Amazon SQS queue, AWS Lambda drains it, and each aggregate lands in DynamoDB. The bottom row is the serve path: a second Lambda behind Amazon API Gateway reads everything back, and the dashboard is a static page on Amazon S3. Fully serverless, nothing for me to patch.
+Live now. First, health — four of four checks true, the freshest reading under six seconds old. Second, the reserves — both reserves side by side with a field-station log, and alert flags tripping on real thresholds; stored readings climbed from three sixty-two to three seventy-eight in fifteen seconds during verification. Third, confidence — eighty-two automated tests pass across all four modules.
 
-## Slide 4 (1:50-2:35)
+## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 
-This is the real deployed dashboard, not a mock-up: both reserves' field-station logs and the waterhole trend chart, as it rendered during the live browser check. Three facts from that verification. All four pipeline health checks came back true, with the freshest reading under six seconds old. Eighty-two automated tests pass across the four modules. And the stored-readings count climbed from three sixty-two to three seventy-eight in fifteen seconds, with alert flags tripping on the real thresholds. The pipeline isn't just up, it's visibly moving.
-
-## Slide 5 (2:35-3:40)
-
-Now, the hardest part. The dashboard reports how many readings sit in the table, and my count came from a single DynamoDB scan. The catch: one scan call returns only about a megabyte of data, then hands back a cursor, and unless you follow it the count silently stops short. No exception, no warning, just a wrong number. And it was invisible. All eighty-two local tests were green, and a full emulator integration run was green too, because a small local table always fits in one page. Only a real AWS table growing past that boundary exposes it. The fix follows the cursor page by page using the SDK's own paginator, locked in by a regression test that sums four pages to exactly twelve eighty-seven items, and re-verified live, where the count kept climbing. The same audit caught unbatched queue sends too, now grouped ten per call.
-
-## Slide 6 (3:40-4:00)
-
-Three takeaways. Decide at the edge, where the data is born. Go serverless where it scales, with nothing to patch. And deployment is the real test: two defects passed every local test, and only the live cloud exposed them. Thank you, I'm happy to take questions.
+The hardest part was a silent DynamoDB undercount. The dashboard's stored-readings count came from a single scan — and one scan call returns only about a megabyte of data and hands back a cursor for the rest, so the count silently stops short, with no error raised anywhere. All eighty-two local tests and a full emulator run stayed green, because a small local table fits in one page, so nothing could expose the missing pages; only a real table growing past that boundary makes the number wrong. The fix follows the cursor page by page with the SDK's own paginator, locked in by a four-page regression test that sums one thousand two hundred and eighty-seven items, and re-verified against the live account. The same audit also caught unbatched sends, now grouped ten per call.

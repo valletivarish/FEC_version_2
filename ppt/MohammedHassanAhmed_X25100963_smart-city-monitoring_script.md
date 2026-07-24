@@ -1,29 +1,19 @@
-# Smart City Operations Monitoring - 4-Minute Presentation Script
+# Smart City Operations Monitoring — demo script
 
-Mohammed Hassan Ahmed - Student ID X25100963 - Fog and Edge Computing (H9FECC)
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
 
-Total: ~535 spoken words | approximately 3 minutes 58 seconds at ~135 wpm
+## 1 · Motivation — Slide 1 (0:00–0:30)
 
-## Slide 1 - Cover (0:00-0:16)
+Congestion, a pollution spike, a car park filling up — in a city these build and fade within minutes, between any two manual checks. A patrol or a monthly meter read captures one moment, and the breach that matters happens right after the clipboard leaves. Streaming every raw reading to a distant cloud is the other extreme: heavy, slow and costly at city scale. So I watch continuously on the street and send only compact summaries and alerts onward.
 
-Good morning. My project watches a city district the way an operations desk would want to be watched. Five very different signals, traffic, air quality, noise, parking, and light, across two zones, and instead of five raw feeds it hands the operator one live answer: is any zone in trouble right now, and on which signal.
+## 2 · High-level description — Slide 2 (0:30–1:00)
 
-## Slide 2 - Why occasional checking fails (0:16-1:02)
+The shape of it: ten street sensors across two zones feed a fog relay. Every ten seconds it windows and aggregates each metric and checks five alert rules right at the edge. Only one compact summary per zone per metric goes to Amazon SQS; a Lambda function writes each record into DynamoDB; and API Gateway with S3 serve the live dashboard. The alerts are computed beside the sensors — the cloud never sees the raw firehose.
 
-The numbers that matter in a city move within minutes. Congestion builds, a pollution spike rises and fades, a car park fills, all between any two manual checks, and the breach that counts usually happens after the clipboard has left. So we measure continuously. But these signals do not even agree with each other: traffic in the hundreds a minute, light across tens of thousands of lux, noise in the decibels. And streaming every raw reading to a distant cloud is the other extreme, heavy and costly at city scale. What a city needs is continuous local watching, with only compact summaries and alerts ever leaving the street.
+## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-## Slide 3 - How it works: edge to cloud (1:02-1:52)
+Live now. First, health — edge relay online, queue reachable, Lambda deployed and records archiving, so the whole chain is running. Second, the city view — two zones reporting five metrics each, citywide trend charts, and five alert rules firing on real data: congestion, air quality, noise, parking and low visibility. Third, confidence — sixty-two automated tests pass across every module, and a two-thousand-message burst from thirty-two parallel workers was absorbed cleanly.
 
-Here is the path, left to right. On the city edge, ten sensor containers, five signals across two zones, feed a fog gateway on the edge host. Every ten seconds it closes a window, reduces each zone-and-signal group to a summary, and evaluates the five civic rules right there beside the sensors: congestion, air quality, noise, parking, and low visibility. Only the summary leaves the edge, batched into one send to Amazon SQS. An AWS Lambda function drains the queue into DynamoDB, and a second, separate function serves the operations board from S3 through API Gateway. It went onto a real AWS account in one infrastructure-as-code step, twenty-four resources, no manual clicking.
+## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 
-## Slide 4 - Demonstration highlights (1:52-2:35)
-
-This is the live board, reading from the running stack. Each zone is a card of its five signals with the current value, the recent range, and how fresh it is, and the header tells the operator how many zones are reporting and how many incidents are active. Along the bottom, four pipeline checks, all green. Behind it, sixty-two automated tests pass across the four modules, and a two-thousand-message burst through thirty-two parallel workers was absorbed without loss.
-
-## Slide 5 - The hardest part: a silent race (2:35-3:35)
-
-The hardest part never showed up as a failure. Every ten seconds the gateway hands its window buffer over to be flushed, while readings are arriving on several threads at once. So what happens to a reading that lands at the exact instant the buffer is swapped out? It can be written into the buffer that has just been retired, after the flush has already read it, and it vanishes. Nothing throws, nothing logs; one number is just missing, and the timing hole is microseconds wide, so every ordinary test passed. The fix was to make each buffer a fenced generation. The flush closes the fence, waits for any writer already inside to finish, and only then reads. A writer arriving after the fence retries into the fresh buffer instead, so every reading now lands in exactly one window.
-
-## Slide 6 - Three things to take away (3:35-3:58)
-
-Three things. Decide at the edge: the rules fire the moment a window closes. Ship summaries, not noise, so the cloud path stays lean whatever the sampling rate. And prove correctness rather than assume it, right down to a fence for the bug that never showed itself. Thank you, I am happy to take questions.
+The hardest part was a silent race at the window swap. Sensor posts run on four threads while a timer swaps the buffer out to flush it — and a reading landing at that exact instant could be written into the retired buffer after the flush had already read it, and just vanish. No exception, no log line, one number quietly missing. The fix makes each buffer a fenced generation: the flush closes the fence, waits for writers already inside, then reads; anyone arriving later retries into the fresh buffer. The path stays lock-free and every reading lands in exactly one window.

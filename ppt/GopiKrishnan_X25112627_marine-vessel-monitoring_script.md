@@ -1,27 +1,19 @@
-# Marine Vessel Condition Monitoring - 4-Minute Presentation Script
+# Marine Vessel Condition Monitoring — demo script
 
-Total: 515 spoken words - about 3 minutes 58 seconds at ~130 words per minute.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
 
-## Slide 1 (0:00-0:20)
+## 1 · Motivation — Slide 1 (0:00–0:30)
 
-Good morning. I'm Gopi Krishnan, student ID X25112627, MSc in Cloud Computing at the National College of Ireland. For my Fog and Edge Computing project I built a condition-monitoring pipeline for marine vessels - and it is running live on AWS right now.
+Between fixed rounds, the bridge is blind. A fuel-burn spike, a ballast imbalance or rising hull vibration surfaces only at the next scheduled check, not when it starts. And continuous data will not fit the link: ten sensor streams across two vessels produce far more raw data than a narrow, unreliable ship-to-shore link can carry. So the answer must live on board — aggregate and evaluate readings on the vessel itself, and send ashore only compact window summaries.
 
-## Slide 2 (0:20-1:00)
+## 2 · High-level description — Slide 2 (0:30–1:00)
 
-Why this problem? On a ship, condition checks happen on a fixed rounds schedule, so a fuel-burn spike, a ballast imbalance, or rising hull vibration is only caught at the next check - not when it starts. Continuous sensing fixes that, but creates a new problem: I'm modelling ten live sensor streams across two vessels, and a ship's link back to shore is narrow and unreliable - you can't stream every raw reading ashore. So the answer has to live on board, catching these four alert rules as they start.
+The shape of it: on each vessel, sensors produce ten streams and a fog node windows, aggregates and raises alerts, reducing each window to min, max, average, latest and count and checking the alert rules before anything leaves the ship. Ashore, it is fully serverless — Amazon SQS queues the summaries in batches of up to ten, a Lambda ingests each window, DynamoDB stores the aggregates, and S3 with API Gateway serve the Bridge Console. The dashboard stays up even when the vessel is offline.
 
-## Slide 3 (1:00-1:45)
+## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Here's how it works, left to right. On board, ten sensors feed a fog node, which buffers readings into rolling windows, reduces each window to four figures - minimum, maximum, average, latest - and checks the alert rules on the vessel itself. Only those compact summaries cross the link, in batches of up to ten per call, into Amazon SQS. The queue triggers an AWS Lambda function that writes each window into DynamoDB, and a live dashboard - static files on Amazon S3, data through API Gateway - compares both vessels side by side. Everything right of the vessel is fully serverless.
+Live now. First, health — the endpoint reports gateway, queue, Lambda and pipeline all true, the freshest reading under a second old, and all five AWS resources verified healthy independently. Second, real data — stored items grew fifty-nine to three seventy-four to four twenty-five during verification, with excessive fuel burn and hull stress firing on the Bridge Console as thresholds are crossed. Third, confidence — one hundred and twenty tests pass, unit and real-socket HTTP across every module, re-verified against the live account.
 
-## Slide 4 (1:45-2:30)
+## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 
-This screenshot is the deployed dashboard in a browser, on a real AWS account - not an emulator. Three facts from the live verification. Every pipeline health check reports green - gateway, queue, Lambda, pipeline - with the freshest reading under one second old. One hundred and twenty automated tests pass, with the critical fixes re-verified against the live account. And the data is genuinely live: the stored item count climbed from fifty-nine to three-seventy-four to four-twenty-five during verification, with real alerts firing here - excessive fuel burn and hull stress.
-
-## Slide 5 (2:30-3:35)
-
-Now - the hardest part. After deploying to the real account, I opened the dashboard - and every panel was empty. What made it hard: every check I had was green. All one hundred and twenty tests, a full LocalStack integration run, every curl check on the JSON API returning live data. Nothing I was measuring was broken. The actual fault: the upload to S3 had flattened the static folder to the bucket root, so the page's stylesheet, script, and chart library all returned 404 - and nothing was testing the page's own asset requests. The fix: open the real page in a real browser and read its network requests - three 404s, immediately visible. I re-uploaded preserving the exact paths, then re-verified by watching the item count climb across reloads. The same lesson caught the two defects on the right. A green API check proves less than it looks.
-
-## Slide 6 (3:35-4:00)
-
-Three takeaways. Aggregate at the edge, so only compact summaries cross the ship-to-shore link. Go serverless where it counts - the backend scales per request, with nothing to patch. And always test on real infrastructure: the live cloud and a real browser caught what green tests could not. Thank you - I'm happy to take questions.
+The hardest part was green checks and a broken page. Deployed to real AWS, the page loaded but every panel stayed empty — its stylesheet, script and chart library all returned four-oh-four from S3. Yet every signal said healthy: a hundred and twenty tests green, a clean emulator run, every curl on the JSON API returning live data. The upload had flattened the static folder to the bucket root, and nothing was testing the page's own asset requests. The fix was to open the real page in a real browser and read its network tab — three four-oh-fours, visible immediately — then re-upload preserving the exact paths the page asks for and watch the item count climb across reloads. A green API check proves less than it looks.

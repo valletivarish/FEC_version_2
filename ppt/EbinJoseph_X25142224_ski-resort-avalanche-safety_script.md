@@ -1,27 +1,19 @@
-# Ski Resort Avalanche Safety - 4-Minute Presentation Script
+# Ski Resort Avalanche Safety — demo script
 
-Total spoken words: 515 · estimated duration at ~130 wpm: about 3 minutes 58 seconds.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
 
-## Slide 1 (0:00-0:20)
+## 1 · Motivation — Slide 1 (0:00–0:30)
 
-Good morning. I'm Ebin Joseph, student ID X25142224, MSc in Cloud Computing at the National College of Ireland. For my Fog and Edge Computing project I built a ski-resort avalanche-safety system that watches two slopes continuously — and it's deployed live on a real AWS account right now.
+Avalanche danger does not wait for the next patrol round: it develops, peaks and passes in the gaps between them. A seismic spike ahead of a slab release lasts only minutes and can pass entirely between two rounds, which are far sparser, while wind loading and a warming snowpack build danger silently in those gaps. So ten live sensors, five signal types on each of two slopes, never stop sampling, and a fog node on the mountain checks every window at the edge.
 
-## Slide 2 (0:20-1:00)
+## 2 · High-level description — Slide 2 (0:30–1:00)
 
-Why build it? Because avalanche danger moves faster than a ski patrol. A seismic spike ahead of a slab release lasts only minutes — it can pass entirely between two patrol rounds. The answer is on the right: ten sensors, five signal types on each of two slopes — snowpack depth, snow temperature, wind, seismic vibration, and lift chairs — checked at the edge against four hard alert rules. If wind averages past eighty kilometres per hour, a lift-halt alert fires with nobody walking the slope.
+The shape of it: ten sensors on two slopes feed a fog node that buffers raw readings, closes a window on a timer, aggregates them, and checks four alert rules. Amazon SQS receives one compact summary per closed window; a Lambda wakes only when messages arrive and writes each aggregate to DynamoDB, one queryable record per slope per window; and a static S3 page polls a Lambda through API Gateway. Raw readings never leave the mountain.
 
-## Slide 3 (1:00-1:50)
+## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Here's how the data flows — just follow the numbers. Sensors post readings to a fog node on the mountain — that node buffers raw readings, closes a window on a timer, aggregates it, and checks the four alert rules right there. Only one compact summary per window travels to the cloud, onto an Amazon SQS queue. An AWS Lambda function wakes only when messages arrive and writes each aggregate into DynamoDB. The dashboard is a static page on Amazon S3, polling a second Lambda through API Gateway. So raw data never leaves the mountain, and everything past the fog node is serverless.
+Live on a real AWS account. First, health — four of four checks reporting true: gateway, queue, Lambda and pipeline. Second, the slope — the slope-a risk gauge live at HIGH, with wind at a hundred and eleven point eight kilometres an hour tripping the lift-wind-halt banner, and the store climbing zero to five hundred and sixty-nine records in about ninety seconds. Third, confidence — one hundred and twenty-one automated tests pass across every module.
 
-## Slide 4 (1:50-2:30)
+## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 
-This screenshot is the real deployed dashboard, served from S3 on a live AWS account. Top right, all four pipeline health checks are green: gateway, queue, Lambda, pipeline. Behind it, a hundred and twenty-one automated tests pass. During verification, DynamoDB climbed from zero to five hundred and sixty-nine records in about ninety seconds and kept going. And it caught a real event live: wind on slope-a hit almost a hundred and twelve kilometres per hour — you can see the gauge at HIGH and the lift-wind-halt alert firing.
-
-## Slide 5 (2:30-3:40)
-
-Now, the hardest part. Two defects existed only in the real cloud. The first — broken Lambda credentials — at least announced itself in the logs. The second was worse. On the left: every check said the system was healthy — the health endpoint reported all four fields true, curl returned live data, the browser showed zero errors and zero failed requests. Yet, on the right, every panel on the page stayed empty. The cause: my API responses carried no cross-origin header, so the browser silently blocked the page's calls before any code saw them, and the polling loop swallowed each failure into a quiet retry. Nothing was logged anywhere. The fix was one header on every response, then re-verifying in a real browser until every panel filled with live data. The real lesson: a green health check proves the API works — only a real browser proves the user sees it.
-
-## Slide 6 (3:40-4:00)
-
-Three takeaways. Fog aggregation earns its place: the cloud only ever sees compact, already-judged summaries. A fully serverless backend scales per request, with nothing to patch. And live deployment is the real test — no local suite could have found those defects. Thank you — I'm happy to take questions.
+The hardest part was a dashboard that lied. Deployed to real AWS, the health endpoint reported everything true, curl returned live JSON, and the browser console showed zero errors and zero failed requests — yet every panel on the page stayed empty, indistinguishable from still loading, with nothing pointing at a cause. The reason: the API's responses carried no cross-origin header, so the browser silently blocked the S3 page's calls before any code saw a response, and the polling loop swallowed each failure into a quiet retry, with no error and no failed request recorded. The fix adds the cross-origin header to every response, then redeploy and re-verify in a real browser until every panel filled. My rule now: a green health check proves the API works, but only a browser proves the user sees it.

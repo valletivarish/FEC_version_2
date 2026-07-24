@@ -1,27 +1,19 @@
-# Smart Mining Safety Monitoring - 4-Minute Presentation Script
+# Smart Mining Safety Monitoring — demo script
 
-Total: 513 spoken words, roughly 3 minutes 55 seconds at ~130 words per minute.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
 
-## Slide 1 (0:00-0:20)
+## 1 · Motivation — Slide 1 (0:00–0:30)
 
-Good morning. I'm Jaipal Kasireddy, student ID X25156381, MSc in Cloud Computing at the National College of Ireland. For my Fog and Edge Computing project, I built Smart Mining Safety Monitoring: a fog-to-cloud hazard pipeline for two underground shafts, deployed live on a real AWS account.
+Underground, the hazards move faster than any inspection. Methane can be cleared by a ventilation fan in under a minute or left in place for an hour, depending on airflow. Carbon monoxide from blasting or exhaust displaces breathable air silently, with no visible warning. And ground vibration from an unstable face can precede a rockfall by seconds rather than hours. No inspection schedule is that fast, so I check every window against hard limits at the fog node itself.
 
-## Slide 2 (0:20-1:00)
+## 2 · High-level description — Slide 2 (0:30–1:00)
 
-So why continuous monitoring? Underground hazards move faster than any inspection round. A ventilation fan can clear a methane pocket in under a minute, or leave it in place for an hour, depending on airflow. Carbon monoxide displaces breathable air with no visible warning. And ground vibration can come seconds before a rockfall. On the right are the four hard limits the system watches, from a thousand ppm of methane to twenty-five millimetres per second of vibration. No periodic walk-through can keep up with hazards on that clock.
+The shape of it: ten sensors across two shafts, five hazard types, post continuously to a fog node that windows, aggregates and evaluates the alert thresholds at the edge. Amazon SQS carries compact summaries in batches of up to ten; a Lambda reads the queue and stores each finished window in DynamoDB, keyed per hazard and shaft; and API Gateway with S3 show SAFE, CAUTION or DANGER per shaft. Alerts fire in the same process that measured the reading.
 
-## Slide 3 (1:00-1:55)
+## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Here is how it works; follow the flow on the slide. Ten sensor containers, five hazard types in each of two shafts, post readings to a fog node at the edge. The fog node windows and aggregates them, evaluates the safety thresholds locally, and sends only compact summaries into Amazon SQS, batched ten at a time. On the cloud side, an AWS Lambda reads the queue and stores each window in Amazon DynamoDB. A second Lambda behind Amazon API Gateway serves the dashboard from S3, reducing each shaft to one verdict: SAFE, CAUTION, or DANGER. Raw readings never leave the mine, and alerts fire in the same process that measured them.
+Live now. First, health — all four checks reported true on the very first check after deployment. Second, the shafts — SAFE, CAUTION or DANGER per shaft, with a silica-dust breach classifying shaft A as DANGER while shaft B stays SAFE, and zero console or CORS errors. Third, scale — ninety automated tests pass across every module, and stored readings passed one thousand four hundred during the verification window and kept rising.
 
-## Slide 4 (1:55-2:30)
+## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 
-This is the real deployment, not an emulator. The screenshot on the left is the dashboard in a live browser session. All four pipeline health checks, gateway, queue, Lambda and pipeline, reported true on the first check. You can see a silica-dust alert putting shaft A into DANGER while shaft B stays SAFE. Behind it, ninety automated tests pass across four modules, and during verification the stored readings climbed past fourteen hundred and kept rising.
-
-## Slide 5 (2:30-3:40)
-
-Now, the most difficult part. In a code audit before deployment, I found all three AWS-facing classes, dashboard, processor, and queue publisher, hardcoded a fixed pair of test credentials into every client they built. And it was invisible. LocalStack, the local emulator, expects exactly those values, so all ninety tests passed and every run looked perfect. But on real AWS, that same pair overrides the IAM role, and every call to DynamoDB, SQS or Lambda would have failed authentication on day one. The fix: build static credentials only when a LocalStack endpoint is configured, otherwise fall through to the Lambda role or EC2 instance profile. Then I checked all three constructors side by side, because a fix in one class is not a fix everywhere. The payoff is on the right: the first live health check came back four out of four. No outage, no fix-forward cycle.
-
-## Slide 6 (3:40-4:00)
-
-Three takeaways: alert at the edge, in the same process that took the reading. Scale with managed serverless services that cost nothing while the mine is quiet. Audit before you deploy, because an emulator will hide a fatal bug. Thank you, I'm happy to take questions.
+The hardest part was a credential defect — but the point is where it was caught. All three cloud-facing classes hardcoded a fixed pair of test credentials into every client they built. LocalStack expects exactly those values, so all ninety tests passed and every local run looked perfect. On real AWS, that same pair overrides the IAM role, and every call would fail authentication. The fix builds static credentials only when a LocalStack endpoint is configured; otherwise it falls through to the Lambda role or EC2 instance profile. I audited all three constructors side by side before deploying — so the bug never reached the live account, no outage, no fix-forward cycle, and the first live health check came back all green.

@@ -1,27 +1,19 @@
-# Smart Port Container Terminal Monitoring - 4-Minute Presentation Script
+# Smart Port Container Terminal Monitoring — demo script
 
-Total: 516 spoken words, about 3 minutes 58 seconds at ~130 words per minute.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
 
-## Slide 1 (0:00-0:20)
+## 1 · Motivation — Slide 1 (0:00–0:30)
 
-Picture a working container terminal: quay cranes swinging forty-tonne boxes over a berth, refrigerated containers holding cargo cold, and a wind that can force every lift to stop. I'm Uday Kiran Reddy Dodda, and my Fog and Edge Computing project turns that quayside into something you can watch live, second by second, instead of reading it off a clipboard after the fact.
+At a container terminal, two berths feed ten live sensor streams — crane load, container stacks, wind, occupancy and reefer temperature. Sensors sample every two to four seconds, but a manual walk-round sees each berth only minutes apart, and the dangerous moments are transient: one gust over the wind limit, one overloaded lift, one reefer drifting warm. A paper log catches these after the fact, when the crane, the cargo or the cold chain is already at risk.
 
-## Slide 2 (0:20-1:00)
+## 2 · High-level description — Slide 2 (0:30–1:00)
 
-So why does a paper log fall short? Two berths carry ten live sensor streams: crane load, container-stack height, wind, berth occupancy, and reefer temperature. They change every two to four seconds, but a manual walk-round only sees each berth every few minutes. The dangerous moments are the brief ones, a single gust over the limit, one overloaded lift, one reefer drifting warm. The four limits on this slide are the fog node's real, code-defined rules: thirty-four knots halts crane lifts, thirty-two thousand kilograms flags an overload, minus ten degrees breaks the cold chain, and ninety percent occupancy raises congestion.
+The shape of it: ten units across two berths feed a fog node that windows, aggregates and raises alerts. The node publishes one batched message per cycle to Amazon SQS, which triggers a Lambda for serverless ingest into a time-ordered DynamoDB store; and a dashboard on S3 with API Gateway serves the live view. At the edge, every ten-second window collapses the raw readings into one aggregate per sensor per berth and the safety rules fire right there, so raw noise never leaves the terminal.
 
-## Slide 3 (1:00-1:50)
+## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Let me trace one reading through the system. It starts at a berth sensor and reaches a fog gateway sharing the edge host. The gateway is the important part: it does not just relay. It buffers the reading, and every ten seconds it collapses that whole window into one aggregate per sensor and checks the safety rules right there, so raw noise never leaves the terminal. Only that compact summary crosses into the cloud, onto an Amazon SQS queue. The queue triggers an AWS Lambda that writes it into DynamoDB, keyed so the newest windows read back instantly. The dashboard is serverless too: a static page on S3, its API a second Lambda behind API Gateway.
+Live on the real AWS account. First, health — four of four checks green, the freshest data only seconds old. Second, the berths — crane, wind and cold-chain alerts across both berths, with every alert tracing to a real, code-defined threshold. Third, scale — ninety-five automated tests pass across every module, and a two-thousand-message burst drains fully through the queue while live berth data stays untouched.
 
-## Slide 4 (1:50-2:30)
+## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 
-And this is it running on a real AWS account, not an emulator. The screenshot is the deployed dashboard, served from S3 through the gateway. Three facts. All four pipeline health checks are green, with the freshest data seconds old. Ninety-five automated tests pass across the sensor, fog, processor and dashboard modules. And a two-thousand-message burst was absorbed straight through the queue while the live berth data kept flowing untouched.
-
-## Slide 5 (2:30-3:35)
-
-Now the hardest part. Every ten seconds the fog node has to close the current window and publish it, while ten sensors keep posting into the very same buffer. Lock that buffer and every flush stalls incoming readings. Clear it naively, and any reading that lands mid-drain is either lost or counted twice in the next window. My fix is a numbered-ticket scheme: every reading takes a ticket in arrival order, a flush snapshots the latest number as a boundary and seals only the readings below it, and anything that arrives during the drain simply rolls into the next window. No locks, nothing lost, nothing double-counted. It is backed by the fog module's forty-eight tests, including ingest driven over a real network socket.
-
-## Slide 6 (3:35-4:00)
-
-Three points this proved. Fog windowing turns ten raw telemetry streams into a handful of meaningful safety signals before anything reaches the cloud. The serverless backend absorbed a two-thousand-message burst with no servers to manage. And every alert on screen traces back to a real, code-defined threshold, verified end to end by ninety-five automated tests. Thank you, I am happy to take questions.
+The hardest part was the window boundary under concurrent writes. Every ten seconds the fog node must close the window and publish aggregates, while ten sensors keep posting into the very same buffer. Lock the buffer and ingest stalls on every flush; clear it naively and any reading landing mid-drain is lost, or counted twice in the next window. My fix gives every reading a numbered ticket on arrival. A flush snapshots the latest number as a boundary, then aggregates and removes only readings below it — later arrivals simply roll into the next window. No locks, nothing lost, nothing double-counted, backed by the fog module's forty-eight tests, including ingest exercised over a real HTTP server.

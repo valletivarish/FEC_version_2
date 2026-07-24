@@ -1,29 +1,19 @@
-# Public Transit Fleet Monitoring - 4-Minute Presentation Script
+# Public Transit Fleet Monitoring — demo script
 
-Sumalatha Kambhampati - Student ID X25156420 - Fog and Edge Computing (H9FECC)
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
 
-Total: ~545 spoken words | approximately 3 minutes 58 seconds at ~135 wpm
+## 1 · Motivation — Slide 1 (0:00–0:30)
 
-## Slide 1 - Cover (0:00-0:15)
+A bus's condition changes minute by minute on the road, but a depot inspection only sees it once it is parked. Faults build mid-route — an overheating engine or a worn brake pad is hours old by the evening walk-around, and overcrowding or low fuel needs a response now, not tonight. That is two depots, five signals each, ten live streams, and no walk-around keeps up.
 
-Good morning. A bus depot's edge gateway is one of the busiest places in this system: ten sensor streams from two depots, all posting at once. My project is about how that gateway holds every reading without either losing one or making the senders queue behind a lock. The answer is to buffer first and group later.
+## 2 · High-level description — Slide 2 (0:30–1:00)
 
-## Slide 2 - Two depots, ten streams, one busy gateway (0:15-1:05)
+The shape of it: ten streams across two depots — engine temperature, brake-pad wear, passenger count, fuel level and GPS speed — feed a fog node that buffers, drains, aggregates and raises four hard fault alarms. Amazon SQS carries the aggregates; a Lambda ingests each into DynamoDB; and S3 with API Gateway serve the dashboard. Fault alarms are decided at the edge, in the window they appear.
 
-A bus changes state on the road, but a depot only sees it parked, and some faults will not wait for the evening walk-around. So the monitor watches five signals across two depots, ten live streams: engine temperature, brake-pad wear, passenger count, fuel level, and speed. Every window, four hard rules run on the summaries: an engine running hot on average, brake pads worn past eighty per cent, a tank below fifteen, and a peak passenger count over seventy-five, which reads the window's maximum because one overcrowded moment is a safety fact an average would hide. Speed is kept only as context.
+## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-## Slide 3 - From sensor to serverless cloud (1:05-1:50)
+Live now. First, health — gateway, queue, Lambda and pipeline all green. Second, the fleet — a roster of native-meter cards per depot, both depots streaming all five signals, with depot-a raising an engine-overheat alarm while depot-b stays clear. Third, scale — one hundred and thirty-nine automated tests pass across every module, and a two-thousand-message burst from thirty-two senders was absorbed and drained.
 
-The reading happens at the edge. Ten sensor processes post over HTTP to a fog node at the depot. Every ten seconds it closes a window, reduces each depot-and-signal stream to five numbers, and raises those alarms right there, so a fault is named in the window it appears. Only the summary leaves the depot, batched onto Amazon SQS. One Lambda drains the queue into DynamoDB; a second serves the dashboard from S3 through API Gateway. The cloud side went onto a real AWS account in one infrastructure-as-code step, twenty-four resources, no manual clicking.
+## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 
-## Slide 4 - Live demonstration (1:50-2:30)
-
-This is the live dashboard, a roster of native-meter cards per depot. Both depots are streaming all five signals, and depot-a is flagged red: its engine temperature has climbed past the limit, firing an engine-overheat alarm on the card and in the banner, while depot-b stays clear. Along the top, four pipeline checks, all green. Behind the screen, one hundred and thirty-nine automated tests pass, and a two-thousand-message burst from thirty-two parallel senders was absorbed and drained.
-
-## Slide 5 - The hardest part: buffer first, group later (2:30-3:35)
-
-Here is the part that took the most thought. Those ten streams arrive on many worker threads at once, and each reading has to be held until the window drains. A reading lost to a race does not crash anything; it just makes the fleet averages silently wrong, the worst kind of bug. The obvious fix, a lock around a shared buffer, trades the race for a queue of senders waiting their turn. So I did the opposite: each arriving reading is a single lock-free enqueue onto a concurrent queue, and nothing is grouped on arrival. All the grouping by depot and signal is deferred to one thread that drains the whole queue once per window. Ingest stays contention-free, and the grouping work is not avoided, only moved off the hot path. A stress test proves it: thirty-two threads write two hundred readings each, and after the drain all six thousand four hundred are there, none lost.
-
-## Slide 6 - What to take away (3:35-3:58)
-
-So the lesson I would carry beyond buses is about where to pay for structure. When a gateway is busy and concurrent, buffer first with a cheap lock-free write, and group later, once, on the thread that is about to use the result. Decide the faults at the edge, and deploy to real cloud in one step. Thank you. I am happy to take questions.
+The hardest part was keeping a busy gateway correct under concurrency. Ten streams post on many worker threads at once, and every reading must survive being held until the window drain — but a reading lost to a race does not crash anything, it just makes the fleet averages silently wrong, and locking every insert fixes the race only by making the senders queue behind each other. My answer is buffer first, group later: each arriving reading is a single lock-free enqueue onto a concurrent queue, and all the grouping by depot and signal is deferred to one thread that drains the whole queue once per window. Ingest stays contention-free. A stress test fires thirty-two threads writing two hundred readings each, and after the drain all six thousand four hundred are accounted for, zero lost.

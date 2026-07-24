@@ -1,29 +1,19 @@
-# Cold Chain Logistics Monitoring - 4-Minute Presentation Script
+# Cold Chain Logistics Monitoring — demo script
 
-Srinidhi Vutkoori - Student ID X25173243 - Fog and Edge Computing (H9FECC)
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
 
-Total: ~534 spoken words | approximately 3 minutes 57 seconds at ~135 wpm
+## 1 · Motivation — Slide 1 (0:00–0:30)
 
-## Slide 1 - Cover (0:00-0:15)
+A refrigerated container whose window-average temperature drifts above minus fifteen degrees is already breaching the cold chain. Every container carries five independent risk signals at once — storage temperature, humidity, door-open time, shock and CO2 — far more than a clipboard round can track, and a manual check discovers the breach only after the damage is done, with nothing connecting the door left open to the load that spoiled. So I re-score every container every ten seconds, continuously.
 
-Good afternoon. Picture a refrigerated container of vaccines or fresh seafood. The cargo inside is worth more than the truck carrying it, and it keeps that worth only while it stays inside a tight envelope. Let the average temperature drift above minus fifteen for a few minutes and the whole load is scrap. My project watches that envelope, live, for two containers at once.
+## 2 · High-level description — Slide 2 (0:30–1:00)
 
-## Slide 2 - Why periodic checking fails (0:15-1:00)
+The shape of it: ten container sensors feed a depot relay. Every ten seconds it aggregates each reading type and flags exceptions right there. Only one aggregate per window goes to Amazon SQS, batched ten to a call; a Lambda function reshapes each record into DynamoDB; and API Gateway with S3 serve the live manifest. Exceptions are decided at the edge — there is no cloud round-trip in the alert path.
 
-Damage in a cold chain builds in seconds, not hours. And it is not one number to watch but five at once on every container: storage temperature, humidity, door-open time, handling shock, and carbon dioxide. A person with a clipboard cannot keep up, and by the time a periodic check finds a breach, the load is already gone. So this system never stops watching: sensors sample every few seconds, and every container is re-scored every ten seconds.
+## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-## Slide 3 - How it works: sensors to live manifest (1:00-1:52)
+Live now. First, health — depot relay online, queue reachable, Lambda deployed and records archiving and climbing. Second, the manifest — a per-container board with storage-temperature trends, and any container whose window-average rises above minus fifteen flagged within ten seconds. Third, confidence — seventy-six automated tests run with pytest across ten modules, and a two-thousand-message burst was absorbed, batched ten per queue call, with the live board untouched.
 
-Here is the path, from the container outward. Ten simulated sensors, five reading types across two containers, post to a fog node, the depot relay, on the edge host. Every ten seconds the relay closes a window, reduces each reading type to a summary, and screens that summary against the cargo's limits on the spot, so a breach is caught beside the container, not after a trip to the cloud. Only the summaries leave, batched to Amazon SQS. A Lambda function drains the queue into DynamoDB, and a second function serves the board from S3 through API Gateway. The whole cloud side goes up on a real AWS account in one scripted step.
+## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 
-## Slide 4 - Demonstration highlights (1:52-2:35)
-
-This is the live board, reading from the running stack. Each container shows its five signals and a status, the header counts open exceptions, and here container-2 is flagged: its temperature and its door-open time are both over the line. The storage-temperature trend is drawn per container, and the strip along the bottom shows the pipeline healthy, relay online, queue reachable, Lambda deployed, records climbing. Behind it, seventy-six tests pass, and a two-thousand-message burst through thirty-two workers went through untouched.
-
-## Slide 5 - The hardest part: the runtime is not the laptop (2:35-3:35)
-
-The hardest part cost me nothing in testing and everything on deployment. The dashboard is a FastAPI app, and it refused to even start on Lambda, twice over. First, one of its dependencies has a compiled part, and I had packaged the copy built on my Mac, which the Lambda Linux machine cannot load. Second, the app mounts a folder of web assets as it starts, but that folder ships to S3, not into the function, so the import failed looking for a directory that was never there. Here is the catch: both passed all seventy-six local tests, because a test runs the code on the same machine that built it. They only broke on the real runtime. I rebuilt the package for Linux and made the mount optional, and the board came up healthy on the first live poll.
-
-## Slide 6 - Takeaways (3:35-3:52)
-
-Three things to take away. Decide at the edge: a breach is flagged within one ten-second window, with no cloud round-trip in the way. Serverless scales by configuration, not by rewriting. And green tests are not proof of a deployment; the two faults that mattered only ever showed on the real platform. Thank you. I am happy to take questions.
+The hardest part taught me the runtime is not the laptop. The FastAPI dashboard would not even start on Lambda, for two reasons at once. A dependency with a compiled native part had been packaged as the copy built on my Mac, which the Linux runtime cannot import; and a static-asset folder was mounted at import time even though that folder ships to S3, not into the function. Both are import-time failures, and both passed all seventy-six local tests, because a test imports the code on the same machine that built it. The fix builds the package against the Linux runtime's own platform and makes the static mount tolerant of an absent folder. The dashboard answered on the first live poll.

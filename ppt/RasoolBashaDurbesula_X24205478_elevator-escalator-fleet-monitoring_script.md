@@ -1,29 +1,19 @@
-# Elevator and Escalator Fleet Monitoring - 4-Minute Presentation Script
+# Elevator & Escalator Fleet Monitoring — demo script
 
-Rasool Basha Durbesula - Student ID X24205478 - Fog and Edge Computing (H9FECC)
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
 
-Total: ~540 spoken words | approximately 3 minutes 58 seconds at ~135 wpm
+## 1 · Motivation — Slide 1 (0:00–0:30)
 
-## Slide 1 - Cover (0:00-0:15)
+A lift fails two ways. Slowly, as a motor creeps hot or a ride roughens over weeks; and suddenly, as one overweight trip loads the car past its limit in a single instant. A clipboard round sees one moment, but the fleet changes state every second, around the clock. That is two towers, five signals each, ten live streams — motor temperature, door cycles, cab vibration, load weight and travel speed.
 
-Good morning. Picture two failures in a lift. One takes weeks: a motor that runs a degree hotter each day until it seizes. The other takes ten seconds: a car loaded past its limit for a single trip. They sit at opposite ends of time, and my project catches both from the same handful of numbers.
+## 2 · High-level description — Slide 2 (0:30–1:00)
 
-## Slide 2 - Two ways a lift fails (0:15-1:05)
+The shape of it: ten streams across two towers feed a fog node that windows, aggregates and raises alerts. Amazon SQS carries the aggregates; a Lambda ingests each into DynamoDB; and S3 with API Gateway serve the dashboard. Alerts are decided at the edge, in the window they appear, and the whole stack was provisioned to a real AWS account in one infrastructure-as-code step, twenty-four resources, no manual clicking.
 
-An engineer walks the machines a few times a week, and both of those failures hide in the gaps. The slow drift stays invisible until it is severe; the single overload is over before anyone arrives. So the monitor watches continuously instead: two towers, five signals each, ten live streams for motor temperature, door cycles, cab vibration, load, and speed. Every window, four rules run. But here is the idea the whole design turns on: those rules do not all read the same number. Overheating, a rough ride, and a stall are slow trends, so they are judged on the window's average. An overload is a single instant, so it is judged on the window's peak. Door cycles only count service, and raise no alarm.
+## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-## Slide 3 - From sensor to screen (1:05-1:50)
+Live now. First, health — gateway, queue, Lambda and pipeline all green. Second, the fleet — both towers streaming all five signals, with one tower alerting on a ride-quality fault and an overload warning at once. Third, scale — one hundred and twenty-two automated tests pass across every module, and a two-thousand-message burst from thirty-two senders was absorbed and drained.
 
-The reading happens at the edge. Ten sensor processes post over HTTP to a fog node running beside the machines. Every ten seconds it closes a window, reduces each tower-and-signal stream to five numbers, and applies those four rules right there. Only that summary leaves the building, batched onto Amazon SQS. One Lambda drains the queue into DynamoDB; a second serves the board from S3 through API Gateway. The cloud side went onto a real AWS account in one infrastructure-as-code step: twenty-four resources, no manual clicking.
+## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 
-## Slide 4 - Live demonstration (1:50-2:35)
-
-This is the live board reading from the running stack. Two towers, five signals each. On the right, one tower has gone red: its cab vibration crossed the average limit and its load crossed the peak limit in the same window, so a ride-quality fault and an overload warning fire together, and the banner names them both. Along the top, four pipeline checks, all green. Behind the screen, one hundred and twenty-two automated tests pass across the four modules, and a two-thousand-message burst from thirty-two parallel senders was absorbed and drained.
-
-## Slide 5 - The subtle part: peak or trend (2:35-3:35)
-
-The decision that mattered most was choosing which number each rule reads. It would have been easy to average everything. But average the overload and it disappears: one heavy trip among nine ordinary ones sits below the limit while the car is genuinely overloaded. So the overload rule reads the window's maximum, not its mean, and only that rule does. There is a quieter half to this. The averages and peaks are only honest if the sampler keeps time, so each sensor schedules its next reading against a fixed clock rather than sleeping a fixed gap, and drift never builds up. A unit test locks it in: it fires the overload on a peak that the average leaves below the limit.
-
-## Slide 6 - What to take away (3:35-3:58)
-
-So the lesson I would carry beyond lifts is a small one: reduce the stream to a summary, then read the number the fault actually lives in. An average finds the slow slide; a peak finds the single bad instant; one summary serves both, decided at the edge and deployed to real cloud in a single step. Thank you. I am happy to take questions.
+The subtle part was choosing peak or trend. Every window reduces to the same five numbers — count, minimum, maximum, average and latest. If every rule read the average, the overload would slip through: one overweight trip among nine ordinary ones averages out below the limit while the car is genuinely overloaded. So each rule reads the number its fault lives in — overheating, rough riding and stalling are trends, so they read the window average; overload is a single instant, so it reads the window maximum. And the samplers are drift-corrected, so every window covers a like span of time and the peak that trips an overload is real, not an artefact of a clock that slipped. A unit test fires the overload on a peak the average leaves safely below the limit.

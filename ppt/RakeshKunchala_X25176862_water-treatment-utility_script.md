@@ -1,27 +1,19 @@
-# Water Treatment Utility Monitoring - 4-Minute Presentation Script
+# Water Treatment Utility Monitoring — demo script
 
-Total: 514 spoken words | approximately 3 minutes 57 seconds at ~130 wpm
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
 
-## Slide 1 (0:00-0:20)
+## 1 · Motivation — Slide 1 (0:00–0:30)
 
-Good morning. This project is a fog and edge computing pipeline for a water treatment utility. Water quality gets checked continuously at the plant itself, along the path from intake to outflow that you can see here, and only compact summaries travel to the cloud. Let me show you why that matters.
+Treatment quality moves second by second, but grab samples and periodic control-room rounds only ever see snapshots. Ten sensor points across two plants stream turbidity, pH, chlorine, flow and pressure every one to three seconds, far faster than any manual round — and transient events vanish into averages: a momentary pressure drop can mean a hydraulic fault even when the daily mean looks perfectly healthy. So I score every ten-second window as it closes.
 
-## Slide 2 (0:20-1:00)
+## 2 · High-level description — Slide 2 (0:30–1:00)
 
-Water quality moves second by second, but traditional oversight is periodic - grab samples and control-room rounds. Snapshots. In this system, ten sensor points across two plants stream turbidity, pH, chlorine, flow and pressure every one to three seconds. The two cards on the right show why snapshots fail. A pressure dip below two bar is a hydraulic fault, so that rule checks each window's minimum, never its average - averaging is exactly how a brief dip hides. And if chlorine falls below zero point two parts per million, the under-chlorination alert fires in the same ten-second window it happens.
+The shape of it: ten field sensors across two plants feed a fog node that closes ten-second windows, aggregates, and applies alert gates — checking the window minimum, not the average, so a brief dip cannot hide. Amazon SQS carries one summary per window, batched; a Lambda ingests each summary into a DynamoDB time-series store; and S3 with API Gateway serve the compliance board. Alerts fire the moment a window closes, on site.
 
-## Slide 3 (1:00-1:50)
+## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Here's how it works, left to right. At the plant, on the edge, ten simulated sensors feed a fog node. Every ten seconds it closes a window, aggregates the readings, and runs the quality gates - the alert rules - right there on site. Instead of forwarding every raw reading, it sends one summary per window, in batches, to Amazon SQS. An AWS Lambda function consumes that queue and writes each summary into DynamoDB, and the live dashboard reads it back, served through S3 and API Gateway. The whole pipeline is verified end to end locally with Docker and an AWS emulator, and deploying to real AWS is one scripted step - it's the real AWS SDK throughout.
+Live now. First, health — gateway, queue, Lambda and the end-to-end pipeline all green. Second, the board — a reading-by-plant matrix, compliance strips and cross-plant trends across both plants. Third, scale — one hundred and fifteen automated tests pass across every module, and a two-thousand-message burst was absorbed by the queue and drained by the consumer.
 
-## Slide 4 (1:50-2:35)
+## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 
-This is the dashboard from that end-to-end run. On the left, a matrix of the five readings against both plants - each cell has a meter against its safe range - with per-plant compliance strips and cross-plant trends below. Three facts from the demo. All four pipeline health checks are green: gateway, queue, Lambda, and the end-to-end pipeline. A hundred and fifteen automated tests pass across sensors, fog, processor and dashboard. And a two-thousand-message burst went into the queue and came out the other side.
-
-## Slide 5 (2:35-3:40)
-
-Now, the hardest part: proving the pipeline survives a burst. Normal traffic is gentle - one summary every ten seconds - so to back any scalability claim, I fired two thousand messages at the queue from thirty-two parallel workers. From outside, a queue that isn't empty is ambiguous: a slow consumer and a dead one look identical. And the emulator runs the Lambda in a single container, so drain time swings wildly between runs - a naive pass-or-fail test either flakes or lies. The fix is the two-tier check in this chart. First, prove the queue absorbed the burst: the backlog must show the full two thousand right after sending. Then either the queue drains within the timeout, or the remaining count must sit strictly below that post-burst peak. A strictly decreasing backlog proves the consumer is alive and making real progress - not stalled.
-
-## Slide 6 (3:40-4:00)
-
-Three things to take away. Decide at the edge - alerts fire the moment a window closes, on site. Ship summaries, not noise - one aggregate per window keeps the cloud path lean and durable. And it's proven and portable - one scripted step from real AWS. Thank you - I'm happy to take questions.
+The hardest part was proving the queue actually drains under a burst. Normal traffic is one summary every ten seconds; to claim scalability I fired two thousand messages from thirty-two parallel workers. But from outside, a non-empty queue is ambiguous — a slow consumer and a dead one look identical — and the emulator runs the Lambda in a single container, so drain time swings wildly and a naive pass-fail test either flakes or lies. The fix is a two-tier check: first assert the queue really absorbed the burst, then require either a full drain in time or a backlog strictly below the post-burst peak. A strictly decreasing backlog proves the consumer is alive and working, not stalled.

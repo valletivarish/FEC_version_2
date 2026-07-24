@@ -1,27 +1,19 @@
-# Wildfire Forest Monitoring - 4-Minute Presentation Script
+# Wildfire Forest Monitoring — demo script
 
-Total: 511 spoken words - approximately 3 minutes 56 seconds at ~130 words per minute.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
 
-## Slide 1 (0:00-0:20)
+## 1 · Motivation — Slide 1 (0:00–0:30)
 
-Good morning, everyone. I'm Deekonda Rakshan, student ID X25180754, MSc in Cloud Computing at National College of Ireland. For Fog and Edge Computing, I built a wildfire forest monitoring pipeline — and these five arrows are the whole story: sense, aggregate, queue, store, visualise.
+Wildfire risk moves faster than any inspection schedule. Ranger stations sit deep in remote forest, and patrols and hourly readouts leave long blind windows. Fire weather compounds quietly — heat, smoke, wind and drying soil each look tolerable on their own; the danger is the combination, and it can develop between two routine checks. So detection has to run continuously, right next to the sensors, not on a schedule.
 
-## Slide 2 (0:20-1:00)
+## 2 · High-level description — Slide 2 (0:30–1:00)
 
-This needs edge computing because wildfire risk moves faster than any inspection schedule. Ranger stations sit deep in remote forest, so patrols and hourly readouts leave long blind windows. Fire weather compounds quietly — heat, smoke, wind and drying soil each look tolerable alone; the danger is the combination. On the right: smoke is sampled every second, ten sensor feeds stream at once, and conditions can cross the forty-two-degree hard-alarm line between two routine checks. Detection has to live next to the sensors.
+The shape of it: ten containerised sensors stream temperature, humidity, smoke, wind and soil moisture from two stations to a fog node. The node buffers readings, aggregates each window and raises fire alerts right at the edge. Amazon SQS receives each window's aggregates in batched sends; a Lambda consumes the queue and transforms every record into DynamoDB; and API Gateway with S3 serve the dashboard, with a zero-to-four fire-risk dial per station.
 
-## Slide 3 (1:00-1:50)
+## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Here's the pipeline in six steps. Ten containerised sensors across the two stations stream temperature, humidity, smoke, wind and soil moisture. They feed a fog node — an edge gateway that buffers readings, aggregates them into time windows, and raises fire alerts right at the edge. Each window's aggregates go to Amazon SQS in batched sends; an AWS Lambda function consumes the queue and writes every record into DynamoDB. Finally a live dashboard, hosted on S3 behind API Gateway, turns the data into a zero-to-four fire-risk dial per station. It all runs locally under Docker with an AWS emulator, and one scripted Terraform step deploys the same pipeline to AWS.
+Live now. First, health — a scripted check verifies sensors to fog to queue to ingest to store, live, end to end. Second, the stations — two ranger stations with five fire metrics each and a zero-to-four risk dial, and a fire-detection alert firing on a smoke spike. Third, robustness — ninety-five automated tests pass across every module, and a two-thousand-message burst from thirty-two senders drains without the consumer stalling.
 
-## Slide 4 (1:50-2:30)
+## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 
-Here it is running. This is the real dashboard, captured from the local end-to-end run. Each station gets a fire-risk dial — both reading safe, zero out of four — with the five raw readings underneath, and below that the smoke-density trend comparing both stations. Three highlights: ninety-five automated tests pass across all four modules; a scripted end-to-end check turns every pipeline health check green; and a burst of two thousand messages from thirty-two parallel senders was absorbed without the consumer stalling.
-
-## Slide 5 (2:30-3:40)
-
-Now, the hardest part — a bug invisible to every test I had. Locally the pipeline talks to an emulator, signing its queue and database calls with dummy credentials. My code chose the dummy set by checking whether an AWS access-key variable existed. Here's the trap: real AWS injects that exact variable into every function it runs. In production my code would build incomplete credentials, and every call to the queue or database would be rejected. That's what made it hard — all ninety-five tests stayed green, the emulator accepted the dummy keys, and the failure could only surface on the first real deployment. The fix flips the question: instead of "is there an access key", the code asks "is there an emulator endpoint address" — a signal that only exists locally. On real AWS it's absent, so the platform's own credentials take over automatically, and new tests now pin that behaviour down.
-
-## Slide 6 (3:40-4:00)
-
-Three takeaways. Decisions happen at the edge, so fire warnings never wait on the cloud. The cloud tier is fully serverless, and proven under a two-thousand-message burst. And the whole pipeline deploys to AWS in a single scripted Terraform step. Thank you — I'm happy to take questions.
+The hardest part was an invisible credential bug. Locally the pipeline signs its queue and database calls with the emulator's dummy credentials, and it decided when to use them by checking whether an AWS access-key variable was present. But real AWS injects that exact variable into every function it runs — so in production, every queue and database call would be signed with incomplete credentials and rejected. All ninety-five tests stayed green; nothing could fail until the first real deployment. The fix gates on a signal that only exists locally — the emulator's endpoint address. On real AWS it is absent, so the platform's own credentials take over automatically, and new tests pin that behaviour in both profiles.

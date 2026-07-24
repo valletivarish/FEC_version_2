@@ -1,27 +1,19 @@
-# Warehouse Robotics Fleet Monitoring - 4-Minute Presentation Script
+# Warehouse Robotics Fleet Monitoring — demo script
 
-Total spoken words: 509 | Estimated duration at ~130 wpm: about 3 minutes 55 seconds
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
 
-## Slide 1 (0:00-0:20)
+## 1 · Motivation — Slide 1 (0:00–0:30)
 
-Good morning, everyone. I'm Goutham Uppu, student ID X25167936, from the MSc in Cloud Computing at National College of Ireland. For my Fog and Edge Computing project I built a live health-monitoring pipeline for ten warehouse robots across two zones.
+Ten robots ferry totes across two warehouse zones, and their condition changes faster than any inspection round. Fleet health is usually read off nominal schedules, yet a battery degrades quietly and shows up in continuous telemetry well before outright failure — a periodic manual check misses the trend entirely. That is fifty live signals: ten robots, two zones, five channels each, and no walk-round keeps up with fifty moving numbers.
 
-## Slide 2 (0:20-1:00)
+## 2 · High-level description — Slide 2 (0:30–1:00)
 
-So why does this need building? Warehouse robots are usually checked on a schedule, but a schedule tells you what a robot should be doing, not what condition it is in. The research makes two points. Dispatch decisions get measurably better when battery, position and task load are known live. And battery degradation shows up in continuous telemetry well before an outright failure, so a manual check misses the trend. With ten robots each reporting five channels, that is fifty moving numbers no inspection round can keep up with.
+The shape of it: ten robot containers on EC2 feed a fog gateway that windows and aggregates the readings and checks alert thresholds. Amazon SQS carries batches of up to ten aggregates; a Lambda writes each closed window into DynamoDB; and API Gateway with an S3 frontend serve the fleet dashboard. Only compact window aggregates cross to the cloud — raw samples never leave the edge.
 
-## Slide 3 (1:00-1:50)
+## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Here is how it works; follow the arrows. Ten sensor containers on an EC2 instance produce the robots' telemetry: battery, payload, motor temperature, position drift and task queue. They feed a fog gateway right beside them, which does the real edge work: it windows the readings, aggregates them per robot and per zone, and checks alert thresholds locally. Only compact window summaries go to the cloud, in batches of up to ten, through Amazon SQS. A Lambda function consumes the queue and writes each window into DynamoDB, and a second Lambda behind API Gateway serves the live dashboard hosted on S3. Raw samples never leave the edge.
+Live now. First, health — gateway, queue, Lambda and pipeline all green, the freshest window seconds old. Second, the fleet — ten robots across two zones, five channels each, with the stored count climbing during the check. Third, robustness and repeatability — one hundred and sixteen automated tests pass, a two-thousand-message burst went through thirty-two workers, and one Terraform apply provisioned all twenty-four resources with nothing copied by hand.
 
-## Slide 4 (1:50-2:30)
+## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 
-And this is the real thing, not a mock-up. This screenshot comes straight from the deployed system on AWS. You can see the two-zone roster with its sparklines and status LEDs, and in the bottom row all four pipeline health checks reporting healthy: gateway, queue, Lambda, and data flowing. Behind it, one hundred and sixteen automated tests pass across the four modules, plus a two-thousand-message burst test through thirty-two workers. And the entire cloud side, all twenty-four resources, came up from a single Terraform apply.
-
-## Slide 5 (2:30-3:40)
-
-Now, the hardest part of the project. Everything I just showed you passed every test, and it still would have failed in production. All three AWS-facing components built static test credentials for the local emulator unconditionally, and the fog publisher also applied its emulator endpoint unconditionally. Why was this so hard to catch? Because locally, nothing looks wrong. All one hundred and sixteen tests were green, and the whole stack ran perfectly on the emulator. The bug only exists on real AWS. There, a Lambda would override its own execution-role credentials with a pair that AWS rejects, and the fog node would crash on startup because the endpoint value is null. The fix was to gate on the endpoint setting itself: present means the emulator, absent means the real AWS role. Deployed with that fix, every health check came up green on the first attempt.
-
-## Slide 6 (3:40-4:00)
-
-So, three takeaways. The edge does the heavy lifting, and only summaries cross to the cloud. Green tests are not cloud-proof, because real defects hide at boundaries emulators mask. And a declared deployment beats a scripted one. Thank you. I'm happy to take questions.
+The hardest part was a bug only real AWS could expose. All three cloud-facing components always built static test credentials for the emulator, and the fog publisher always applied its endpoint override — even on real AWS. Every one of the hundred-and-sixteen tests passed and the full stack ran clean on the emulator, but on real AWS the Lambdas would override their execution-role credentials and be rejected, and the fog node would crash on a missing endpoint. The fix gates on the endpoint itself: present means emulator, absent means the real role. Deployed with that in place, every health check came up green on the first attempt.
