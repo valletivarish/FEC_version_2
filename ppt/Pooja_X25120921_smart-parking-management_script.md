@@ -12,7 +12,7 @@ Notice what never leaves the car park: the raw streams. Ten of them across two l
 
 ## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Here's the live console — the whole estate at a glance. Both lots are streaming all five signals, and the health strip underneath reads gateway, queue, processor and pipeline all green. Now drill into one lot. This one sits at Normal, but its neighbour is flashing Alert — a gate-fault alarm firing even though occupancy is low. That's precisely the case the design was built for: a lot that's quiet yet faulted. And underneath it all, one hundred and twenty-seven automated tests pass across every module, and a two-thousand-message burst from thirty-two senders was absorbed and drained clean.
+Here's the live console — the whole estate at a glance, both lots streaming all five signals with a capacity gauge and a four-tier badge on each, Quiet through Near-full. The health strip underneath reads gateway, queue, processor and pipeline all green. Now drill in: one lot sits at Normal, but its neighbour is flashing Alert — a gate-fault alarm firing even though occupancy is low, exactly the case the design was built for, a lot that's quiet yet faulted. The occupied-spaces trend tracks both lots, so a filling lot shows before it's full. And underneath, one hundred and twenty-seven automated tests pass across every module, with a two-thousand-message burst from thirty-two senders absorbed and drained clean.
 
 ## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 

@@ -12,7 +12,7 @@ Let me trace one reading. It leaves a sensor — say fridge temperature, one of 
 
 ## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Watch the top of the estate roll-up — an alert's just fired on live data, a window crossing its threshold in one of the two stores: the empty-shelf or warm-fridge moment a stock walk would miss, caught the instant it happens. Behind that, the health strip is green — gateway, queue, Lambda and end-to-end freshness all good. The KPI tiles and per-store cards track footfall, shelf stock, fridge temperature, queue length and energy draw across both stores, each with its trend chart. And under the hood, 122 JUnit tests pass across every module, with a 2,000-message burst driven through 32 parallel workers.
+Watch the top of the estate roll-up — an alert's just fired on live data, a window crossing its threshold in one of the two stores: the warm-fridge or empty-shelf moment a stock walk would miss. That's the mixed-polarity rule set at work — shelf stock has a depletion floor while queue length and footfall have ceilings, so a breach can come from too little or too much. Behind it the health strip is green, and the KPI tiles and per-store cards track footfall, shelf stock, fridge temperature, queue length and energy draw across both stores. Under the hood, 122 JUnit tests pass across every module, with a 2,000-message burst driven through 32 parallel workers.
 
 ## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 

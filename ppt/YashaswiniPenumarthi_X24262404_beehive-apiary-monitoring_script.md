@@ -12,7 +12,7 @@ The alert decision lives beside the hives, not in the cloud. A fog node gathers 
 
 ## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Watch the alert banner first — it's naming two brood-overheat conditions firing at once on live data, reporting brood temperature breaching a safe threshold while the hive's weight is still rising. That's the reading a keeper would drive out for. Below it sits a colony-health card per apiary, each carrying a plain-language verdict and its five current readings measured against their ranges. Behind all of that, health is green — gateway, queue, Lambda and the end-to-end pipeline. And for confidence, one hundred and thirty-eight automated tests pass across every module.
+Watch the alert banner first — it's naming two brood-overheat conditions firing at once on live data, brood temperature breaching a safe threshold while the hive's weight is still rising. There's a subtler rule too: the acoustic one flags a rising hum above three hundred and fifty hertz, so sound can lead the other signals into a swarm warning. Below sits a colony-health card per apiary, each with a plain-language verdict — thriving, stressed or about to swarm — and its five readings against their ranges. Health is green across gateway, queue, Lambda and the pipeline, and one hundred and thirty-eight automated tests pass across every module.
 
 ## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 

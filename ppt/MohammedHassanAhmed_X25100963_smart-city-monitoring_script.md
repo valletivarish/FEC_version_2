@@ -12,7 +12,7 @@ The real work happens on the street. Ten sensors across two zones feed a fog rel
 
 ## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Let me start with the alerts, because that's the point. On live data, all five rules are firing across the two zones — congestion, air quality, noise, parking and low visibility — each zone reporting its five metrics, with citywide trend charts drawn underneath. Behind that, the health strip confirms the whole chain is up: the edge relay is online, the queue's reachable, and Lambda is deployed and archiving records. And for confidence, sixty-two automated tests pass across every module, and a two-thousand-message burst from thirty-two parallel workers was absorbed cleanly.
+Let me start with the alerts, because that's the point. On live data, all five rules are firing across the two zones — congestion, air quality, noise, parking and low visibility — and the air-quality one is a real PM2.5 breach, one zone tipping over the thirty-five microgram limit. Each zone reports its five metrics with citywide trend charts underneath. Behind that, the health strip confirms the whole chain is up: the edge relay online, the queue reachable, and Lambda deployed and archiving records. And for confidence, sixty-two automated tests pass across every module, and a two-thousand-message burst from thirty-two parallel workers was absorbed cleanly.
 
 ## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 

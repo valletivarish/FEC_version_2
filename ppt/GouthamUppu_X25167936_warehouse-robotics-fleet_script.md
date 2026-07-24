@@ -12,7 +12,7 @@ Anchor on the numbers at each end: ten streams flow in, one summary out every te
 
 ## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Before anything's on screen, here are the numbers that back it up: a two-thousand-message burst pushed cleanly through thirty-two workers, one hundred and sixteen automated tests all pass, and a single Terraform apply stood up all twenty-four resources with nothing copied by hand. So it's robust and repeatable. Now the live view — ten robots across two zones, five channels each, and you can watch the stored count climb while I'm speaking. And it really is live: gateway, queue, Lambda and pipeline all green, with the freshest window only seconds old.
+Before anything's on screen, here are the numbers that back it up: a two-thousand-message burst pushed cleanly through thirty-two workers, one hundred and sixteen automated tests all pass, and a single Terraform apply stood up all twenty-four resources with nothing copied by hand. Now the live view — ten robots across two zones, five channels each. And the feature that earns its place is the battery telemetry: it surfaces the slow decline a periodic check would miss, right there on the board while the stored count climbs. It really is live — gateway, queue, Lambda and pipeline all green, the freshest window only seconds old.
 
 ## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 

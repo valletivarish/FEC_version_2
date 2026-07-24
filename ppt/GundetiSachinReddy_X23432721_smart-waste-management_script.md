@@ -12,7 +12,7 @@ Ten sensors — five types across two districts — stream into a fog node on EC
 
 ## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Let me start with what's on screen right now. The health panel shows four of four checks green, and the freshest reading is just over a tenth of a second old — a bin that reported a heartbeat ago. To prove it isn't a cached snapshot, watch the stored count: two health polls, fifteen seconds apart, and it climbs from four thousand and eighty-three to four thousand and ninety-three — real windows landing as we speak. Widening out, one hundred and fifteen tests pass across all four modules, and a three-hundred-message burst sent at about forty-nine a second was absorbed by Lambda before my follow-up check ran.
+Let me start with what's on screen right now. Both districts are streaming every bin signal — fill level, temperature, gas and lid activity — and the hazard rules are firing live: overflow, fire risk, gas and tampering, each decided at the edge. The health panel shows four of four checks green, the freshest reading just over a tenth of a second old. To prove it isn't a cached snapshot, watch the stored count over two polls fifteen seconds apart — it climbs from four thousand and eighty-three to four thousand and ninety-three, real windows landing as we speak. And one hundred and fifteen tests pass across all four modules, with a three-hundred-message burst at about forty-nine a second absorbed before my follow-up check ran.
 
 ## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 

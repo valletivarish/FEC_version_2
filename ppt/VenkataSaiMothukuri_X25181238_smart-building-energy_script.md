@@ -12,7 +12,7 @@ At the heart is the fog window. Ten streams from two floors land there, and a si
 
 ## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Watching it live, the pipeline's already moving — gateway, queue, processor and pipeline all reading green as records land. Now the story worth seeing is the scorecard: each floor wears an A-to-F grade badge, and both are graded A right now. But look under the letter — the numeric score still tells them apart, one floor running very lean, the other just starting to drift toward heavier use. And underneath all of it, one hundred and thirty-three automated tests pass across every module, with a two-thousand-message burst from thirty-two senders absorbed cleanly.
+Watching it live, the pipeline's already moving — gateway, queue, processor and pipeline all green as records land. The story worth seeing is the scorecard: each floor wears an A-to-F grade badge, and both are graded A right now — but the grade sits on a separate axis from the alarms. Four hard exception alarms fire at the edge, while the letter grade is derived fresh on read, so look under the letter and the numeric score still tells the floors apart, one running very lean, the other just starting to drift toward heavier use. Underneath it all, one hundred and thirty-three automated tests pass across every module, with a two-thousand-message burst from thirty-two senders absorbed cleanly.
 
 ## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 

@@ -12,7 +12,7 @@ Start at the machines. Ten sensor units — probes, vibration pickups and bearin
 
 ## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-The header pills are all green — fog gateway, queue, Lambda and data flow — and my end-to-end check confirms every one of the five signal types is landing in the datastore. Then the plant floor itself: one card per signal, each showing its current reading, its real alarm limit and its trend, across both lines, with the health footer underneath — so you see not just a value but how near it's drifting to its limit. Ninety-four automated tests pass across sensors, fog, processor and dashboard, and to prove the edge holds under load, I fired a two-thousand-message burst from thirty-two parallel senders that was absorbed cleanly.
+The header pills are all green — fog gateway, queue, Lambda and data flow — and my end-to-end check confirms every one of the five signal types is landing in the datastore. Then the plant floor: one card per signal, each showing its current reading, its real alarm limit and its trend across both lines, so you see how near each is drifting. And it's alarming for real — line one is firing a rotation-speed underspeed alarm right now; rotation speed is the one signal faulted at both ends, too slow or too fast, so it carries a two-sided rule the others don't. Ninety-four automated tests pass across sensors, fog, processor and dashboard, and a two-thousand-message burst from thirty-two parallel senders was absorbed cleanly under load.
 
 ## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 
