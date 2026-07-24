@@ -1,6 +1,6 @@
 # Industrial Equipment Predictive Monitoring — demo script
 
-Target 2:30–2:45. Hard limit 4:00. ~370 spoken words. One-to-one with the lecturer; skip the title slide, start with the problem.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
 
 ## 1 · Motivation — Slide 1 (0:00–0:30)
 
