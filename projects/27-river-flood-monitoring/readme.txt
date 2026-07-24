@@ -96,7 +96,7 @@ functions the aiohttp server uses.
   pip install -r requirements-dev.txt
   pytest
 
-59 tests pass across the sensor gauge, the fog gateway (validation, drain,
+60 tests pass across the sensor gauge, the fog gateway (validation, drain,
 live HTTP ingest), window aggregation, the flood-stage logic, the batched
 processor, the read-time reach status, the shared view functions, and the
 Lambda entry point.
