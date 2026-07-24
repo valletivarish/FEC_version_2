@@ -8,11 +8,11 @@ At a container terminal, two berths feed ten live sensor streams — crane load,
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 
-The shape of it: ten units across two berths feed a fog node that windows, aggregates and raises alerts. The node publishes one batched message per cycle to Amazon SQS, which triggers a Lambda for serverless ingest into a time-ordered DynamoDB store; and a dashboard on S3 with API Gateway serves the live view. At the edge, every ten-second window collapses the raw readings into one aggregate per sensor per berth and the safety rules fire right there, so raw noise never leaves the terminal.
+Start with what survives: if the edge host drops, the dashboard serves — S3 with API Gateway, serverless. Feeding it, ten units across two berths reach a fog node that windows, aggregates and raises alerts, then publishes one batched message per cycle to Amazon SQS. That triggers a Lambda for serverless ingest into a time-ordered DynamoDB store. Each ten-second window collapses raw readings into one aggregate per sensor per berth, rules fire right there, so raw noise never leaves the terminal.
 
 ## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Live on the real AWS account. First, health — four of four checks green, the freshest data only seconds old. Second, the berths — crane, wind and cold-chain alerts across both berths, with every alert tracing to a real, code-defined threshold. Third, scale — ninety-five automated tests pass across every module, and a two-thousand-message burst drains fully through the queue while live berth data stays untouched.
+This runs on the real AWS account. My scripted check walks the whole path end to end — a sensor reading is emitted, batched to the queue, ingested by Lambda and landed in the store — and I watch the freshest data come back only seconds old, with four of four health checks green. From there, the visible side: crane, wind and cold-chain alerts across both berths, every one tracing to a real, code-defined threshold. And for scale, ninety-five automated tests pass across every module, while a two-thousand-message burst drains fully through the queue and live berth data stays untouched.
 
 ## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 

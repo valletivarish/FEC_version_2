@@ -8,11 +8,11 @@ A lift fails two ways. Slowly, as a motor creeps hot or a ride roughens over wee
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 
-The shape of it: ten streams across two towers feed a fog node that windows, aggregates and raises alerts. Amazon SQS carries the aggregates; a Lambda ingests each into DynamoDB; and S3 with API Gateway serve the dashboard. Alerts are decided at the edge, in the window they appear, and the whole stack was provisioned to a real AWS account in one infrastructure-as-code step, twenty-four resources, no manual clicking.
+Behind API Gateway sit two serverless tiers. On the write side, ten streams across two towers feed a fog node that windows, aggregates and raises alerts; Amazon SQS carries those aggregates, and a Lambda ingests each one into DynamoDB. On the read side, S3 serves the dashboard. Alerts are decided at the edge, in the window they appear. And the whole stack went to a real AWS account in one infrastructure-as-code step — twenty-four resources, no manual clicking.
 
 ## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Live now. First, health — gateway, queue, Lambda and pipeline all green. Second, the fleet — both towers streaming all five signals, with one tower alerting on a ride-quality fault and an overload warning at once. Third, scale — one hundred and twenty-two automated tests pass across every module, and a two-thousand-message burst from thirty-two senders was absorbed and drained.
+Three things to watch, and I'll tick each one off. Is it up? Is it seeing the fleet? And does it hold under load? Start with up: the health strip shows gateway, queue, Lambda and pipeline all green — tick. Seeing the fleet: both towers are streaming all five signals, and one tower is alerting on a ride-quality fault and an overload warning at once — tick. Holding under load: one hundred and twenty-two automated tests pass across every module, and a two-thousand-message burst from thirty-two senders was absorbed and drained — tick.
 
 ## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 

@@ -8,11 +8,11 @@ Standard practice on a pond farm is that a technician draws a sample and runs a 
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 
-The shape of it: ten sensors across two ponds, five metrics each, feed a fog gateway. Every ten seconds it computes count, min, max and average and fires the alert rules on site. Amazon SQS receives one batched send per cycle, not one call per window; a Lambda drains each batch and writes records in parallel to DynamoDB; and API Gateway with an S3 static site serve the dashboard. Only compact summaries ever leave the pond.
+Three tiers. At the edge, ten sensors across two ponds, five metrics each, feed a fog gateway that every ten seconds computes count, min, max and average and fires the alert rules on site. In the cloud, Amazon SQS takes one batched send per cycle, not one call per window, and a Lambda drains each batch, writing records in parallel to DynamoDB. The view: API Gateway and an S3 static site serve the dashboard. Only compact summaries leave the pond.
 
 ## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Live on a real AWS account. First, health — four of four checks green within a minute of boot, the freshest reading under two seconds old. Second, alerts on real data — heat stress, hypoxia and acidic risk on pond one, alkaline risk on pond two, with five hundred and ninety records stored and climbing. Third, confidence — one hundred and fifty-six automated tests pass across every module.
+Everything you're seeing runs on a real AWS account, so let's start with the record counter — right now it reads five hundred and ninety stored, and if you watch, it keeps ticking up. That climb is the pipeline proving it's genuinely live: health shows four of four checks green within a minute of boot, and the freshest reading is under two seconds old. Now the alerts, on real data — heat stress, hypoxia and acidic risk on pond one, alkaline risk on pond two. And behind all of it, one hundred and fifty-six automated tests pass across every module.
 
 ## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 

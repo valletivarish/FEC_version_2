@@ -8,11 +8,11 @@ An overheating server, a humidity swing toward condensation, or restricted airfl
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 
-The shape of it: ten sensors across two halls, five metrics each, feed a fog node that windows, aggregates and raises alerts at the edge. Window summaries flow through Amazon SQS to a Lambda ingest function, which stores readings in DynamoDB; a second Lambda serves the dashboard API behind API Gateway; and the page itself is a static site on S3. Alerts fire at the edge, so only compact summaries cross into the cloud.
+Follow it by the clock. Every few seconds, ten sensors across two halls each report five metrics into the fog node. As each window closes, the node aggregates it and raises any alerts right there at the edge. Only then does a summary cross the wire — through Amazon SQS to a Lambda that writes readings into DynamoDB. A second Lambda serves the dashboard API behind API Gateway, and the page is a static site on S3.
 
 ## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Live now. First, health — four of four checks green on the live deployment: gateway, queue, Lambda and pipeline. Second, the halls — live per-hall readings for both server halls, each checked against its threshold rules the moment a window closes. Third, scale — one hundred and fourteen automated tests pass across all five modules, and a three-hundred-message burst hit the real queue in five and a half seconds with every one confirmed stored in DynamoDB.
+Let me go deep on one feature — the hall view. These are live readings for both server halls. The moment a hall's window closes, every metric is checked against that hall's own threshold rules, and if one crosses, the alert surfaces — the edge decides, no trip to the cloud. That's the design working in front of you. To back it up: four of four health checks are green — gateway, queue, Lambda and pipeline — one hundred and fourteen tests pass across all five modules, and a three-hundred-message burst cleared the real queue in five and a half seconds, every one confirmed stored in DynamoDB.
 
 ## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 

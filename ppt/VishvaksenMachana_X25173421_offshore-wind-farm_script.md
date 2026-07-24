@@ -8,11 +8,11 @@ Offshore turbines are reached by boat, the weather sets the schedule, and a tech
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 
-The shape of it: ten sensor streams across two turbines feed a fog gateway. It windows and aggregates each stream and runs four condition rules at the edge, so a fault is flagged in the same window cycle it appears. One window cycle of up to ten summaries goes to Amazon SQS as a single batched call; a Lambda ingests and stores it in DynamoDB; and a read-only dashboard API behind API Gateway feeds the S3 page. Only compact summaries cross the sea link.
+Look at the diagram — six boxes. Five are the obvious cloud plumbing: SQS, a Lambda, DynamoDB, API Gateway, an S3 page. The one that isn't is the fog gateway, and that's where the work happens. Ten sensor streams across two turbines feed it; it windows and aggregates each one and runs four condition rules there, so a fault is flagged in the same window cycle it appears. Only compact summaries — up to ten a cycle — cross the sea link.
 
 ## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Live now. First, health — four of four checks green within about a minute of start-up, the freshest stored data around three seconds old. Second, both turbines — five metrics each and a cross-turbine power trend, with the stored count climbing seventeen, one thirty-two, two hundred and four across successive polls, so it is genuinely live. Third, confidence — seventy-one automated tests pass across sensors, fog gateway, ingestion and dashboard.
+Here's the one thing to watch. Keep your eye on the stored-record count while I refresh: seventeen, then one thirty-two, then two hundred and four across successive polls — that number climbing is the whole system alive, data landing in real time. Everything behind it backs that up. Health shows four of four checks green within about a minute of start-up, and the freshest stored reading is around three seconds old. Both turbines report five metrics each with a cross-turbine power trend. And seventy-one automated tests pass across sensors, fog gateway, ingestion and dashboard.
 
 ## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 

@@ -8,11 +8,11 @@ Underground, the hazards move faster than any inspection. Methane can be cleared
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 
-The shape of it: ten sensors across two shafts, five hazard types, post continuously to a fog node that windows, aggregates and evaluates the alert thresholds at the edge. Amazon SQS carries compact summaries in batches of up to ten; a Lambda reads the queue and stores each finished window in DynamoDB, keyed per hazard and shaft; and API Gateway with S3 show SAFE, CAUTION or DANGER per shaft. Alerts fire in the same process that measured the reading.
+The fog decides; the cloud only stores and serves. Ten sensors across two shafts stream five hazard types to a fog node that windows, aggregates and evaluates the alert thresholds at the edge, so alerts fire in the same process that measured the reading. Amazon SQS carries summaries in batches of up to ten, a Lambda stores each finished window in DynamoDB keyed per hazard and shaft, and API Gateway with S3 show SAFE, CAUTION or DANGER per shaft.
 
 ## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Live now. First, health — all four checks reported true on the very first check after deployment. Second, the shafts — SAFE, CAUTION or DANGER per shaft, with a silica-dust breach classifying shaft A as DANGER while shaft B stays SAFE, and zero console or CORS errors. Third, scale — ninety automated tests pass across every module, and stored readings passed one thousand four hundred during the verification window and kept rising.
+Look at the two shafts side by side. Shaft A is showing DANGER right now — a silica-dust breach tripped its threshold — while shaft B sits quietly at SAFE, exactly the SAFE, CAUTION or DANGER banding the board shows per shaft. Behind that, the health strip is honest: all four checks reported true on the very first check after deployment, with zero console or CORS errors. And the scale holds up — ninety automated tests pass across every module, and stored readings passed one thousand four hundred during the verification window and kept rising.
 
 ## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 

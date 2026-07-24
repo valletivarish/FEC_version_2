@@ -8,11 +8,11 @@ Between fixed rounds, the bridge is blind. A fuel-burn spike, a ballast imbalanc
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 
-The shape of it: on each vessel, sensors produce ten streams and a fog node windows, aggregates and raises alerts, reducing each window to min, max, average, latest and count and checking the alert rules before anything leaves the ship. Ashore, it is fully serverless — Amazon SQS queues the summaries in batches of up to ten, a Lambda ingests each window, DynamoDB stores the aggregates, and S3 with API Gateway serve the Bridge Console. The dashboard stays up even when the vessel is offline.
+Rather than every sensor calling the cloud directly, each vessel runs a fog node aggregating first — windowing the ten streams, reducing each to min, max, average, latest and count, and checking the alert rules before anything leaves the ship. Only compact summaries head downstream, fully serverless: SQS queues them in batches of up to ten, a Lambda ingests each window, DynamoDB stores the aggregates, and S3 with API Gateway serve the Bridge Console — still up even when the vessel's offline.
 
 ## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Live now. First, health — the endpoint reports gateway, queue, Lambda and pipeline all true, the freshest reading under a second old, and all five AWS resources verified healthy independently. Second, real data — stored items grew fifty-nine to three seventy-four to four twenty-five during verification, with excessive fuel burn and hull stress firing on the Bridge Console as thresholds are crossed. Third, confidence — one hundred and twenty tests pass, unit and real-socket HTTP across every module, re-verified against the live account.
+Let me show you the two things that make it real. Watch the stored-item count climb as windows land during verification — fifty-nine, then three seventy-four, then four twenty-five. And it's not just counting: as thresholds get crossed, excessive fuel burn and hull stress fire live on the Bridge Console, the alerts a bridge would want between rounds. Behind both, the health endpoint reads gateway, queue, Lambda and pipeline all true, the freshest reading under a second old and all five AWS resources independently verified healthy — and one hundred and twenty tests pass, unit and real-socket HTTP across every module, re-verified against the live account.
 
 ## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 

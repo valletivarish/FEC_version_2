@@ -8,11 +8,11 @@ Ten robots ferry totes across two warehouse zones, and their condition changes f
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 
-The shape of it: ten robot containers on EC2 feed a fog gateway that windows and aggregates the readings and checks alert thresholds. Amazon SQS carries batches of up to ten aggregates; a Lambda writes each closed window into DynamoDB; and API Gateway with an S3 frontend serve the fleet dashboard. Only compact window aggregates cross to the cloud — raw samples never leave the edge.
+Anchor on the numbers at each end: ten streams flow in, one summary out every ten seconds. In between, ten robot containers on EC2 feed a fog gateway that windows the readings, aggregates them, and checks alert thresholds. Amazon SQS carries batches of up to ten aggregates, a Lambda writes each closed window into DynamoDB, and API Gateway with an S3 frontend serve the fleet dashboard. Only window aggregates cross to the cloud — raw samples never leave the edge.
 
 ## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Live now. First, health — gateway, queue, Lambda and pipeline all green, the freshest window seconds old. Second, the fleet — ten robots across two zones, five channels each, with the stored count climbing during the check. Third, robustness and repeatability — one hundred and sixteen automated tests pass, a two-thousand-message burst went through thirty-two workers, and one Terraform apply provisioned all twenty-four resources with nothing copied by hand.
+Before anything's on screen, here are the numbers that back it up: a two-thousand-message burst pushed cleanly through thirty-two workers, one hundred and sixteen automated tests all pass, and a single Terraform apply stood up all twenty-four resources with nothing copied by hand. So it's robust and repeatable. Now the live view — ten robots across two zones, five channels each, and you can watch the stored count climb while I'm speaking. And it really is live: gateway, queue, Lambda and pipeline all green, with the freshest window only seconds old.
 
 ## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 

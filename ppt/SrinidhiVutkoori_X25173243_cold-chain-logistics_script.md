@@ -8,11 +8,11 @@ A refrigerated container whose window-average temperature drifts above minus fif
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 
-The shape of it: ten container sensors feed a depot relay. Every ten seconds it aggregates each reading type and flags exceptions right there. Only one aggregate per window goes to Amazon SQS, batched ten to a call; a Lambda function reshapes each record into DynamoDB; and API Gateway with S3 serve the live manifest. Exceptions are decided at the edge — there is no cloud round-trip in the alert path.
+Each container reports five things at once — storage temperature, humidity, door-open time, shock and CO2. Ten of those sensors feed a depot relay, which every ten seconds aggregates each reading type and flags exceptions right there. Just one aggregate per window travels to Amazon SQS, batched ten to a call; a Lambda function reshapes each record into DynamoDB; and API Gateway with S3 serve the live manifest. Exceptions get decided at the edge — no cloud round-trip in the alert path.
 
 ## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Live now. First, health — depot relay online, queue reachable, Lambda deployed and records archiving and climbing. Second, the manifest — a per-container board with storage-temperature trends, and any container whose window-average rises above minus fifteen flagged within ten seconds. Third, confidence — seventy-six automated tests run with pytest across ten modules, and a two-thousand-message burst was absorbed, batched ten per queue call, with the live board untouched.
+Watch this container — its window-average temperature has just climbed above minus fifteen, and within ten seconds the board flags it. That's the breach caught live, on a per-container manifest with storage-temperature trends for each unit. Behind it, the health strip confirms the depot relay online, the queue reachable, the Lambda deployed, and records archiving and climbing. For confidence, seventy-six automated tests run with pytest across ten modules, and I threw a two-thousand-message burst at it — absorbed, batched ten per queue call, and the live board never flinched.
 
 ## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 

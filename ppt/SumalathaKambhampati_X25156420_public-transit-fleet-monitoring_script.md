@@ -8,11 +8,11 @@ A bus's condition changes minute by minute on the road, but a depot inspection o
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 
-The shape of it: ten streams across two depots — engine temperature, brake-pad wear, passenger count, fuel level and GPS speed — feed a fog node that buffers, drains, aggregates and raises four hard fault alarms. Amazon SQS carries the aggregates; a Lambda ingests each into DynamoDB; and S3 with API Gateway serve the dashboard. Fault alarms are decided at the edge, in the window they appear.
+The brief asks for edge and cloud, so here's how I split the pieces. On the edge sit the ten streams — two depots, each reporting engine temperature, brake-pad wear, passenger count, fuel level and GPS speed — feeding a fog node that buffers, drains, aggregates and raises four hard fault alarms in the window they appear. The cloud side is the rest: Amazon SQS carries the aggregates, a Lambda ingests each into DynamoDB, and S3 with API Gateway serve the dashboard.
 
 ## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Live now. First, health — gateway, queue, Lambda and pipeline all green. Second, the fleet — a roster of native-meter cards per depot, both depots streaming all five signals, with depot-a raising an engine-overheat alarm while depot-b stays clear. Third, scale — one hundred and thirty-nine automated tests pass across every module, and a two-thousand-message burst from thirty-two senders was absorbed and drained.
+Come to the screen the way a depot operator would, reading top to bottom. Up top, the health strip is all green — gateway, queue, Lambda and pipeline. Below that sits the fleet: a roster of native-meter cards per depot, both depots streaming all five signals, and right now depot-a is raising an engine-overheat alarm while depot-b stays clear. That's the whole story an operator needs at a glance — what's live, and what's shouting. Behind it, one hundred and thirty-nine automated tests pass across every module, and a two-thousand-message burst from thirty-two senders was absorbed and drained without loss.
 
 ## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 

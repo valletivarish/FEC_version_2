@@ -8,11 +8,11 @@ An operator asks two different things about a car park at once: how full is each
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 
-The shape of it: ten streams across two lots — occupied spaces, entry rate, exit rate, average dwell time and gate-fault events — feed a fog node that windows, aggregates and raises four hard fault alarms at the edge. Amazon SQS carries the aggregates; a Lambda ingests each into DynamoDB; and S3 with API Gateway serve the console. Fault alarms are decided at the edge, in the window they appear.
+Notice what never leaves the car park: the raw streams. Ten of them across two lots — occupied spaces, entry rate, exit rate, average dwell time and gate-fault events — hit a fog node that windows, aggregates and raises four hard fault alarms right at the edge. Only those summaries travel on. Amazon SQS carries the aggregates, a Lambda ingests each into DynamoDB, and S3 with API Gateway serve the console. Alarms are decided in the window they appear.
 
 ## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Live now. First, health — gateway, queue, processor and pipeline all green. Second, the fusion itself — both lots stream all five signals, and right now one lot reads Normal while the other reads Alert on a gate-fault alarm despite a low occupancy, which is exactly the case the design is built for. Third, scale — one hundred and twenty-seven automated tests pass across every module, and a two-thousand-message burst from thirty-two senders was absorbed and drained.
+Here's the live console — the whole estate at a glance. Both lots are streaming all five signals, and the health strip underneath reads gateway, queue, processor and pipeline all green. Now drill into one lot. This one sits at Normal, but its neighbour is flashing Alert — a gate-fault alarm firing even though occupancy is low. That's precisely the case the design was built for: a lot that's quiet yet faulted. And underneath it all, one hundred and twenty-seven automated tests pass across every module, and a two-thousand-message burst from thirty-two senders was absorbed and drained clean.
 
 ## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 

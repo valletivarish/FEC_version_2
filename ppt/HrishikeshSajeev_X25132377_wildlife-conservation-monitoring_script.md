@@ -8,11 +8,11 @@ Fixed patrols learn about events late: a poaching incident, a drying waterhole, 
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 
-The shape of it: ten feeds across two reserves reach a fog node running at the reserve edge on EC2, which windows, aggregates and evaluates all four alert rules on site. It feeds an Amazon SQS queue, an AWS Lambda ingest and a DynamoDB store; a second Lambda dashboard API behind API Gateway reads the store; and the page is served from S3, showing both reserves side by side with a field-station log and live alert flags.
+Start at the screen: the page comes off S3, showing both reserves side by side with a field-station log and live alert flags. Behind it, a second Lambda dashboard API sits behind API Gateway, reading a DynamoDB store that an AWS Lambda ingest fills from an Amazon SQS queue. Feeding that queue is a fog node on EC2 at the reserve edge, windowing, aggregating and evaluating all four alert rules on site from ten feeds across the two reserves.
 
 ## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Live now. First, health — four of four checks true, the freshest reading under six seconds old. Second, the reserves — both reserves side by side with a field-station log, and alert flags tripping on real thresholds; stored readings climbed from three sixty-two to three seventy-eight in fifteen seconds during verification. Third, confidence — eighty-two automated tests pass across all four modules.
+Everything's green — four of four health checks true, the freshest reading under six seconds old — but here's the part that matters. This is the reserves view: both side by side with a field-station log, and alert flags tripping on real thresholds, exactly as a ranger would read them. Watch the counter move — during my verification the stored readings climbed from three sixty-two to three seventy-eight in just fifteen seconds, so that's live data landing, not a snapshot. And under all of it, eighty-two automated tests pass across all four modules.
 
 ## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 

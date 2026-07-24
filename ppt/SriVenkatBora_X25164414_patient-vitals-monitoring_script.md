@@ -8,11 +8,11 @@ A ward round reads each patient's vitals once, then moves on — but deteriorati
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 
-The shape of it: ten bedside streams — five vitals across two patients — feed a fog gateway. Every ten seconds the gateway aggregates each vital and checks the clinical alert rules right there. Only one compact aggregate per vital per window goes onward, batched, to Amazon SQS; a Lambda triggered off the queue writes each record into DynamoDB; and API Gateway with S3 serve the ward dashboard. The intelligence lives at the edge — the cloud sees aggregates, not raw streams.
+Ten bedside streams — five vitals across two patients — flow into a fog gateway that every ten seconds aggregates each vital and checks the clinical alert rules on the spot, then forwards one compact aggregate per vital per window, batched, to Amazon SQS, where a queue-triggered Lambda writes each record into DynamoDB and API Gateway with S3 serve the ward dashboard. The key choice: keep the intelligence at the edge, so the cloud only ever sees aggregates, not raw streams.
 
 ## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Live. First, health — the edge gateway is online, the queue reachable, the Lambda deployed, and windowed records are archiving, so the whole chain is running. Second, the monitor — two patients streaming all five vitals, and a hypoxia banner firing on real data the moment blood oxygen crosses the ninety-two percent trigger, around eighty-nine point seven. Third, confidence — forty-one automated tests pass across the sensor, fog gateway, processor and dashboard modules.
+To prove this is live and not a cached snapshot, watch the archived-record count: I refresh once, then again a moment later, and the number of windowed records has climbed — meaning the edge gateway's online, the queue's reachable, the Lambda's deployed, the whole chain running. Now the ward monitor: two patients streaming all five vitals, and a hypoxia banner fires on real data the instant blood oxygen crosses the ninety-two percent trigger, around eighty-nine point seven. For confidence, forty-one automated tests pass across the sensor, fog gateway, processor and dashboard modules.
 
 ## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 

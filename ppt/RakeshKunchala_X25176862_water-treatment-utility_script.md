@@ -8,11 +8,11 @@ Treatment quality moves second by second, but grab samples and periodic control-
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 
-The shape of it: ten field sensors across two plants feed a fog node that closes ten-second windows, aggregates, and applies alert gates — checking the window minimum, not the average, so a brief dip cannot hide. Amazon SQS carries one summary per window, batched; a Lambda ingests each summary into a DynamoDB time-series store; and S3 with API Gateway serve the compliance board. Alerts fire the moment a window closes, on site.
+Two functions carry the weight. One ingests — a Lambda writes each window's summary into a DynamoDB time-series store. The other serves — S3 and API Gateway present the compliance board. Feeding them: ten sensors across two plants and a fog node that closes ten-second windows, aggregates, and gates alerts on the window minimum, not the average, so a brief dip can't hide. Amazon SQS batches one summary per window; alerts fire as each window closes, on site.
 
 ## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Live now. First, health — gateway, queue, Lambda and the end-to-end pipeline all green. Second, the board — a reading-by-plant matrix, compliance strips and cross-plant trends across both plants. Third, scale — one hundred and fifteen automated tests pass across every module, and a two-thousand-message burst was absorbed by the queue and drained by the consumer.
+Here's the board, live — a reading-by-plant matrix, compliance strips, and cross-plant trends, all running across both plants at once. That's every signal from both treatment plants landing and updating in front of you as I speak. Behind it, the health row reads all green: gateway, queue, Lambda, and the end-to-end pipeline. And it holds up under load — one hundred and fifteen automated tests pass across every module, and when I threw a two-thousand-message burst at it, the queue absorbed the lot and the consumer drained it clean.
 
 ## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 

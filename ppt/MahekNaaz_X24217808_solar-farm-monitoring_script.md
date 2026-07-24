@@ -8,11 +8,11 @@ Solar panels lose conversion efficiency as they run hotter — an array's therma
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 
-The shape of it: ten sensors stream irradiance, panel temperature, inverter output, DC voltage and soiling across two arrays into a fog node that buffers, windows, aggregates and raises alerts, producing one summary per window. Amazon SQS queues the summaries; a Lambda ingests each into DynamoDB per array and sensor; and S3 with API Gateway serve the dashboard, which shows a per-array efficiency heatmap.
+In one pass, ten sensors push irradiance, panel temperature, inverter output, DC voltage and soiling from two arrays into a fog node that buffers, windows, aggregates and raises alerts, emits one summary per window onto Amazon SQS, where a Lambda writes each into DynamoDB per array and sensor before S3 and API Gateway serve the dashboard. The non-obvious part: that dashboard renders a per-array efficiency heatmap.
 
 ## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Live now. First, health — gateway, queue, processor and pipeline all up. Second, the arrays — per-array readings and a live per-window efficiency heatmap, with threshold alerts covering thermal derate risk, inverter underperformance, undervoltage and cleaning required. Third, scale — ninety-nine automated tests pass across every module, and a two-thousand-message burst was pushed through the queue by thirty-two parallel senders.
+Let me start where the value is: the live per-window efficiency heatmap. Each array gets a fused efficiency score per window, so you can watch one array's efficiency slip below the other at a glance, right beside its raw readings. On top of that sit threshold alerts for thermal derate risk, inverter underperformance, undervoltage and cleaning required. Behind it, the health strip shows gateway, queue, processor and pipeline all up. And for scale, ninety-nine automated tests pass across every module, and I pushed a two-thousand-message burst through the queue with thirty-two parallel senders.
 
 ## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 

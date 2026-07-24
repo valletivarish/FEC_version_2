@@ -8,11 +8,11 @@ Wildfire risk moves faster than any inspection schedule. Ranger stations sit dee
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 
-The shape of it: ten containerised sensors stream temperature, humidity, smoke, wind and soil moisture from two stations to a fog node. The node buffers readings, aggregates each window and raises fire alerts right at the edge. Amazon SQS receives each window's aggregates in batched sends; a Lambda consumes the queue and transforms every record into DynamoDB; and API Gateway with S3 serve the dashboard, with a zero-to-four fire-risk dial per station.
+Here's the one idea behind it: raw readings never leave the edge — only ten-second summaries cross. Ten containerised sensors stream temperature, humidity, smoke, wind and soil moisture from two stations to a fog node, which buffers readings, aggregates each window and raises fire alerts at the edge. Amazon SQS receives each window's aggregates in batched sends; a Lambda drains the queue and transforms every record into DynamoDB; and API Gateway with S3 serve the dashboard's zero-to-four fire-risk dial per station.
 
 ## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Live now. First, health — a scripted check verifies sensors to fog to queue to ingest to store, live, end to end. Second, the stations — two ranger stations with five fire metrics each and a zero-to-four risk dial, and a fire-detection alert firing on a smoke spike. Third, robustness — ninety-five automated tests pass across every module, and a two-thousand-message burst from thirty-two senders drains without the consumer stalling.
+Remember the blind window between two routine checks — that's the gap this closes. Watch: smoke spikes at one of the two ranger stations, and within that same aggregation window the fire-detection alert fires, no patrol required. Each station shows its five fire metrics and a zero-to-four risk dial live on screen. Behind that, a scripted check verifies the whole path end to end — sensors to fog to queue to ingest to store. And for robustness, ninety-five automated tests pass across every module, while a two-thousand-message burst from thirty-two senders drains without the consumer stalling.
 
 ## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 

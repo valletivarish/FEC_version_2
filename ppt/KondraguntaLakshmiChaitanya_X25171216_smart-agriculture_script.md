@@ -8,11 +8,11 @@ A field inspected on a fixed schedule reveals a dry root zone, an overnight fros
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 
-Here is the shape of it. Five sensor types feed a fog node sitting beside them. Every ten seconds the fog node closes a window — it reduces each stream to a minimum, maximum and average and raises alerts locally. Only that compact summary goes onward, batched, to Amazon SQS; a Lambda function fires on each one and writes a single record to DynamoDB; and API Gateway with S3 serve the live dashboard. The key idea: raw readings never leave the edge, only ten-second summaries cross into the cloud.
+Think of it as six jobs. Sense: five sensor types. Aggregate: a fog node beside them closes a window every ten seconds, reducing each stream to a minimum, maximum and average, and raising alerts locally. Buffer: only that summary, batched, into Amazon SQS. Ingest: a Lambda fires on each one. Store: it writes a single record to DynamoDB. Serve: API Gateway and S3 push the live dashboard. Raw readings never leave the edge — only ten-second summaries cross into the cloud.
 
 ## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-Let me show it running. First, health — fog node, queue, Lambda and end-to-end freshness all report green, the freshest reading about two seconds old, so the whole pipeline is live right now. Second, the field data — per-sensor panels and trend charts for two fields, each with its threshold band drawn in, and an alert banner across the top the moment a rule trips. Third, scale — I fired a burst of three hundred messages at the live queue; they were absorbed in about four and a half seconds and every one was stored, confirmed directly in DynamoDB. Thirty-nine automated tests back all of this.
+Watch the freshness clock: the newest reading is about two seconds old, so this pipeline is live right now — fog node, queue, Lambda and end-to-end freshness all reporting green. From there, the field data: per-sensor panels and trend charts for two fields, each with its threshold band drawn in, and an alert banner that drops across the top the moment a rule trips. To prove it scales, I fired a burst of three hundred messages at the live queue; they were absorbed in about four and a half seconds, and every one landed, confirmed directly in DynamoDB. Thirty-nine automated tests back all of this.
 
 ## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 
