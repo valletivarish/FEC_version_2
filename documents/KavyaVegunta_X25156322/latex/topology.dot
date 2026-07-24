@@ -1,0 +1,48 @@
+digraph rfw {
+  rankdir=LR;
+  bgcolor="white";
+  splines=spline;
+  nodesep=0.34;
+  ranksep=0.62;
+  node [fontname="Helvetica", fontsize=11, shape=box, style="rounded,filled", color="#0e3a5f", penwidth=1.2, margin="0.13,0.09"];
+  edge [fontname="Helvetica", fontsize=9.5, color="#2a6f97", penwidth=1.3, arrowsize=0.8];
+
+  /* ---- Edge host: sensors + fog relay ---- */
+  subgraph cluster_edge {
+    label="Riverside edge host  (Amazon EC2, us-east-1a)";
+    fontname="Helvetica-Bold"; fontsize=11.5; color="#0e3a5f"; style="rounded";
+    bgcolor="#eaf3fa"; penwidth=1.4;
+
+    sensors [label="10 sensor gauges\l(5 signals × reach-a / reach-b)\lasyncio two-regime walk\l", fillcolor="#cfe4f2", fontsize=10];
+    fog [label="Fog relay  (aiohttp)\llock-free per-group buffer\l10 s window → count/min/max/avg\lPEAK → flood stage at the edge\l", fillcolor="#8ec7e6", fontsize=10];
+    sensors -> fog [label="HTTP /ingest\lbatched, ~5 readings"];
+  }
+
+  /* ---- Cloud ingest path ---- */
+  sqs   [label="Amazon SQS\lrfw-catchment-agg", fillcolor="#bfe3d2"];
+  proc  [label="Processor Lambda\lrfw-processor (py3.12)\lbatch_writer", fillcolor="#bfe3d2"];
+  ddb   [label="Amazon DynamoDB\lrfw-readings\lPK sensor_type\lSK window_end#site_id", fillcolor="#bfe3d2"];
+
+  fog  -> sqs  [label="batched send\l(≤10 per call)"];
+  sqs  -> proc [label="event trigger"];
+  proc -> ddb  [label="put window items"];
+
+  /* ---- Serving path ---- */
+  dash  [label="Dashboard Lambda\lrfw-dashboard-api (py3.12)\lTREND → rate-of-rise on read\l", fillcolor="#f6d7a8"];
+  api   [label="Amazon API Gateway\lREST /prod", fillcolor="#f6d7a8"];
+  s3    [label="Amazon S3\lriver-flood-early-warning\lstatic dashboard", fillcolor="#f6d7a8"];
+  browser [label="Operator browser\lstage gauges + trend + alerts", shape=box, style="rounded,filled", fillcolor="#ffffff", color="#0e3a5f"];
+
+  ddb  -> dash [label="query recent windows"];
+  dash -> api  [label="JSON payloads"];
+  api  -> browser [label="HTTPS"];
+  s3   -> browser [label="page + assets"];
+
+  /* ---- Health strip (dashed reads) ---- */
+  edge [style=dashed, color="#8a94a0", fontcolor="#5b6470", arrowsize=0.7];
+  dash -> fog  [label="/health, /thresholds", constraint=false];
+  dash -> sqs  [label="queue depth", constraint=false];
+  dash -> proc [label="function state", constraint=false];
+
+  { rank=same; sqs; proc; }
+}
