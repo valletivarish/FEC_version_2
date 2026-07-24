@@ -1,29 +1,19 @@
-# Industrial Equipment Predictive Monitoring - 4-Minute Presentation Script
+# Industrial Equipment Predictive Monitoring — demo script
 
-Vikas Reddy Amanagantti - Student ID X25178849 - Fog and Edge Computing (H9FECC)
+Target 2:30–2:45. Hard limit 4:00. ~370 spoken words. One-to-one with the lecturer; skip the title slide, start with the problem.
 
-Total: ~535 spoken words | approximately 3 minutes 58 seconds at ~135 wpm
+## 1 · Motivation — Slide 1 (0:00–0:30)
 
-## Slide 1 - Cover (0:00-0:15)
+A walk-round inspection reads each gauge once, then moves on — and a machine rarely fails on one dial. It builds across heat, vibration, bearing noise, speed and power draw at the same time, in the minutes between rounds, while nobody is looking. My system watches all five signals on both production lines continuously and raises an alarm the instant one crosses its limit — motor temperature over ninety-five degrees, vibration over seven millimetres a second.
 
-Good morning. A production machine almost never fails without warning. It first runs a little rougher, a little hotter, a little louder, drifts off its rated speed, or draws a little more current than the work needs. My project reads those early signs across two production lines and names a fault while it is still just a warning.
+## 2 · High-level description — Slide 2 (0:30–1:00)
 
-## Slide 2 - Why periodic checks miss the failure (0:15-1:02)
+The shape of it: ten sensor units across two lines feed a fog node sitting beside the machines. Every ten seconds the fog node closes a window, aggregates each signal, and evaluates the alarm limits right there at the edge. Only one compact aggregate per window goes to Amazon SQS; a Lambda function consumes the queue and writes each record to DynamoDB; and API Gateway with S3 serve the live dashboard. Alarms are decided at the edge — the cloud never sees the raw firehose.
 
-The cost on a plant floor is unplanned downtime, and a walk-round inspection is the wrong tool for catching it. It reads each gauge once and the fault keeps developing in the minutes until the next round. Worse, machine failure rarely shows on one dial: it builds across heat, vibration, bearing noise, speed, and power draw at the same time, and no single gauge reads all five together. Two lines run in parallel, and line one running cool tells you nothing about line two. So I watch all five signals continuously, on both lines, and let a rule decide when a reading has crossed from normal into a fault.
+## 3 · Demo highlights — Slide 3, then switch to the live dashboard (1:00–2:15)
 
-## Slide 3 - How it works (1:02-1:52)
+Live now. First, health — fog gateway, queue, Lambda and data flow all green, and my end-to-end check confirms every one of the five signal types is landing in the datastore. Second, the plant floor — a card per signal showing its current reading, its real alarm limit and its trend, across both lines, with the health footer underneath. Third, robustness — ninety-four automated tests pass across sensors, fog, processor and dashboard, and in a load test a two-thousand-message burst from thirty-two parallel senders was absorbed cleanly.
 
-Here is the path, left to right. Ten sensor processes, five signals across two lines, post over HTTP to a fog node on the plant-floor host. Every ten seconds it closes a window, reduces each machine-and-signal group to a summary, and runs the alarm rules right there. Four signals worsen only as they climb, so each has one ceiling; rotation speed is the exception and carries two limits, a floor and a ceiling, because a healthy machine has to stay inside a speed band, not just below a top. Only the summary and any alarm leave the floor, batched into Amazon SQS. One Lambda drains the queue into DynamoDB; a second serves the board from S3 through API Gateway. It went onto a real AWS account in one infrastructure-as-code step, twenty-four resources.
+## 4 · Hardest challenge — Slide 4 (2:15–2:45)
 
-## Slide 4 - Demonstration highlights (1:52-2:35)
-
-This is the live board reading from the running stack. Each line is a column of its five signals, every signal showing its current value against its alarm limit, a short history, and a trend. The banner names any firing fault by line, and the health strip along the top shows four pipeline checks, all green. Behind it, ninety-four automated tests pass across the four modules, and a two-thousand-message burst through thirty-two parallel workers was absorbed without loss.
-
-## Slide 5 - The hardest part: sealing a window under concurrent writes (2:35-3:35)
-
-The hardest part was the window boundary. Sensor posts arrive on several server threads at once, while a timer has to seal the ten-second window on its own thread, and both touch the same buffer. Hold a lock across the whole window close and every arriving reading stalls behind the summary work. Drop the lock and a reading landing on the boundary is lost or counted twice. The answer was to take the lock for one job only: swap the filled buffer aside, install an empty one, release. All the aggregation and the alarm checks then run on the swapped-out copy, outside the lock. The ingest path never waits on a slow close, and every reading still lands in exactly one window.
-
-## Slide 6 - Takeaways (3:35-3:58)
-
-Three things. Decide at the edge, so a fault is named in the window it appears. Match the rule to the physics: a signal that can fail at both ends needs two limits, not one. And hold a lock only for the swap, never for the work. Thank you, I am happy to take questions.
+The hardest part was sealing a window under concurrent writes. Sensor posts land on several web-server threads while a timer has to close the ten-second window on its own thread, and both touch the same buffer. Hold a lock across the whole close and every arriving reading stalls behind it; drop the lock and a reading landing right on the boundary is lost or double-counted. The fix takes the lock only long enough to swap the full buffer aside and drop in an empty one, then does all the aggregation and alarm work on the swapped-out copy outside the lock. Ingest never waits, and every reading lands in exactly one window.
