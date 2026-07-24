@@ -1,10 +1,10 @@
 # Beehive & Apiary Health Monitoring — demo script
 
-Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; open with the one-line intro below, then go straight to the problem (don't read the rest of the title slide).
 
 ## 1 · Motivation — Slide 1 (0:00–0:30)
 
-A honeybee colony can slide into starvation, chilled brood, or the run-up to a swarm within days, yet a hive is opened only every week or two — and opening it is itself disruptive: it chills the brood nest and provokes the bees, so inspection is deliberately rare, and the apiary is often far from the keeper. Ten sensor points across two apiaries stream weight, brood temperature, humidity, acoustic buzz and entrance traffic, and sound actually leads the other signals: a colony preparing to swarm raises the pitch of its hum before its weight moves.
+I'm Yashaswini Penumarthi, and this is my Beehive & Apiary Health Monitoring. A honeybee colony can slide into starvation, chilled brood, or the run-up to a swarm within days, yet a hive is opened only every week or two — and opening it is itself disruptive: it chills the brood nest and provokes the bees, so inspection is deliberately rare, and the apiary is often far from the keeper. Ten sensor points across two apiaries stream weight, brood temperature, humidity, acoustic buzz and entrance traffic, and sound actually leads the other signals: a colony preparing to swarm raises the pitch of its hum before its weight moves.
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 

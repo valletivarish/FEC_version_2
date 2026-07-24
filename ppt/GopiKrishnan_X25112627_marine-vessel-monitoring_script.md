@@ -1,10 +1,10 @@
 # Marine Vessel Condition Monitoring — demo script
 
-Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; open with the one-line intro below, then go straight to the problem (don't read the rest of the title slide).
 
 ## 1 · Motivation — Slide 1 (0:00–0:30)
 
-Between fixed rounds, the bridge is blind. A fuel-burn spike, a ballast imbalance or rising hull vibration surfaces only at the next scheduled check, not when it starts. And continuous data will not fit the link: ten sensor streams across two vessels produce far more raw data than a narrow, unreliable ship-to-shore link can carry. So the answer must live on board — aggregate and evaluate readings on the vessel itself, and send ashore only compact window summaries.
+I'm Gopi Krishnan, and this is my Marine Vessel Condition Monitoring. Between fixed rounds, the bridge is blind. A fuel-burn spike, a ballast imbalance or rising hull vibration surfaces only at the next scheduled check, not when it starts. And continuous data will not fit the link: ten sensor streams across two vessels produce far more raw data than a narrow, unreliable ship-to-shore link can carry. So the answer must live on board — aggregate and evaluate readings on the vessel itself, and send ashore only compact window summaries.
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 

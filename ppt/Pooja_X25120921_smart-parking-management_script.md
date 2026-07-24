@@ -1,10 +1,10 @@
 # Smart Parking Management — demo script
 
-Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; open with the one-line intro below, then go straight to the problem (don't read the rest of the title slide).
 
 ## 1 · Motivation — Slide 1 (0:00–0:30)
 
-An operator asks two different things about a car park at once: how full is each lot, and is anything wrong. They are not the same question. Fullness is a smooth quantity that climbs and falls with the day; a fault is a discrete event — a gate stuck faulting, an inflow surge, a car dwelling far too long. A lot can be busy but perfectly healthy, or nearly empty yet faulted, so the two belong on separate axes.
+I'm Pooja, and this is my Smart Parking Management. An operator asks two different things about a car park at once: how full is each lot, and is anything wrong. They are not the same question. Fullness is a smooth quantity that climbs and falls with the day; a fault is a discrete event — a gate stuck faulting, an inflow surge, a car dwelling far too long. A lot can be busy but perfectly healthy, or nearly empty yet faulted, so the two belong on separate axes.
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 

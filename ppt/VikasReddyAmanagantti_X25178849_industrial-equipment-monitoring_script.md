@@ -1,10 +1,10 @@
 # Industrial Equipment Predictive Monitoring — demo script
 
-Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; open with the one-line intro below, then go straight to the problem (don't read the rest of the title slide).
 
 ## 1 · Motivation — Slide 1 (0:00–0:30)
 
-A walk-round inspection reads each gauge once, then moves on — and a machine rarely fails on one dial. It builds across heat, vibration, bearing noise, speed and power draw at the same time, in the minutes between rounds, while nobody is looking. My system watches all five signals on both production lines continuously and raises an alarm the instant one crosses its limit — motor temperature over ninety-five degrees, vibration over seven millimetres a second.
+I'm Vikas Reddy Amanagantti, and this is my Industrial Equipment Predictive Monitoring. A walk-round inspection reads each gauge once, then moves on — and a machine rarely fails on one dial. It builds across heat, vibration, bearing noise, speed and power draw at the same time, in the minutes between rounds, while nobody is looking. My system watches all five signals on both production lines continuously and raises an alarm the instant one crosses its limit — motor temperature over ninety-five degrees, vibration over seven millimetres a second.
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 

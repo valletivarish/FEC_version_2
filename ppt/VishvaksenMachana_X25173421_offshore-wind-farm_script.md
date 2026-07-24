@@ -1,10 +1,10 @@
 # Offshore Wind Farm Turbine Monitoring — demo script
 
-Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; open with the one-line intro below, then go straight to the problem (don't read the rest of the title slide).
 
 ## 1 · Motivation — Slide 1 (0:00–0:30)
 
-Offshore turbines are reached by boat, the weather sets the schedule, and a technician visit can be weeks apart. In between, faults escalate — a bearing overheating, a gearbox losing lubrication pressure, a blade vibration growing worse — all invisible until the next inspection. Streaming raw data ashore is not the fix either: the link has limited, variable bandwidth, and a view that dies when connectivity dips fails during exactly the storms that stress turbines most. So the watching has to happen at sea.
+I'm Vishvaksen Machana, and this is my Offshore Wind Farm Turbine Monitoring. Offshore turbines are reached by boat, the weather sets the schedule, and a technician visit can be weeks apart. In between, faults escalate — a bearing overheating, a gearbox losing lubrication pressure, a blade vibration growing worse — all invisible until the next inspection. Streaming raw data ashore is not the fix either: the link has limited, variable bandwidth, and a view that dies when connectivity dips fails during exactly the storms that stress turbines most. So the watching has to happen at sea.
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 

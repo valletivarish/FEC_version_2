@@ -1,10 +1,10 @@
 # Wildfire Forest Monitoring — demo script
 
-Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; open with the one-line intro below, then go straight to the problem (don't read the rest of the title slide).
 
 ## 1 · Motivation — Slide 1 (0:00–0:30)
 
-Wildfire risk moves faster than any inspection schedule. Ranger stations sit deep in remote forest, and patrols and hourly readouts leave long blind windows. Fire weather compounds quietly — heat, smoke, wind and drying soil each look tolerable on their own; the danger is the combination, and it can develop between two routine checks. So detection has to run continuously, right next to the sensors, not on a schedule.
+I'm Deekonda Rakshan, and this is my Wildfire Forest Monitoring. Wildfire risk moves faster than any inspection schedule. Ranger stations sit deep in remote forest, and patrols and hourly readouts leave long blind windows. Fire weather compounds quietly — heat, smoke, wind and drying soil each look tolerable on their own; the danger is the combination, and it can develop between two routine checks. So detection has to run continuously, right next to the sensors, not on a schedule.
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 

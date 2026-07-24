@@ -1,10 +1,10 @@
 # Elevator & Escalator Fleet Monitoring — demo script
 
-Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; open with the one-line intro below, then go straight to the problem (don't read the rest of the title slide).
 
 ## 1 · Motivation — Slide 1 (0:00–0:30)
 
-A lift fails two ways. Slowly, as a motor creeps hot or a ride roughens over weeks; and suddenly, as one overweight trip loads the car past its limit in a single instant. A clipboard round sees one moment, but the fleet changes state every second, around the clock. That is two towers, five signals each, ten live streams — motor temperature, door cycles, cab vibration, load weight and travel speed.
+I'm Rasool Basha Durbesula, and this is my Elevator & Escalator Fleet Monitoring. A lift fails two ways. Slowly, as a motor creeps hot or a ride roughens over weeks; and suddenly, as one overweight trip loads the car past its limit in a single instant. A clipboard round sees one moment, but the fleet changes state every second, around the clock. That is two towers, five signals each, ten live streams — motor temperature, door cycles, cab vibration, load weight and travel speed.
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 

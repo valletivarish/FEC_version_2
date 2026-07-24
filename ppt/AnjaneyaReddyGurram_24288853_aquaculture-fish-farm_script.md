@@ -1,10 +1,10 @@
 # Aquaculture Fish Farm Water Quality — demo script
 
-Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; open with the one-line intro below, then go straight to the problem (don't read the rest of the title slide).
 
 ## 1 · Motivation — Slide 1 (0:00–0:30)
 
-Standard practice on a pond farm is that a technician draws a sample and runs a test kit once or twice a day. But dissolved oxygen and ammonia do not change slowly — a warm, still night can crash oxygen and push ammonia up over a few hours, entirely inside the gap between two manual readings. A farm that samples at sunrise sees the excursion only after the fish are already stressed. So I watch two ponds continuously.
+I'm Anjaneya Reddy Gurram, and this is my Aquaculture Fish Farm Water Quality. Standard practice on a pond farm is that a technician draws a sample and runs a test kit once or twice a day. But dissolved oxygen and ammonia do not change slowly — a warm, still night can crash oxygen and push ammonia up over a few hours, entirely inside the gap between two manual readings. A farm that samples at sunrise sees the excursion only after the fish are already stressed. So I watch two ponds continuously.
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 

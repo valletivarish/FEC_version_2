@@ -1,10 +1,10 @@
 # Smart Agriculture Field Monitoring — demo script
 
-Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; open with the one-line intro below, then go straight to the problem (don't read the rest of the title slide).
 
 ## 1 · Motivation — Slide 1 (0:00–0:30)
 
-A field inspected on a fixed schedule reveals a dry root zone, an overnight frost, or a fungal-risk humidity spell only after the damage is already done — at the next walk-through. My smart-agriculture pipeline closes that gap: it takes a reading every two to four seconds and checks six alert rules at the edge, the moment data arrives. Soil moisture under twenty percent, or a dip below three degrees, is flagged in seconds, not days later.
+I'm Kondragunta Lakshmi Chaitanya, and this is my Smart Agriculture Field Monitoring. A field inspected on a fixed schedule reveals a dry root zone, an overnight frost, or a fungal-risk humidity spell only after the damage is already done — at the next walk-through. My smart-agriculture pipeline closes that gap: it takes a reading every two to four seconds and checks six alert rules at the edge, the moment data arrives. Soil moisture under twenty percent, or a dip below three degrees, is flagged in seconds, not days later.
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 

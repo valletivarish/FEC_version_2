@@ -1,10 +1,10 @@
 # Data Center Environmental Monitoring — demo script
 
-Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; open with the one-line intro below, then go straight to the problem (don't read the rest of the title slide).
 
 ## 1 · Motivation — Slide 1 (0:00–0:30)
 
-An overheating server, a humidity swing toward condensation, or restricted airflow around a rack can each trigger a hardware failure or a costly unplanned outage. When a facility relies on fixed inspection rounds, these conditions surface only after they have already occurred. So I replace the walk-through with continuous sensing: ten sensors across two server halls, with every aggregation window evaluated against explicit threshold rules the moment it closes.
+I'm Nithin, and this is my Data Center Environmental Monitoring. An overheating server, a humidity swing toward condensation, or restricted airflow around a rack can each trigger a hardware failure or a costly unplanned outage. When a facility relies on fixed inspection rounds, these conditions surface only after they have already occurred. So I replace the walk-through with continuous sensing: ten sensors across two server halls, with every aggregation window evaluated against explicit threshold rules the moment it closes.
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 

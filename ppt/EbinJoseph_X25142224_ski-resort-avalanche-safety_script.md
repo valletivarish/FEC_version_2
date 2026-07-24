@@ -1,10 +1,10 @@
 # Ski Resort Avalanche Safety — demo script
 
-Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; open with the one-line intro below, then go straight to the problem (don't read the rest of the title slide).
 
 ## 1 · Motivation — Slide 1 (0:00–0:30)
 
-Avalanche danger does not wait for the next patrol round: it develops, peaks and passes in the gaps between them. A seismic spike ahead of a slab release lasts only minutes and can pass entirely between two rounds, which are far sparser, while wind loading and a warming snowpack build danger silently in those gaps. So ten live sensors, five signal types on each of two slopes, never stop sampling, and a fog node on the mountain checks every window at the edge.
+I'm Ebin Joseph, and this is my Ski Resort Avalanche Safety. Avalanche danger does not wait for the next patrol round: it develops, peaks and passes in the gaps between them. A seismic spike ahead of a slab release lasts only minutes and can pass entirely between two rounds, which are far sparser, while wind loading and a warming snowpack build danger silently in those gaps. So ten live sensors, five signal types on each of two slopes, never stop sampling, and a fog node on the mountain checks every window at the edge.
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 

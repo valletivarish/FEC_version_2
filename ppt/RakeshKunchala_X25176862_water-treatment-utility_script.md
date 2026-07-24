@@ -1,10 +1,10 @@
 # Water Treatment Utility Monitoring — demo script
 
-Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; open with the one-line intro below, then go straight to the problem (don't read the rest of the title slide).
 
 ## 1 · Motivation — Slide 1 (0:00–0:30)
 
-Treatment quality moves second by second, but grab samples and periodic control-room rounds only ever see snapshots. Ten sensor points across two plants stream turbidity, pH, chlorine, flow and pressure every one to three seconds, far faster than any manual round — and transient events vanish into averages: a momentary pressure drop can mean a hydraulic fault even when the daily mean looks perfectly healthy. So I score every ten-second window as it closes.
+I'm Rakesh Kunchala, and this is my Water Treatment Utility Monitoring. Treatment quality moves second by second, but grab samples and periodic control-room rounds only ever see snapshots. Ten sensor points across two plants stream turbidity, pH, chlorine, flow and pressure every one to three seconds, far faster than any manual round — and transient events vanish into averages: a momentary pressure drop can mean a hydraulic fault even when the daily mean looks perfectly healthy. So I score every ten-second window as it closes.
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 

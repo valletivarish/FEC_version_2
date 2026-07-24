@@ -1,10 +1,10 @@
 # Wildlife Conservation Habitat Monitoring — demo script
 
-Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; open with the one-line intro below, then go straight to the problem (don't read the rest of the title slide).
 
 ## 1 · Motivation — Slide 1 (0:00–0:30)
 
-Fixed patrols learn about events late: a poaching incident, a drying waterhole, or a sudden movement surge is discovered only when a patrol reaches that spot, not when it starts. And the critical signals are short-lived — a gunshot-like acoustic spike lasts moments, so continuous sensing has to raise the alert as the window closes, while a ranger can still respond. Two reserves each stream five sensor types around the clock, far too many feeds for manual checking.
+I'm Hrishikesh Sajeev, and this is my Wildlife Conservation Habitat Monitoring. Fixed patrols learn about events late: a poaching incident, a drying waterhole, or a sudden movement surge is discovered only when a patrol reaches that spot, not when it starts. And the critical signals are short-lived — a gunshot-like acoustic spike lasts moments, so continuous sensing has to raise the alert as the window closes, while a ranger can still respond. Two reserves each stream five sensor types around the clock, far too many feeds for manual checking.
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 

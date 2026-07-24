@@ -1,10 +1,10 @@
 # Smart Waste Management — demo script
 
-Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; open with the one-line intro below, then go straight to the problem (don't read the rest of the title slide).
 
 ## 1 · Motivation — Slide 1 (0:00–0:30)
 
-Municipal waste collection runs on a fixed calendar, not on what is actually happening inside each bin. Trucks roll out to bins that are not yet full, wasting collection runs, while overflow, fire, gas build-up and tampering stay invisible until the next scheduled visit. So I monitor two collection districts continuously, so the busiest bin is always collected first, and four hazard rules watch every bin live.
+I'm Gundeti Sachin Reddy, and this is my Smart Waste Management. Municipal waste collection runs on a fixed calendar, not on what is actually happening inside each bin. Trucks roll out to bins that are not yet full, wasting collection runs, while overflow, fire, gas build-up and tampering stay invisible until the next scheduled visit. So I monitor two collection districts continuously, so the busiest bin is always collected first, and four hazard rules watch every bin live.
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 

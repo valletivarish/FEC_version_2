@@ -1,10 +1,10 @@
 # Smart Building Energy Monitoring — demo script
 
-Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; open with the one-line intro below, then go straight to the problem (don't read the rest of the title slide).
 
 ## 1 · Motivation — Slide 1 (0:00–0:30)
 
-A building manager asks two different things at once: is anything wrong right now, and how efficiently is this floor running overall. Those are not the same question. An exception is discrete — a peak load, stale air, a room too hot or too cold, a tap left running. A rating is a smooth summary, the kind a building energy certificate rolls into a single letter. So I keep them on separate axes across two floors and five signals each.
+I'm Venkata Sai Mothukuri, and this is my Smart Building Energy Monitoring. A building manager asks two different things at once: is anything wrong right now, and how efficiently is this floor running overall. Those are not the same question. An exception is discrete — a peak load, stale air, a room too hot or too cold, a tap left running. A rating is a smooth summary, the kind a building energy certificate rolls into a single letter. So I keep them on separate axes across two floors and five signals each.
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 

@@ -1,10 +1,10 @@
 # Solar Farm Performance Monitoring — demo script
 
-Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; open with the one-line intro below, then go straight to the problem (don't read the rest of the title slide).
 
 ## 1 · Motivation — Slide 1 (0:00–0:30)
 
-Solar panels lose conversion efficiency as they run hotter — an array's thermal health slides from a hundred at forty-five degrees down to zero at seventy-two — so heat quietly erodes output long before anything visibly breaks. Dust builds up gradually too. A fault that appears between manual inspections keeps costing energy, silently, until someone happens to look at that array. Ten sensor streams across two arrays are far too much to check by hand.
+I'm Mahek Naaz, and this is my Solar Farm Performance Monitoring. Solar panels lose conversion efficiency as they run hotter — an array's thermal health slides from a hundred at forty-five degrees down to zero at seventy-two — so heat quietly erodes output long before anything visibly breaks. Dust builds up gradually too. A fault that appears between manual inspections keeps costing energy, silently, until someone happens to look at that array. Ten sensor streams across two arrays are far too much to check by hand.
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 

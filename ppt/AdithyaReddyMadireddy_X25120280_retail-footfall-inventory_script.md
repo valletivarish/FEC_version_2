@@ -1,10 +1,10 @@
 # Retail Footfall & Inventory Monitoring — demo script
 
-Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; open with the one-line intro below, then go straight to the problem (don't read the rest of the title slide).
 
 ## 1 · Motivation — Slide 1 (0:00–0:30)
 
-In a shop, empty shelves sit unnoticed between stock walks and sales are lost silently; a fridge drifts warm between rounds and the whole cold chain is at risk; checkout queues build in minutes, and by the next walk-through the customers are already gone. A periodic manual check simply cannot see any of that as it happens. So I watch ten sensors across two stores continuously and raise an alert the moment a window crosses its threshold.
+I'm Adithya Reddy Madireddy, and this is my Retail Footfall & Inventory Monitoring. In a shop, empty shelves sit unnoticed between stock walks and sales are lost silently; a fridge drifts warm between rounds and the whole cold chain is at risk; checkout queues build in minutes, and by the next walk-through the customers are already gone. A periodic manual check simply cannot see any of that as it happens. So I watch ten sensors across two stores continuously and raise an alert the moment a window crosses its threshold.
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 

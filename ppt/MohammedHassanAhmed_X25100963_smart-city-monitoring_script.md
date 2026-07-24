@@ -1,10 +1,10 @@
 # Smart City Operations Monitoring — demo script
 
-Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; open with the one-line intro below, then go straight to the problem (don't read the rest of the title slide).
 
 ## 1 · Motivation — Slide 1 (0:00–0:30)
 
-Congestion, a pollution spike, a car park filling up — in a city these build and fade within minutes, between any two manual checks. A patrol or a monthly meter read captures one moment, and the breach that matters happens right after the clipboard leaves. Streaming every raw reading to a distant cloud is the other extreme: heavy, slow and costly at city scale. So I watch continuously on the street and send only compact summaries and alerts onward.
+I'm Mohammed Hassan Ahmed, and this is my Smart City Operations Monitoring. Congestion, a pollution spike, a car park filling up — in a city these build and fade within minutes, between any two manual checks. A patrol or a monthly meter read captures one moment, and the breach that matters happens right after the clipboard leaves. Streaming every raw reading to a distant cloud is the other extreme: heavy, slow and costly at city scale. So I watch continuously on the street and send only compact summaries and alerts onward.
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 

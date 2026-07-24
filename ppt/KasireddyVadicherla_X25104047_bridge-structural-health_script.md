@@ -1,10 +1,10 @@
 # Bridge Structural Health Monitoring — demo script
 
-Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; open with the one-line intro below, then go straight to the problem (don't read the rest of the title slide).
 
 ## 1 · Motivation — Slide 1 (0:00–0:30)
 
-Most road authorities still assess a bridge by visual inspection, on a cycle measured in years, not days. Between those inspections the deck keeps working — strain cycles from traffic loading, thermal expansion and contraction at the joints, slow deformation — none of which a scheduled walk-through catches as it develops. Streaming every raw sample to a distant data centre is no answer either. So I close the gap with continuous sensing: five structural sensor types on each of two spans, aggregated at the edge, alerting in seconds.
+I'm Kasireddy Vadicherla, and this is my Bridge Structural Health Monitoring. Most road authorities still assess a bridge by visual inspection, on a cycle measured in years, not days. Between those inspections the deck keeps working — strain cycles from traffic loading, thermal expansion and contraction at the joints, slow deformation — none of which a scheduled walk-through catches as it develops. Streaming every raw sample to a distant data centre is no answer either. So I close the gap with continuous sensing: five structural sensor types on each of two spans, aggregated at the edge, alerting in seconds.
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 

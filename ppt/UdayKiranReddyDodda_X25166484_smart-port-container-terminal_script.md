@@ -1,10 +1,10 @@
 # Smart Port Container Terminal Monitoring — demo script
 
-Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; open with the one-line intro below, then go straight to the problem (don't read the rest of the title slide).
 
 ## 1 · Motivation — Slide 1 (0:00–0:30)
 
-At a container terminal, two berths feed ten live sensor streams — crane load, container stacks, wind, occupancy and reefer temperature. Sensors sample every two to four seconds, but a manual walk-round sees each berth only minutes apart, and the dangerous moments are transient: one gust over the wind limit, one overloaded lift, one reefer drifting warm. A paper log catches these after the fact, when the crane, the cargo or the cold chain is already at risk.
+I'm Uday Kiran Reddy Dodda, and this is my Smart Port Container Terminal Monitoring. At a container terminal, two berths feed ten live sensor streams — crane load, container stacks, wind, occupancy and reefer temperature. Sensors sample every two to four seconds, but a manual walk-round sees each berth only minutes apart, and the dangerous moments are transient: one gust over the wind limit, one overloaded lift, one reefer drifting warm. A paper log catches these after the fact, when the crane, the cargo or the cold chain is already at risk.
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 

@@ -1,10 +1,10 @@
 # Public Transit Fleet Monitoring — demo script
 
-Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; open with the one-line intro below, then go straight to the problem (don't read the rest of the title slide).
 
 ## 1 · Motivation — Slide 1 (0:00–0:30)
 
-A bus's condition changes minute by minute on the road, but a depot inspection only sees it once it is parked. Faults build mid-route — an overheating engine or a worn brake pad is hours old by the evening walk-around, and overcrowding or low fuel needs a response now, not tonight. That is two depots, five signals each, ten live streams, and no walk-around keeps up.
+I'm Sumalatha Kambhampati, and this is my Public Transit Fleet Monitoring. A bus's condition changes minute by minute on the road, but a depot inspection only sees it once it is parked. Faults build mid-route — an overheating engine or a worn brake pad is hours old by the evening walk-around, and overcrowding or low fuel needs a response now, not tonight. That is two depots, five signals each, ten live streams, and no walk-around keeps up.
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 

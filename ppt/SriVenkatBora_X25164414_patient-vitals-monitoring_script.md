@@ -1,10 +1,10 @@
 # Patient Vitals Remote Monitoring — demo script
 
-Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; open with the one-line intro below, then go straight to the problem (don't read the rest of the title slide).
 
 ## 1 · Motivation — Slide 1 (0:00–0:30)
 
-A ward round reads each patient's vitals once, then moves on — but deterioration is a trend. Blood oxygen falls, a heart rate climbs, over minutes, and any single reading in isolation can still look normal. Between rounds, nobody is watching the numbers. My system monitors five vitals for two patients around the clock and checks every ten-second window against clinical limits — so a blood-oxygen level dropping below ninety-two percent raises a hypoxia alert in seconds, not at the next round.
+I'm Sri Venkat Bora, and this is my Patient Vitals Remote Monitoring. A ward round reads each patient's vitals once, then moves on — but deterioration is a trend. Blood oxygen falls, a heart rate climbs, over minutes, and any single reading in isolation can still look normal. Between rounds, nobody is watching the numbers. My system monitors five vitals for two patients around the clock and checks every ten-second window against clinical limits — so a blood-oxygen level dropping below ninety-two percent raises a hypoxia alert in seconds, not at the next round.
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 

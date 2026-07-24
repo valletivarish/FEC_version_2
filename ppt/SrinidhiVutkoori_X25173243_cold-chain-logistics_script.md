@@ -1,10 +1,10 @@
 # Cold Chain Logistics Monitoring — demo script
 
-Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; open with the one-line intro below, then go straight to the problem (don't read the rest of the title slide).
 
 ## 1 · Motivation — Slide 1 (0:00–0:30)
 
-A refrigerated container whose window-average temperature drifts above minus fifteen degrees is already breaching the cold chain. Every container carries five independent risk signals at once — storage temperature, humidity, door-open time, shock and CO2 — far more than a clipboard round can track, and a manual check discovers the breach only after the damage is done, with nothing connecting the door left open to the load that spoiled. So I re-score every container every ten seconds, continuously.
+I'm Srinidhi Vutkoori, and this is my Cold Chain Logistics Monitoring. A refrigerated container whose window-average temperature drifts above minus fifteen degrees is already breaching the cold chain. Every container carries five independent risk signals at once — storage temperature, humidity, door-open time, shock and CO2 — far more than a clipboard round can track, and a manual check discovers the breach only after the damage is done, with nothing connecting the door left open to the load that spoiled. So I re-score every container every ten seconds, continuously.
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 

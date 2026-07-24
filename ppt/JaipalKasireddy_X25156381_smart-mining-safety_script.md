@@ -1,10 +1,10 @@
 # Smart Mining Safety Monitoring — demo script
 
-Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; skip the title slide, start with the problem.
+Target 2:30–2:45. Hard limit 4:00. One-to-one with the lecturer; open with the one-line intro below, then go straight to the problem (don't read the rest of the title slide).
 
 ## 1 · Motivation — Slide 1 (0:00–0:30)
 
-Underground, the hazards move faster than any inspection. Methane can be cleared by a ventilation fan in under a minute or left in place for an hour, depending on airflow. Carbon monoxide from blasting or exhaust displaces breathable air silently, with no visible warning. And ground vibration from an unstable face can precede a rockfall by seconds rather than hours. No inspection schedule is that fast, so I check every window against hard limits at the fog node itself.
+I'm Jaipal Kasireddy, and this is my Smart Mining Safety Monitoring. Underground, the hazards move faster than any inspection. Methane can be cleared by a ventilation fan in under a minute or left in place for an hour, depending on airflow. Carbon monoxide from blasting or exhaust displaces breathable air silently, with no visible warning. And ground vibration from an unstable face can precede a rockfall by seconds rather than hours. No inspection schedule is that fast, so I check every window against hard limits at the fog node itself.
 
 ## 2 · High-level description — Slide 2 (0:30–1:00)
 
