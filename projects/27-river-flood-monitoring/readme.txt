@@ -30,8 +30,8 @@ Environment variables read by each component (default shown):
   fog/gateway.py:
     WINDOW_SECONDS     aggregation window length, default "10"
     SQS_QUEUE_NAME     default "rfw-catchment-agg"
-    AWS_ENDPOINT_URL   unset for real AWS; a LocalStack URL for local runs
-    AWS_REGION         default "eu-west-1"
+    AWS_ENDPOINT_URL   leave unset so the code uses the real AWS services
+    AWS_REGION         set to us-east-1 for the deployment
 
   backend/processor/handler.py:
     TABLE_NAME         default "rfw-readings"
@@ -46,23 +46,25 @@ Environment variables read by each component (default shown):
 
 4. BUILD INSTRUCTIONS
 -----------------------
-Each service builds as its own Docker image (python:3.12-slim). Build all
-images via Compose:
-  docker compose -f infra/docker-compose.yml build
+The deployable artifacts are produced by build.sh (see AWS Deployment Steps).
+For the target tfvars it installs each Lambda's dependencies and zips the two
+functions (backend/processor and backend/dashboard, python:3.12), and tars the
+fog gateway and sensor sources for the EC2 host. Each service is a python:3.12
+Docker image built on the EC2 host from infra/docker-compose.aws.yml.
+
+  ./build.sh deployments/rfw.tfvars
 
 5. RUN INSTRUCTIONS
 ---------------------
-Bring up the full local stack (LocalStack, the one-shot processor wiring,
-the fog gateway, the dashboard, and 10 sensor containers -- 5 signals across
-reach-a and reach-b):
-  docker compose -f infra/docker-compose.yml up --build
+The system runs on AWS. After deploying it (Section 6), Terraform prints two
+URLs:
+  dashboard_url  the web dashboard (open it in a browser)
+  api_url        the JSON API, e.g. api_url + /api/health and
+                 api_url + /api/readings?sensor_type=river_level_m
 
-Exposed ports:
-  Dashboard:   http://localhost:8099  (container port 8000)
-  LocalStack:  http://localhost:4579  (container port 4566)
-
-Stop and remove volumes:
-  docker compose -f infra/docker-compose.yml down -v
+The dashboard, its API and the web page are serverless (S3 + API Gateway +
+Lambda + DynamoDB) and stay available on their own; live sensor readings flow
+while the EC2 fog host is running.
 
 6. AWS DEPLOYMENT STEPS
 -------------------------
@@ -72,6 +74,13 @@ the SQS queue, both python3.12 Lambdas and their build commands, and the
 frontend upload settings). The dashboard's API Gateway entry point is
 backend/dashboard/lambda_handler.py, which dispatches to the same view
 functions the aiohttp server uses.
+
+On AWS the EC2 host runs infra/docker-compose.aws.yml (not the local
+docker-compose.yml): only the fog gateway and the 10 sensor containers, which
+publish to the real SQS queue through the instance role -- no processor or
+dashboard containers, because those run as the Terraform-provisioned Lambdas
+against the real SQS and DynamoDB services. build.sh packages this file into the
+EC2 tarball automatically, so no extra step is needed.
 
   1. Configure AWS credentials for the target account:
        aws configure
@@ -99,9 +108,5 @@ functions the aiohttp server uses.
 60 tests pass across the sensor gauge, the fog gateway (validation, drain,
 live HTTP ingest), window aggregation, the flood-stage logic, the batched
 processor, the read-time reach status, the shared view functions, and the
-Lambda entry point.
-
-  End-to-end local check (after the stack is up):
-    AWS_ENDPOINT_URL=http://localhost:4579 python infra/verify_pipeline.py
-  Load test:
-    AWS_ENDPOINT_URL=http://localhost:4579 python infra/burst.py --messages 2000 --workers 32
+Lambda entry point. They run against in-memory fakes, so no cloud connection is
+needed, and they run in GitHub Actions on every push.
