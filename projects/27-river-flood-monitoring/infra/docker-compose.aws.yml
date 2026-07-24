@@ -1,0 +1,110 @@
+# Real-AWS compose: on the EC2 fog host only the aiohttp fog node and its ten
+# container sensors run. The processor and dashboard are Terraform-provisioned
+# Lambdas, and SQS/DynamoDB are real managed services, so LocalStack is absent
+# here. The fog node publishes to the real SQS queue using the EC2 instance
+# profile through boto3's default credential chain, so no endpoint override and
+# no static keys are set. Port 8000 is published so the dashboard Lambda can
+# poll the fog node's /health and /thresholds over the Elastic IP.
+name: rfw-aws
+
+x-sensor: &sensor
+  build:
+    context: ../sensors
+  environment: &sensor-env
+    FOG_URL: http://fog:8000/ingest
+    SAMPLE_INTERVAL: "2"
+  depends_on:
+    - fog
+  restart: unless-stopped
+
+services:
+  fog:
+    build:
+      context: ../fog
+    environment:
+      AWS_REGION: us-east-1
+      WINDOW_SECONDS: "10"
+      SQS_QUEUE_NAME: rfw-catchment-agg
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  sensor-level-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: river_level_m
+      SITE_ID: reach-a
+      DISPATCH_INTERVAL: "10"
+
+  sensor-level-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: river_level_m
+      SITE_ID: reach-b
+      DISPATCH_INTERVAL: "11"
+
+  sensor-rain-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: rainfall_mmph
+      SITE_ID: reach-a
+      DISPATCH_INTERVAL: "10"
+
+  sensor-rain-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: rainfall_mmph
+      SITE_ID: reach-b
+      DISPATCH_INTERVAL: "12"
+
+  sensor-flow-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: flow_velocity_ms
+      SITE_ID: reach-a
+      DISPATCH_INTERVAL: "9"
+
+  sensor-flow-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: flow_velocity_ms
+      SITE_ID: reach-b
+      DISPATCH_INTERVAL: "11"
+
+  sensor-soil-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: soil_moisture_pct
+      SITE_ID: reach-a
+      DISPATCH_INTERVAL: "13"
+
+  sensor-soil-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: soil_moisture_pct
+      SITE_ID: reach-b
+      DISPATCH_INTERVAL: "14"
+
+  sensor-turb-a:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: turbidity_ntu
+      SITE_ID: reach-a
+      DISPATCH_INTERVAL: "12"
+
+  sensor-turb-b:
+    <<: *sensor
+    environment:
+      <<: *sensor-env
+      SENSOR_TYPE: turbidity_ntu
+      SITE_ID: reach-b
+      DISPATCH_INTERVAL: "15"

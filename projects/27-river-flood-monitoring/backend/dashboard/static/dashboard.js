@@ -110,7 +110,10 @@ async function refreshChart() {
   ]);
   const canvas = document.getElementById("level-chart");
   const ratio = window.devicePixelRatio || 1;
-  const w = canvas.clientWidth || canvas.parentElement.clientWidth;
+  // Size from the fixed-width wrapper, never the canvas itself: on a hi-dpi
+  // display canvas.width is the (ratio-scaled) bitmap size, and reading it back
+  // as the layout width would compound every tick until the canvas overflows.
+  const w = canvas.parentElement.clientWidth || canvas.clientWidth || 600;
   const h = 90;
   canvas.width = w * ratio;
   canvas.height = h * ratio;
