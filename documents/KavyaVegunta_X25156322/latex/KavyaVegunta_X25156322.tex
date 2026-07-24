@@ -108,7 +108,7 @@ The interface presents each reach as a card containing a vertical stage gauge dr
 
 \section{Implementation}
 
-The sensor processes, the edge relay, and both cloud functions are implemented in Python and execute on the Python~3.12 runtime. The relay serves its ingest, health, and threshold endpoints on an asynchronous web framework whose event loop also runs the flush task, while the sensor processes transmit their batches using an asynchronous HTTP client. The dashboard reader is a standard-library HTTP server, and its request handlers and payload builders are reused unchanged within the deployed function through a thin gateway adapter, so that no routing logic is duplicated. The AWS SDK for Python performs the queue, table, and function operations. The edge tier is orchestrated with Docker Compose, the cloud tier is provisioned with Terraform, and continuous integration is executed on GitHub Actions.
+The sensor processes, the edge relay, and both cloud functions are implemented in Python and execute on the Python~3.12 runtime. The relay serves its ingest, health, and threshold endpoints on an asynchronous web framework whose event loop also runs the flush task, while the sensor processes transmit their batches using an asynchronous HTTP client. The dashboard reader is a standard-library HTTP server, and its request handlers and payload builders are invoked unchanged within the deployed function through a thin gateway adapter, so that no routing logic is duplicated. The AWS SDK for Python performs the queue, table, and function operations. The edge tier is orchestrated with Docker Compose, the cloud tier is provisioned with Terraform, and continuous integration is executed on GitHub Actions.
 
 \subsection{Testing and Continuous Integration}
 
